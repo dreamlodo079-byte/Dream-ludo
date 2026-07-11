@@ -43,3 +43,14 @@ export const getRoomState = async (roomId: string): Promise<any | null> => {
 export const deleteRoomState = async (roomId: string): Promise<void> => {
   await redisClient.del(`room:${roomId}`);
 };
+
+/**
+ * Creates and returns a duplicate Redis client for PubSub clustering.
+ */
+export const createDuplicateRedisClient = () => {
+  const dupClient = createClient({
+    url: REDIS_URL,
+  });
+  dupClient.on('error', (err) => console.error('Redis Duplicate Client Error', err));
+  return dupClient;
+};

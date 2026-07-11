@@ -1,5 +1,6 @@
 import { Server, Socket } from 'socket.io';
-import { getRoomState, cacheRoomState, deleteRoomState, getRedisClient } from '../config/redis';
+import { getRoomState, cacheRoomState, deleteRoomState, getRedisClient, createDuplicateRedisClient } from '../config/redis';
+import { createAdapter } from '@socket.io/redis-adapter';
 import {
   MatchState,
   executeRoll,
@@ -34,6 +35,16 @@ export const initializeSocketIO = (server: any): Server => {
       origin: '*',
       methods: ['GET', 'POST'],
     },
+  });
+
+  const pubClient = createDuplicateRedisClient();
+  const subClient = createDuplicateRedisClient();
+
+  Promise.all([pubClient.connect(), subClient.connect()]).then(() => {
+    io.adapter(createAdapter(pubClient, subClient));
+    console.log('Clustered Socket.io Redis adapter initialized successfully.');
+  }).catch((err) => {
+    console.error('Failed to initialize Socket.io Redis adapter:', err);
   });
 
   // Socket authentication middleware checking token blacklisting

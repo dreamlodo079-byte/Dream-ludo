@@ -106,3 +106,19 @@ PAYMENT_WEBHOOK_SECRET=your_webhook_validation_secret
   eas build --platform android
   ```
 - [ ] Distribute the generated `.apk` bundle on your website for direct downloads.
+
+### Step 6: Server Node Multi-Process Clustering (PM2)
+- [ ] Build the backend production assets:
+  ```bash
+  npm run build
+  ```
+- [ ] Initialize the PM2 cluster load balancer using our ecosystem manifest:
+  ```bash
+  pm2 start ecosystem.config.js --env production
+  ```
+- [ ] Monitor clustered execution nodes to ensure they scale and auto-restart properly:
+  ```bash
+  pm2 list
+  pm2 monit
+  ```
+
