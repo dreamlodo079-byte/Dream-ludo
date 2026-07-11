@@ -1,0 +1,38 @@
+import mongoose, { ClientSession } from 'mongoose';
+import dotenv from 'dotenv';
+
+dotenv.config();
+
+const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/ludo_rmg';
+
+export const connectDB = async (): Promise<void> => {
+  try {
+    await mongoose.connect(MONGO_URI);
+    console.log('MongoDB connected successfully');
+  } catch (error) {
+    console.error('MongoDB connection error:', error);
+    process.exit(1);
+  }
+};
+
+/**
+ * Runs a set of operations in a strict Mongoose/MongoDB Client Session Transaction.
+ * Automatically handles transaction creation, committing, and aborting on error.
+ */
+export const runInTransaction = async <T>(
+  operations: (session: ClientSession) => Promise<T>
+): Promise<T> => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+  try {
+    const result = await operations(session);
+    await session.commitTransaction();
+    return result;
+  } catch (error) {
+    await session.abortTransaction();
+    console.error('Transaction aborted due to error:', error);
+    throw error;
+  } finally {
+    session.endSession();
+  }
+};

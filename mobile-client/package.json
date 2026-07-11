@@ -1,0 +1,27 @@
+{
+  "name": "ludo-mobile-client",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "ts:check": "tsc"
+  },
+  "dependencies": {
+    "axios": "^1.6.8",
+    "expo": "~51.0.0",
+    "expo-status-bar": "~1.12.1",
+    "expo-updates": "~0.25.14",
+    "react": "18.2.0",
+    "react-native": "0.74.1",
+    "react-native-svg": "15.2.0",
+    "socket.io-client": "^4.7.5"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.20.0",
+    "@types/react": "~18.2.45",
+    "typescript": "~5.3.3"
+  },
+  "private": true
+}
