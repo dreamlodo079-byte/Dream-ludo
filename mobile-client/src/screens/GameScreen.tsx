@@ -26,6 +26,9 @@ import Svg, {
   Ellipse,
   Text as SvgText,
 } from 'react-native-svg';
+import axios from 'axios';
+
+const API_SERVER_URL = process.env.EXPO_PUBLIC_SERVER_URL || 'http://localhost:5000';
 
 const { width, height } = Dimensions.get('window');
 // Bigger board - use more screen width
@@ -412,6 +415,39 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [previousTimer, setPreviousTimer] = useState<number>(15);
 
+  // Re-roll 2-second countdown state
+  const [reRollTimeLeft, setReRollTimeLeft] = useState(0);
+  const reRollTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Start countdown timer for re-roll when dice is rolled on player's active turn
+  useEffect(() => {
+    if (!matchState) return;
+    const activePl = matchState.players[matchState.activePlayerIndex];
+    const isMe = activePl.id === currentUser._id;
+
+    if (isMe && matchState.hasRolled && matchState.diceRoll !== null) {
+      setReRollTimeLeft(2000);
+      if (reRollTimerRef.current) clearInterval(reRollTimerRef.current);
+      
+      reRollTimerRef.current = setInterval(() => {
+        setReRollTimeLeft((prev) => {
+          if (prev <= 100) {
+            if (reRollTimerRef.current) clearInterval(reRollTimerRef.current);
+            return 0;
+          }
+          return prev - 100;
+        });
+      }, 100);
+    } else {
+      setReRollTimeLeft(0);
+      if (reRollTimerRef.current) clearInterval(reRollTimerRef.current);
+    }
+
+    return () => {
+      if (reRollTimerRef.current) clearInterval(reRollTimerRef.current);
+    };
+  }, [matchState?.diceRoll, matchState?.activePlayerIndex, matchState?.hasRolled]);
+
   const diceScale = useRef(new Animated.Value(1)).current;
   const diceRotZ = useRef(new Animated.Value(0)).current;
   const tokenPulseAnim = useRef(new Animated.Value(1)).current;
@@ -638,6 +674,19 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   const handleRollDice = () => {
     if (!isMyTurn || matchState.hasRolled || isDiceAnimating) return;
     requestRoll(roomId);
+  };
+
+  const handleReRoll = async () => {
+    setReRollTimeLeft(0);
+    if (reRollTimerRef.current) clearInterval(reRollTimerRef.current);
+    try {
+      const response = await axios.post(`${API_SERVER_URL}/api/payments/re-roll`, { roomId });
+      if (response.data.success) {
+        // State updates are broadcast over sockets
+      }
+    } catch (err: any) {
+      Alert.alert('Re-roll Failed', err.response?.data?.error || err.message);
+    }
   };
 
   const handleTokenPress = (tokenIndex: number) => {
@@ -1112,29 +1161,52 @@ export const GameScreen: React.FC<GameScreenProps> = ({
 
         {/* ============ PAWNS LAYER ============ */}
         {matchState.players.map((player: any, pIdx: number) => {
-          return player.tokens.map((pos: number, tIdx: number) => {
-            const tokenIdx = pIdx * 4 + tIdx;
+          // Group tokens of the same player that occupy the same cell index.
+          // Tokens still in the yard (-1) or goal (56) are rendered individually.
+          const groupsMap = new Map<string, number[]>();
+          player.tokens.forEach((pos: number, tIdx: number) => {
+            if (pos === -1) {
+              groupsMap.set(`yard_${tIdx}`, [tIdx]);
+            } else if (pos === 56) {
+              groupsMap.set(`goal_${tIdx}`, [tIdx]);
+            } else {
+              const key = `track_${pos}`;
+              if (!groupsMap.has(key)) {
+                groupsMap.set(key, []);
+              }
+              groupsMap.get(key)!.push(tIdx);
+            }
+          });
+
+          return Array.from(groupsMap.values()).map((tIdxs) => {
+            const representativeTIdx = tIdxs[0];
+            const tokenIdx = pIdx * 4 + representativeTIdx;
             const isUserToken = player.id === currentUser._id;
             const hasRollVal = matchState.diceRoll !== null;
 
-            const canMoveToken =
-              isUserToken &&
-              isMyTurn &&
-              hasRollVal &&
-              (() => {
-                const currentPos = player.tokens[tIdx];
-                const roll = matchState.diceRoll!;
-                if (currentPos === 56) return false;
-                if (currentPos === -1 && roll !== 6) return false;
-                if (currentPos + roll > 56) return false;
-                return true;
-              })();
-
+            // The stack can be clicked to move if any token in it has a valid move
+            const moveableTokenIndex = tIdxs.find((tIdx) => {
+              const currentPos = player.tokens[tIdx];
+              const roll = matchState.diceRoll;
+              if (roll === null) return false;
+              if (currentPos === 56) return false;
+              if (currentPos === -1 && roll !== 6) return false;
+              if (currentPos + roll > 56) return false;
+              return true;
+            });
+            
+            const canMoveToken = isUserToken && isMyTurn && hasRollVal && moveableTokenIndex !== undefined;
             const sizeMultiplier = canMoveToken ? tokenPulseAnim : 1.0;
+
+            const handlePress = () => {
+              if (canMoveToken && moveableTokenIndex !== undefined) {
+                handleTokenPress(moveableTokenIndex);
+              }
+            };
 
             return (
               <Animated.View
-                key={`${pIdx}_token_view_${tIdx}`}
+                key={`${pIdx}_token_view_group_${representativeTIdx}`}
                 style={[
                   styles.pawnWrapper,
                   {
@@ -1152,16 +1224,39 @@ export const GameScreen: React.FC<GameScreenProps> = ({
                 {canMoveToken && <View style={styles.glowHighlight} />}
                 <TouchableOpacity
                   activeOpacity={0.85}
-                  onPress={() => handleTokenPress(tIdx)}
+                  onPress={handlePress}
                   disabled={!canMoveToken}
+                  style={styles.pawnTouch}
                 >
                   <Pawn3D color={pIdx === 0 ? 'red' : 'green'} size={CELL_SIZE * 0.95} />
+                  
+                  {/* Micro-badge showing stack count */}
+                  {tIdxs.length > 1 && (
+                    <View style={styles.stackBadge}>
+                      <Text style={styles.stackBadgeText}>{tIdxs.length}</Text>
+                    </View>
+                  )}
                 </TouchableOpacity>
               </Animated.View>
             );
           });
         })}
       </View>
+
+      {/* ============ REROLL FLOATING CARD ============ */}
+      {reRollTimeLeft > 0 && (
+        <View style={styles.reRollFloatingCard}>
+          <View style={styles.reRollCardHeader}>
+            <Text style={styles.reRollTitle}>💎 RE-ROLL ACTIVE?</Text>
+            <TouchableOpacity style={styles.reRollCTA} onPress={handleReRoll}>
+              <Text style={styles.reRollCTAText}>RE-ROLL (₹5)</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={styles.progressBarBg}>
+            <View style={[styles.progressBarFill, { width: `${(reRollTimeLeft / 2000) * 100}%` }]} />
+          </View>
+        </View>
+      )}
 
       {/* ============ BOTTOM CONTROL PANEL ============ */}
       <View style={styles.bottomPanel}>
@@ -1856,6 +1951,87 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     fontSize: 14,
     letterSpacing: 1,
+  },
+  stackBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    backgroundColor: '#F59E0B',
+    borderRadius: 9,
+    width: 18,
+    height: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1,
+    zIndex: 10,
+  },
+  stackBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontWeight: '900',
+  },
+  pawnTouch: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  reRollFloatingCard: {
+    position: 'absolute',
+    bottom: 120,
+    left: 20,
+    right: 20,
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1.5,
+    borderColor: '#F59E0B',
+    borderRadius: 12,
+    padding: 12,
+    elevation: 6,
+    shadowColor: '#B45309',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    zIndex: 999,
+  },
+  reRollCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  reRollTitle: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: '#78350F',
+    letterSpacing: 0.5,
+  },
+  reRollCTA: {
+    backgroundColor: '#D97706',
+    borderRadius: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+  },
+  reRollCTAText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '900',
+  },
+  progressBarBg: {
+    height: 4,
+    backgroundColor: '#FDE68A',
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: '100%',
+    backgroundColor: '#D97706',
+    borderRadius: 2,
   },
 });
 

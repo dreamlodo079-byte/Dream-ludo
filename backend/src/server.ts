@@ -16,6 +16,11 @@ import { getDailyProgress, claimDailyReward } from './services/challengeTracker'
 import { generalRateLimiter, strictRateLimiter, sanitizeInputMiddleware } from './middleware/security';
 import { authenticateJWT, blacklistToken, JWT_SECRET, AuthenticatedRequest } from './middleware/auth';
 import { User } from './models/User';
+import { getRoomState, cacheRoomState } from './config/redis';
+import { getIO } from './services/socketManager';
+import { getValidMoves, rotateTurn } from './services/gameEngine';
+import { Transaction, TransactionType, TransactionStatus, getUserBalances } from './models/Transaction';
+import { Types } from 'mongoose';
 
 dotenv.config();
 
@@ -176,6 +181,112 @@ app.post('/api/users/logout', authenticateJWT, async (req: AuthenticatedRequest,
     return res.json({ success: true, message: 'Logged out successfully and session invalidated.' });
   } catch (error: any) {
     console.error('Logout error:', error);
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+// Premium re-roll dice route (deducts 5 credits and resets active roll state)
+app.post('/api/payments/re-roll', authenticateJWT, async (req: AuthenticatedRequest, res) => {
+  const { roomId } = req.body;
+  const userId = req.user?.userId;
+
+  if (!roomId || !userId) {
+    return res.status(400).json({ error: 'roomId and userId are required' });
+  }
+
+  try {
+    const state = await getRoomState(roomId);
+    if (!state) {
+      return res.status(404).json({ error: 'Active match room not found' });
+    }
+
+    if (state.isTerminated) {
+      return res.status(400).json({ error: 'Match has already terminated' });
+    }
+
+    // Verify turn ownership
+    const activePlayer = state.players[state.activePlayerIndex];
+    if (activePlayer.id !== userId) {
+      return res.status(400).json({ error: 'It is not your turn' });
+    }
+
+    // Verify existing active roll exists
+    if (!state.hasRolled || state.diceRoll === null) {
+      return res.status(400).json({ error: 'You must roll the dice before you can request a re-roll' });
+    }
+
+    // Verify balance
+    const balances = await getUserBalances(userId);
+    if (balances.total < 5) {
+      return res.status(400).json({ error: 'Insufficient balance. Re-rolling requires 5 premium credits (Diamonds)' });
+    }
+
+    // Deduct re-roll fee
+    const feeTxn = new Transaction({
+      userId: new Types.ObjectId(userId),
+      amount: -5,
+      type: TransactionType.ENTRY_FEE,
+      status: TransactionStatus.SUCCESS,
+      referenceId: `reroll_${roomId}_${Date.now()}`,
+    });
+    await feeTxn.save();
+
+    const prevRoll = state.diceRoll;
+    const newRoll = Math.floor(Math.random() * 6) + 1;
+    state.diceRoll = newRoll;
+
+    // Adjust consecutive sixes count
+    if (prevRoll === 6) {
+      state.consecutiveSixes = Math.max(0, state.consecutiveSixes - 1);
+    }
+    
+    if (newRoll === 6) {
+      state.consecutiveSixes += 1;
+      
+      // If 3 consecutive sixes are rolled
+      if (state.consecutiveSixes === 3) {
+        state.players.forEach((p: any, idx: number) => {
+          if (state.preTurnTokens && state.preTurnTokens[idx]) {
+            p.tokens = [...state.preTurnTokens[idx]];
+          }
+        });
+        state.consecutiveSixes = 0;
+        state.diceRoll = null;
+        state.hasRolled = false;
+        rotateTurn(state);
+        
+        await cacheRoomState(roomId, state);
+        const io = getIO();
+        io.to(roomId).emit('MATCH_STATE_UPDATE', state);
+        io.to(roomId).emit('SYSTEM_ALERT', { message: `${activePlayer.username} rolled three 6s in a row. Turn voided!` });
+        return res.json({ success: true, newRoll, state, message: 'Rolled three 6s. Turn voided!' });
+      }
+    }
+
+    // Check valid moves with the new roll
+    const validMoves = getValidMoves(state, newRoll);
+    if (validMoves.length === 0) {
+      // Pass turn
+      rotateTurn(state);
+      await cacheRoomState(roomId, state);
+      const io = getIO();
+      io.to(roomId).emit('MATCH_STATE_UPDATE', state);
+      return res.json({ success: true, newRoll, state, message: 'No valid moves available. Turn passed!' });
+    }
+
+    // Cache updated state
+    await cacheRoomState(roomId, state);
+
+    // Broadcast DICE_ROLLED event to trigger re-roll animations
+    const io = getIO();
+    io.to(roomId).emit('DICE_ROLLED', {
+      playerIndex: state.activePlayerIndex,
+      roll: newRoll,
+      state,
+    });
+
+    return res.json({ success: true, newRoll, state });
+  } catch (error: any) {
     return res.status(500).json({ error: error.message });
   }
 });
