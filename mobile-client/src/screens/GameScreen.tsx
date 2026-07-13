@@ -479,10 +479,10 @@ export const GameScreen: React.FC<GameScreenProps> = ({
       const yardCoords = playerIndex === 0 ? RED_YARD_TOKEN_COORDS : GREEN_YARD_TOKEN_COORDS;
       gridX = yardCoords[tokenIndex].x;
       gridY = yardCoords[tokenIndex].y;
-    } else if (pos === 57) {
+    } else if (pos === 56) {
       gridX = 7.5;
       gridY = 7.5;
-    } else if (pos >= 51 && pos <= 56) {
+    } else if (pos >= 51 && pos <= 55) {
       const pathCoords = playerIndex === 0 ? RED_HOME_PATH_COORDS : GREEN_HOME_PATH_COORDS;
       const idx = pos - 51;
       gridX = pathCoords[idx].x + 0.5;
@@ -632,8 +632,8 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   const myPlayerIndex = matchState.players.findIndex((p: any) => p.id === currentUser._id);
   const isWinner = winnerInfo !== null;
 
-  const p1TokensHome = matchState.players[0].tokens.filter((t: number) => t === 57).length;
-  const p2TokensHome = matchState.players[1].tokens.filter((t: number) => t === 57).length;
+  const p1TokensHome = matchState.players[0].tokens.filter((t: number) => t === 56).length;
+  const p2TokensHome = matchState.players[1].tokens.filter((t: number) => t === 56).length;
 
   const handleRollDice = () => {
     if (!isMyTurn || matchState.hasRolled || isDiceAnimating) return;
@@ -647,9 +647,9 @@ export const GameScreen: React.FC<GameScreenProps> = ({
     const roll = matchState.diceRoll;
 
     if (roll === null) return;
-    if (pos === 57) return;
+    if (pos === 56) return;
     if (pos === -1 && roll !== 6) return;
-    if (pos + roll > 57) return;
+    if (pos + roll > 56) return;
 
     requestMove(roomId, tokenIndex);
   };
@@ -1124,9 +1124,9 @@ export const GameScreen: React.FC<GameScreenProps> = ({
               (() => {
                 const currentPos = player.tokens[tIdx];
                 const roll = matchState.diceRoll!;
-                if (currentPos === 57) return false;
+                if (currentPos === 56) return false;
                 if (currentPos === -1 && roll !== 6) return false;
-                if (currentPos + roll > 57) return false;
+                if (currentPos + roll > 56) return false;
                 return true;
               })();
 

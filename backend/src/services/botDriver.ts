@@ -1,5 +1,5 @@
 import { getRoomState, cacheRoomState, deleteRoomState } from '../config/redis';
-import { MatchState, executeRoll, executeMove, getValidMoves, getCommonIndex } from './gameEngine';
+import { MatchState, executeRoll, executeMove, getValidMoves, getCommonIndex, rotateTurn } from './gameEngine';
 import { getIO } from './socketManager';
 import { runInTransaction } from '../config/db';
 import { Transaction, TransactionType, TransactionStatus } from '../models/Transaction';
@@ -56,10 +56,7 @@ export const triggerBotTurn = (roomId: string): void => {
         const validMoves = getValidMoves(state, state.diceRoll);
         if (validMoves.length === 0) {
           // This should have been handled in roll, but safeguard here
-          state.hasRolled = false;
-          state.diceRoll = null;
-          state.activePlayerIndex = (state.activePlayerIndex + 1) % state.players.length;
-          state.turnTimer = 15;
+          rotateTurn(state);
           await cacheRoomState(roomId, state);
           io.to(roomId).emit('MATCH_STATE_UPDATE', state);
 
@@ -124,7 +121,7 @@ const selectBotTokenWeighted = (state: MatchState, validMoves: number[]): number
 
     const nextPos = currentPos + roll;
 
-    if (nextPos <= 57) {
+    if (nextPos <= 56) {
       // 2. Can cut/capture opponent: extremely high preference (80 weight)
       const nextCommonIndex = getCommonIndex(botIndex, nextPos);
       if (nextCommonIndex !== -1 && !SAFE_COMMON_INDICES.includes(nextCommonIndex)) {
@@ -136,8 +133,8 @@ const selectBotTokenWeighted = (state: MatchState, validMoves: number[]): number
         }
       }
 
-      // 3. Can reach home terminal (57): very high preference (75 weight)
-      if (nextPos === 57) {
+      // 3. Can reach home terminal (56): very high preference (75 weight)
+      if (nextPos === 56) {
         weight = 80;
       }
 

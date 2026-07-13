@@ -2,7 +2,7 @@ export interface Player {
   id: string; // Socket ID or User database ID
   username: string;
   color: 'red' | 'green';
-  tokens: number[]; // Array of 4 tokens, values range from -1 (in yard) to 57 (home terminal)
+  tokens: number[]; // Array of 4 tokens, values range from -1 (in yard) to 56 (home run terminal)
   isBot: boolean;
 }
 
@@ -17,11 +17,12 @@ export interface MatchState {
   turnTimer: number; // Remaining time in seconds for the current turn (max 15s)
   isTerminated: boolean;
   entryFee: number;
+  preTurnTokens?: number[][]; // Coordinates snapshot at start of turn to process 3x consecutive 6s rollback
 }
 
 // Common track length
 const COMMON_TRACK_LENGTH = 52;
-// Safe zone common indices (1-indexed mapping translated to 0-indexed values)
+// Safe zone common indices (0-indexed values matching the 8 global protected cells)
 const SAFE_COMMON_INDICES = [0, 8, 13, 21, 26, 34, 39, 47];
 
 // Start offsets on the common board for players
@@ -37,6 +38,19 @@ export const getCommonIndex = (playerIndex: number, localPos: number): number =>
   }
   const startOffset = PLAYER_START_OFFSETS[playerIndex];
   return (startOffset + localPos) % COMMON_TRACK_LENGTH;
+};
+
+/**
+ * Rotates turn control clockwise to the next player and resets rolling trackers.
+ * Stashes the next player's token coordinates snapshot to support 3x consecutive 6s rollback.
+ */
+export const rotateTurn = (state: MatchState): void => {
+  state.activePlayerIndex = (state.activePlayerIndex + 1) % state.players.length;
+  state.turnTimer = 15;
+  state.hasRolled = false;
+  state.diceRoll = null;
+  state.consecutiveSixes = 0;
+  state.preTurnTokens = state.players.map((p) => [...p.tokens]);
 };
 
 /**
@@ -74,6 +88,7 @@ export const createInitialState = (
     turnTimer: 15,
     isTerminated: false,
     entryFee,
+    preTurnTokens: [[-1, -1, -1, -1], [-1, -1, -1, -1]],
   };
 };
 
@@ -88,7 +103,7 @@ export const getValidMoves = (state: MatchState, roll: number): number[] => {
     const pos = activePlayer.tokens[i];
 
     // Already home, cannot move
-    if (pos === 57) continue;
+    if (pos === 56) continue;
 
     // Locked in yard: requires a 6 to release to position 0
     if (pos === -1) {
@@ -98,8 +113,8 @@ export const getValidMoves = (state: MatchState, roll: number): number[] => {
       continue;
     }
 
-    // On board: check if the new position does not exceed home terminal (57)
-    if (pos + roll <= 57) {
+    // On board: check if the new position does not exceed home run terminal (56)
+    if (pos + roll <= 56) {
       validTokenIndices.push(i);
     }
   }
@@ -121,27 +136,33 @@ export const executeRoll = (state: MatchState): { roll: number; shouldPassTurn: 
   state.diceRoll = roll;
   state.hasRolled = true;
 
+  // Initialize pre-turn tokens if missing on load
+  if (!state.preTurnTokens) {
+    state.preTurnTokens = state.players.map((p) => [...p.tokens]);
+  }
+
   if (roll === 6) {
     state.consecutiveSixes += 1;
-    // 3 consecutive 6s nullified: reset counter and pass turn
+    
+    // 3 consecutive 6s nullified: reset tokens to pre-turn snapshot, reset counter, and pass turn
     if (state.consecutiveSixes === 3) {
+      state.players.forEach((p, idx) => {
+        if (state.preTurnTokens && state.preTurnTokens[idx]) {
+          p.tokens = [...state.preTurnTokens[idx]];
+        }
+      });
       state.consecutiveSixes = 0;
       state.diceRoll = null;
       state.hasRolled = false;
-      // Pass turn to the next player
-      state.activePlayerIndex = (state.activePlayerIndex + 1) % state.players.length;
-      state.turnTimer = 15;
+      rotateTurn(state);
       return { roll, shouldPassTurn: true, consecutiveReset: true };
     }
-    // Player gets another turn, but first check if they have any moves
+    
+    // Player gets another roll sequence, first check if valid moves exist
     const validMoves = getValidMoves(state, roll);
     if (validMoves.length === 0) {
-      // No moves available despite rolling 6, pass turn
-      state.consecutiveSixes = 0;
-      state.activePlayerIndex = (state.activePlayerIndex + 1) % state.players.length;
-      state.turnTimer = 15;
-      state.hasRolled = false;
-      state.diceRoll = null;
+      // No moves available, pass turn immediately
+      rotateTurn(state);
       return { roll, shouldPassTurn: true, consecutiveReset: false };
     }
     return { roll, shouldPassTurn: false, consecutiveReset: false };
@@ -151,10 +172,7 @@ export const executeRoll = (state: MatchState): { roll: number; shouldPassTurn: 
     const validMoves = getValidMoves(state, roll);
     if (validMoves.length === 0) {
       // No moves available, pass turn immediately
-      state.activePlayerIndex = (state.activePlayerIndex + 1) % state.players.length;
-      state.turnTimer = 15;
-      state.hasRolled = false;
-      state.diceRoll = null;
+      rotateTurn(state);
       return { roll, shouldPassTurn: true, consecutiveReset: false };
     }
     return { roll, shouldPassTurn: false, consecutiveReset: false };
@@ -181,7 +199,7 @@ export const executeMove = (state: MatchState, tokenIndex: number): { capturedTo
   const currentPos = activePlayer.tokens[tokenIndex];
 
   // Validate the move
-  if (currentPos === 57) {
+  if (currentPos === 56) {
     throw new Error('Token is already home');
   }
 
@@ -191,12 +209,12 @@ export const executeMove = (state: MatchState, tokenIndex: number): { capturedTo
 
   let nextPos = currentPos;
   if (currentPos === -1 && roll === 6) {
-    nextPos = 0; // Released
+    nextPos = 0; // Released to start tile
   } else {
     nextPos = currentPos + roll;
   }
 
-  if (nextPos > 57) {
+  if (nextPos > 56) {
     throw new Error('Move exceeds board terminal path');
   }
 
@@ -206,21 +224,35 @@ export const executeMove = (state: MatchState, tokenIndex: number): { capturedTo
   // Process capture if on common track
   let capturedToken: { playerIndex: number; tokenIndex: number } | null = null;
   const activeCommonIndex = getCommonIndex(activeIndex, nextPos);
+  
+  let hasCaptured = false;
 
   if (activeCommonIndex !== -1 && !SAFE_COMMON_INDICES.includes(activeCommonIndex)) {
-    // Check other player's tokens
     const opponentIndex = (activeIndex + 1) % state.players.length;
     const opponent = state.players[opponentIndex];
-
+    
+    // Check if opponent has a blockade stack (2 or more tokens at same index) protecting them
+    let oppTokensCount = 0;
+    const oppMatchedIndices: number[] = [];
+    
     for (let i = 0; i < opponent.tokens.length; i++) {
       const oppPos = opponent.tokens[i];
       const oppCommonIndex = getCommonIndex(opponentIndex, oppPos);
-
       if (oppCommonIndex === activeCommonIndex) {
-        // Capture: reset opponent's token to yard (-1)
+        oppTokensCount++;
+        oppMatchedIndices.push(i);
+      }
+    }
+    
+    const isBlockaded = oppTokensCount >= 2;
+    
+    if (!isBlockaded && oppTokensCount > 0) {
+      // Capture opponent's tokens: reset to yard (-1)
+      oppMatchedIndices.forEach((i) => {
         opponent.tokens[i] = -1;
         capturedToken = { playerIndex: opponentIndex, tokenIndex: i };
-      }
+      });
+      hasCaptured = true;
     }
   }
 
@@ -228,18 +260,22 @@ export const executeMove = (state: MatchState, tokenIndex: number): { capturedTo
   state.hasRolled = false;
   state.diceRoll = null;
 
-  // Check if player won (all 4 tokens at 57)
-  const isWinner = activePlayer.tokens.every((pos) => pos === 57);
+  // Check if player won (all 4 tokens at 56)
+  const isWinner = activePlayer.tokens.every((pos) => pos === 56);
   if (isWinner) {
     state.winnerId = activePlayer.id;
     state.isTerminated = true;
   } else {
-    // If player rolled a 6, they keep their turn (except if they had consecutive 6s which was already handled in roll)
-    // Otherwise, turn shifts to the next player
-    if (roll !== 6) {
-      state.activePlayerIndex = (state.activePlayerIndex + 1) % state.players.length;
+    // Grant bonus roll if rolled 6, captured opponent, or reached goal (56)
+    const getsBonusRoll = roll === 6 || hasCaptured || nextPos === 56;
+    
+    if (getsBonusRoll) {
+      state.hasRolled = false;
+      state.diceRoll = null;
+      state.turnTimer = 15;
+    } else {
+      rotateTurn(state);
     }
-    state.turnTimer = 15;
   }
 
   return { capturedToken };
@@ -249,9 +285,5 @@ export const executeMove = (state: MatchState, tokenIndex: number): { capturedTo
  * Auto skips current player's turn if they run out of time.
  */
 export const skipTurn = (state: MatchState): void => {
-  state.hasRolled = false;
-  state.diceRoll = null;
-  state.consecutiveSixes = 0;
-  state.activePlayerIndex = (state.activePlayerIndex + 1) % state.players.length;
-  state.turnTimer = 15;
+  rotateTurn(state);
 };
