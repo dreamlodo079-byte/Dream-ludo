@@ -12,6 +12,11 @@ interface UserProfile {
   _id: string;
   phone: string;
   username: string;
+  isKycVerified?: boolean;
+  kycStatus?: 'NONE' | 'PENDING' | 'APPROVED' | 'REJECTED';
+  kycType?: 'PAN' | 'AADHAAR' | null;
+  kycDocumentNumber?: string | null;
+  kycName?: string | null;
 }
 
 export default function App() {
@@ -24,7 +29,16 @@ export default function App() {
   const [activeRoomId, setActiveRoomId] = useState<string | null>(null);
 
   // 3. Socket event observer
-  const { isConnected, matchState, socket } = useSocket(currentUser ? currentUser._id : null);
+  const {
+    isConnected,
+    matchState,
+    winnerInfo,
+    alertMessage,
+    clearAlert,
+    requestRoll,
+    requestMove,
+    socket,
+  } = useSocket(currentUser ? currentUser._id : null);
 
   // Listen to Socket Match State shifts to trigger game screen overlay
   useEffect(() => {
@@ -85,6 +99,7 @@ export default function App() {
             currentUser={currentUser}
             onLoginSuccess={() => {}}
             onLogout={handleLogout}
+            onUserUpdate={(updatedUser) => setCurrentUser(updatedUser)}
           />
         )}
 
@@ -99,6 +114,7 @@ export default function App() {
             onGoToWallet={() => setView('wallet')}
             onGoToLeaderboard={() => setView('leaderboard')}
             onGoToChallenges={() => setView('challenges')}
+            onLogout={handleLogout}
           />
         )}
 
@@ -107,6 +123,13 @@ export default function App() {
             roomId={activeRoomId}
             currentUser={currentUser}
             onLeaveMatch={handleLeaveMatch}
+            matchState={matchState}
+            winnerInfo={winnerInfo}
+            alertMessage={alertMessage}
+            clearAlert={clearAlert}
+            requestRoll={requestRoll}
+            requestMove={requestMove}
+            isConnected={isConnected}
           />
         )}
 

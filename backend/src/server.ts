@@ -12,7 +12,7 @@ import { paymentRouter } from './controllers/paymentController';
 import { payoutRouter } from './controllers/payoutController';
 import { tournamentRouter } from './controllers/tournamentController';
 import { leaderboardRouter } from './controllers/leaderboardController';
-import { getDailyProgress } from './services/challengeTracker';
+import { getDailyProgress, claimDailyReward } from './services/challengeTracker';
 import { generalRateLimiter, strictRateLimiter, sanitizeInputMiddleware } from './middleware/security';
 import { authenticateJWT, blacklistToken, JWT_SECRET, AuthenticatedRequest } from './middleware/auth';
 import { User } from './models/User';
@@ -63,11 +63,31 @@ app.get('/api/challenges/:userId', async (req, res) => {
   }
 });
 
+// Daily challenges claim route
+app.post('/api/challenges/claim', async (req, res) => {
+  const { userId } = req.body;
+  if (!userId) {
+    return res.status(400).json({ error: 'userId is required' });
+  }
+  try {
+    const result = await claimDailyReward(userId);
+    return res.json(result);
+  } catch (error: any) {
+    return res.status(400).json({ error: error.message });
+  }
+});
+
 // Basic Auth/User Registration Route
 app.post('/api/users/login', async (req, res) => {
   const { phone, username } = req.body;
   if (!phone || !username) {
     return res.status(400).json({ error: 'Phone and username are required' });
+  }
+
+  // Indian phone validation (10 digits starting with 6-9, optional 91/+91 prefix)
+  const phoneRegex = /^(?:\+91|91)?[6789]\d{9}$/;
+  if (!phoneRegex.test(phone.trim())) {
+    return res.status(400).json({ error: 'Invalid Indian phone number. Please enter a valid 10-digit number starting with 6, 7, 8, or 9 (with optional +91/91 prefix).' });
   }
 
   try {
@@ -87,6 +107,61 @@ app.post('/api/users/login', async (req, res) => {
     return res.json({ success: true, user, token });
   } catch (error: any) {
     console.error('Error logging in user:', error);
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+// KYC Submission & Auto-Approval Route
+app.post('/api/users/kyc', async (req, res) => {
+  const { userId, kycType, documentNumber, name } = req.body;
+
+  if (!userId || !kycType || !documentNumber || !name) {
+    return res.status(400).json({ error: 'userId, kycType, documentNumber, and name are required' });
+  }
+
+  if (kycType !== 'PAN' && kycType !== 'AADHAAR') {
+    return res.status(400).json({ error: 'kycType must be either PAN or AADHAAR' });
+  }
+
+  // Format and check regex validation
+  let normalizedDoc = documentNumber.trim();
+  if (kycType === 'PAN') {
+    const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
+    normalizedDoc = normalizedDoc.toUpperCase();
+    if (!panRegex.test(normalizedDoc)) {
+      return res.status(400).json({ error: 'Invalid PAN card format. Must be like ABCDE1234F (5 uppercase letters, 4 digits, 1 uppercase letter).' });
+    }
+  } else if (kycType === 'AADHAAR') {
+    const aadhaarRegex = /^\d{12}$/;
+    normalizedDoc = normalizedDoc.replace(/\s|-/g, ''); // strip spaces/dashes
+    if (!aadhaarRegex.test(normalizedDoc)) {
+      return res.status(400).json({ error: 'Invalid Aadhaar format. Must be exactly 12 digits.' });
+    }
+  }
+
+  try {
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    user.kycStatus = 'APPROVED';
+    user.kycType = kycType;
+    user.kycDocumentNumber = normalizedDoc;
+    user.kycName = name.trim();
+    user.isKycVerified = true;
+
+    if (kycType === 'PAN') {
+      user.panNumber = normalizedDoc;
+    } else if (kycType === 'AADHAAR') {
+      user.aadhaarNumber = normalizedDoc;
+    }
+
+    await user.save();
+
+    return res.json({ success: true, user });
+  } catch (error: any) {
+    console.error('Error submitting KYC:', error);
     return res.status(500).json({ error: error.message });
   }
 });

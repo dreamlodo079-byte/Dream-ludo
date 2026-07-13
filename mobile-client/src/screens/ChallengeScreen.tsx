@@ -27,6 +27,7 @@ interface ChallengeScreenProps {
 export const ChallengeScreen: React.FC<ChallengeScreenProps> = ({ userId, onBack }) => {
   const [progress, setProgress] = useState<ChallengeProgress | null>(null);
   const [loading, setLoading] = useState(false);
+  const [claiming, setClaiming] = useState(false);
 
   const fetchChallengeProgress = async () => {
     setLoading(true);
@@ -37,7 +38,7 @@ export const ChallengeScreen: React.FC<ChallengeScreenProps> = ({ userId, onBack
       }
     } catch (err: any) {
       console.error('Error fetching challenge progress:', err);
-      Alert.alert('Error', 'Failed to retrieve daily challenge progress');
+      Alert.alert('Notice', 'Failed to retrieve daily milestone stats.');
     } finally {
       setLoading(false);
     }
@@ -47,7 +48,30 @@ export const ChallengeScreen: React.FC<ChallengeScreenProps> = ({ userId, onBack
     fetchChallengeProgress();
   }, [userId]);
 
+  const handleClaimReward = async () => {
+    if (!progress || progress.count < progress.target) {
+      Alert.alert('Incomplete Milestone', 'Keep playing to complete your daily matches target!');
+      return;
+    }
+
+    setClaiming(true);
+    try {
+      const response = await axios.post(`${API_SERVER_URL}/api/challenges/claim`, {
+        userId,
+      });
+      if (response.data.success) {
+        Alert.alert('Milestone Claimed!', `Reward of ₹${response.data.reward} added to your balance.`);
+        fetchChallengeProgress();
+      }
+    } catch (err: any) {
+      Alert.alert('Claim Failure', err.response?.data?.error || err.message);
+    } finally {
+      setClaiming(false);
+    }
+  };
+
   const percentage = progress ? Math.min(100, (progress.count / progress.target) * 100) : 0;
+  const isClaimable = progress ? (progress.count >= progress.target && !progress.isCompleted) : false;
 
   return (
     <View style={styles.container}>
@@ -56,21 +80,22 @@ export const ChallengeScreen: React.FC<ChallengeScreenProps> = ({ userId, onBack
         <TouchableOpacity style={styles.backBtn} onPress={onBack}>
           <Text style={styles.backBtnText}>◀ BACK</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>DAILY CHALLENGES</Text>
+        <Text style={styles.headerTitle}>MILESTONES</Text>
         <View style={styles.placeholder} />
       </View>
 
       {loading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#FFD600" />
-          <Text style={styles.loadingText}>FETCHING DAILY PROGRESS...</Text>
+          <ActivityIndicator size="large" color="#6366F1" />
+          <Text style={styles.loadingText}>FETCHING MILESTONES...</Text>
         </View>
       ) : (
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          {/* Stacked header promo card */}
           <View style={styles.promoCard}>
-            <Text style={styles.promoTitle}>🎁 PLAY & WIN EXTRA CASH</Text>
+            <Text style={styles.promoTitle}>🎁 DAILY CHALLENGES: Complete & Earn Rewards</Text>
             <Text style={styles.promoDesc}>
-              Complete your daily targets below to instantly claim bonus wallet credits straight to your winnings balance.
+              Participate in standard or turbo matchmaker tiers. Complete objectives below to claim instant cash prizes.
             </Text>
           </View>
 
@@ -78,42 +103,56 @@ export const ChallengeScreen: React.FC<ChallengeScreenProps> = ({ userId, onBack
             <View style={styles.taskCard}>
               <View style={styles.taskHeader}>
                 <View style={styles.taskTitleCol}>
-                  <Text style={styles.taskTitle}>Ludo Arena Marathon</Text>
-                  <Text style={styles.taskSub}>Play match tier games on the platform</Text>
+                  <Text style={styles.taskTitle}>Sexus Arena Marathon</Text>
+                  <Text style={styles.taskSub}>Play 10 matches qualifying for ₹10+ entry games</Text>
                 </View>
+                {/* Cash Badge Reward */}
                 <View style={styles.rewardBadge}>
-                  <Text style={styles.rewardText}>+{progress.reward} INR</Text>
+                  <Text style={styles.rewardText}>Reward: ₹{progress.reward}</Text>
                 </View>
               </View>
 
-              {/* Progress Count Text */}
+              {/* Progress Count Analytics Row */}
               <View style={styles.countContainer}>
-                <Text style={styles.countLabel}>Progress</Text>
+                <Text style={styles.countLabel}>Current Progress</Text>
                 <Text style={styles.countProgress}>
-                  {progress.count} / {progress.target} games played
+                  {progress.count} / {progress.target} matches
                 </Text>
               </View>
 
-              {/* Progress Track Bar */}
+              {/* Custom sleek progress bar */}
               <View style={styles.progressBarBg}>
                 <View style={[styles.progressBarFill, { width: `${percentage}%` }]} />
               </View>
 
-              {/* Reward status overlay */}
+              {/* Action Claim button */}
               {progress.isCompleted ? (
-                <View style={styles.completedBadge}>
-                  <Text style={styles.completedBadgeText}>✓ TARGET COMPLETED & CREDITED</Text>
+                <View style={styles.completedCard}>
+                  <Text style={styles.completedCardText}>✓ REWARD CLAIMED TODAY</Text>
                 </View>
               ) : (
-                <Text style={styles.taskTip}>
-                  Tip: Both standard matches and bot liquidity matches count towards your progress.
-                </Text>
+                <TouchableOpacity
+                  style={[
+                    styles.claimBtn,
+                    !isClaimable && styles.claimBtnDisabled
+                  ]}
+                  onPress={handleClaimReward}
+                  disabled={!isClaimable || claiming}
+                >
+                  {claiming ? (
+                    <ActivityIndicator color="#FFF" />
+                  ) : (
+                    <Text style={styles.claimBtnText}>
+                      {progress.count >= progress.target ? 'CLAIM REWARD' : 'LOCKED (Complete target)'}
+                    </Text>
+                  )}
+                </TouchableOpacity>
               )}
             </View>
           )}
 
           <TouchableOpacity style={styles.refreshBtn} onPress={fetchChallengeProgress}>
-            <Text style={styles.refreshBtnText}>REFRESH PROGRESS</Text>
+            <Text style={styles.refreshBtnText}>SYNC MILESTONES</Text>
           </TouchableOpacity>
         </ScrollView>
       )}
@@ -124,31 +163,34 @@ export const ChallengeScreen: React.FC<ChallengeScreenProps> = ({ userId, onBack
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0F0F12',
+    backgroundColor: '#F8FAFC', // Clean Ice White
   },
   header: {
-    height: 56,
-    backgroundColor: '#16161F',
+    height: 64,
+    backgroundColor: '#FFFFFF',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderColor: '#252533',
+    borderColor: '#E2E8F0',
+    marginTop: 20,
   },
   backBtn: {
     paddingVertical: 8,
     paddingHorizontal: 12,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 8,
   },
   backBtnText: {
-    color: '#8A8A9E',
+    color: '#0F172A',
     fontWeight: 'bold',
-    fontSize: 13,
+    fontSize: 12,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
-    color: '#FFF',
+    color: '#0F172A',
     letterSpacing: 1,
   },
   placeholder: {
@@ -160,7 +202,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    color: '#FFD600',
+    color: '#6366F1',
     marginTop: 15,
     fontWeight: 'bold',
     fontSize: 13,
@@ -172,31 +214,41 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   promoCard: {
-    backgroundColor: '#FFD60015',
+    backgroundColor: '#EEF2FF',
     borderWidth: 1,
-    borderColor: '#FFD60044',
+    borderColor: '#E0E7FF',
     borderRadius: 12,
     padding: 16,
     marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.01,
+    shadowRadius: 5,
+    elevation: 1,
   },
   promoTitle: {
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: 'bold',
-    color: '#FFD600',
+    color: '#6366F1',
     marginBottom: 6,
   },
   promoDesc: {
     fontSize: 12,
-    color: '#A2A2B5',
+    color: '#475569',
     lineHeight: 18,
   },
   taskCard: {
-    backgroundColor: '#16161F',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#252533',
-    borderRadius: 14,
+    borderColor: '#F1F5F9',
+    borderRadius: 16,
     padding: 20,
     marginBottom: 24,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 10,
+    elevation: 3,
   },
   taskHeader: {
     flexDirection: 'row',
@@ -209,27 +261,28 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   taskTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: 'bold',
-    color: '#FFF',
+    color: '#0F172A',
   },
   taskSub: {
     fontSize: 11,
-    color: '#8A8A9E',
+    color: '#475569',
     marginTop: 3,
+    lineHeight: 15,
   },
   rewardBadge: {
-    backgroundColor: '#00E6761A',
-    borderColor: '#00E67644',
+    backgroundColor: '#EEF2FF',
+    borderColor: '#C7D2FE',
     borderWidth: 1,
     borderRadius: 8,
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     paddingVertical: 6,
   },
   rewardText: {
-    color: '#00E676',
-    fontWeight: 'bold',
-    fontSize: 12,
+    color: '#6366F1',
+    fontWeight: '700',
+    fontSize: 11,
   },
   countContainer: {
     flexDirection: 'row',
@@ -238,56 +291,74 @@ const styles = StyleSheet.create({
   },
   countLabel: {
     fontSize: 12,
-    color: '#8A8A9E',
+    color: '#64748B',
     fontWeight: '600',
   },
   countProgress: {
     fontSize: 12,
-    color: '#FFF',
-    fontWeight: 'bold',
+    color: '#0F172A',
+    fontWeight: '700',
   },
   progressBarBg: {
-    height: 12,
-    backgroundColor: '#2A2A38',
-    borderRadius: 6,
+    height: 8,
+    backgroundColor: '#E2E8F0',
+    borderRadius: 4,
     overflow: 'hidden',
-    marginBottom: 16,
+    marginBottom: 20,
   },
   progressBarFill: {
     height: '100%',
-    backgroundColor: '#00E676',
-    borderRadius: 6,
+    backgroundColor: '#10B981', // Emerald green progress line
+    borderRadius: 4,
   },
-  completedBadge: {
-    backgroundColor: '#00E67622',
-    borderRadius: 8,
-    paddingVertical: 10,
+  completedCard: {
+    backgroundColor: '#D1FAE5',
+    borderRadius: 10,
+    paddingVertical: 12,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
   },
-  completedBadgeText: {
-    color: '#00E676',
-    fontWeight: 'bold',
+  completedCardText: {
+    color: '#065F46',
+    fontWeight: '800',
     fontSize: 12,
     letterSpacing: 0.5,
   },
-  taskTip: {
-    color: '#6E6E7E',
-    fontSize: 11,
-    lineHeight: 16,
-    fontStyle: 'italic',
+  claimBtn: {
+    backgroundColor: '#10B981', // Emerald Green when active
+    borderRadius: 10,
+    padding: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
+    elevation: 2,
+  },
+  claimBtnDisabled: {
+    backgroundColor: '#E2E8F0',
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  claimBtnText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 13,
   },
   refreshBtn: {
-    backgroundColor: '#1E1E26',
-    borderWidth: 1,
-    borderColor: '#303040',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
     borderRadius: 10,
     padding: 14,
     alignItems: 'center',
   },
   refreshBtnText: {
-    color: '#FFF',
-    fontWeight: 'bold',
-    fontSize: 14,
+    color: '#475569',
+    fontWeight: '700',
+    fontSize: 13,
   },
 });
 export default ChallengeScreen;

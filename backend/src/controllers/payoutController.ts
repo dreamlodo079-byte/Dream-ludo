@@ -32,11 +32,19 @@ payoutRouter.post('/withdraw', async (req: Request, res: Response) => {
     return res.status(400).json({ error: 'Withdrawal amount must be greater than zero' });
   }
 
-  const referenceId = `payout_${Date.now()}_${userId}_${Math.floor(Math.random() * 1000)}`;
-
   try {
+    const userCheck = await User.findById(userId);
+    if (!userCheck) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    if (!userCheck.isKycVerified) {
+      return res.status(400).json({ error: 'KYC_REQUIRED' });
+    }
+
+    const referenceId = `payout_${Date.now()}_${userId}_${Math.floor(Math.random() * 1000)}`;
+
     // 1. Double-Entry ledger validation and locking funds
-    const lockedTxnId = await runInTransaction(async (session) => {
+    const lockedTxnIds = await runInTransaction(async (session) => {
       // Fetch user balances from ledger
       const balances = await getUserBalances(userId);
       if (balances.winnings < withdrawAmount) {
@@ -48,36 +56,69 @@ payoutRouter.post('/withdraw', async (req: Request, res: Response) => {
         throw new Error('User not found');
       }
 
-      // Record a PENDING DEBIT row to lock the funds
-      const pendingDebitTxn = new Transaction({
+      if (!user.isKycVerified) {
+        throw new Error('KYC verification is required before initiating withdrawals');
+      }
+
+      // Compute 30% TDS Tax (Section 194BA)
+      const tdsTax = Math.round(withdrawAmount * 0.3 * 100) / 100;
+      const netPayout = Math.round((withdrawAmount - tdsTax) * 100) / 100;
+
+      // SUCCESS DEBIT for the 30% tax to the user ledger
+      const taxDebitTxn = new Transaction({
         userId: new Types.ObjectId(userId),
-        amount: -withdrawAmount, // Negative to represent withdrawal debit
+        amount: -tdsTax,
         type: TransactionType.WITHDRAWAL,
-        status: TransactionStatus.PENDING,
-        referenceId,
+        status: TransactionStatus.SUCCESS,
+        referenceId: `tds_${referenceId}`,
       });
 
-      await pendingDebitTxn.save({ session });
-      return pendingDebitTxn._id;
+      // PENDING DEBIT for the 70% net payout fraction to the user ledger
+      const payoutDebitTxn = new Transaction({
+        userId: new Types.ObjectId(userId),
+        amount: -netPayout,
+        type: TransactionType.WITHDRAWAL,
+        status: TransactionStatus.PENDING,
+        referenceId: `net_${referenceId}`,
+      });
+
+      // SUCCESS CREDIT to the virtual Government Tax account
+      const govtTaxCreditTxn = new Transaction({
+        userId: new Types.ObjectId('111111111111111111111111'),
+        amount: tdsTax,
+        type: TransactionType.DEPOSIT,
+        status: TransactionStatus.SUCCESS,
+        referenceId: `govt_tax_${referenceId}`,
+      });
+
+      await taxDebitTxn.save({ session });
+      await payoutDebitTxn.save({ session });
+      await govtTaxCreditTxn.save({ session });
+
+      return { payoutTxnId: payoutDebitTxn._id, netPayout };
     });
 
-    // 2. Dispatch bank IMPS wire transfer via Payment Payout SDK
-    console.log(`Dispatching bank payout request for ${withdrawAmount} to UPI ID ${upiId}`);
+    // 2. Dispatch bank IMPS wire transfer via Payment Payout SDK for the 70% net fraction
+    console.log(`Dispatching bank payout request for net payout ${lockedTxnIds.netPayout} (TDS Deducted: ${Math.round(withdrawAmount * 0.3 * 100) / 100}) to UPI ID ${upiId}`);
     const payoutResponse = await dispatchBankPayout({
       referenceId,
-      amount: withdrawAmount,
+      amount: lockedTxnIds.netPayout,
       upiId,
-      purpose: 'Winnings Withdrawal',
+      purpose: 'Winnings Withdrawal Net',
     });
 
     // 3. Update ledger status based on payout response
     const finalStatus = payoutResponse.success ? TransactionStatus.SUCCESS : TransactionStatus.FAILED;
 
-    await Transaction.findByIdAndUpdate(lockedTxnId, {
+    await Transaction.findByIdAndUpdate(lockedTxnIds.payoutTxnId, {
       status: finalStatus,
     });
 
     if (finalStatus === TransactionStatus.FAILED) {
+      // Revert the tax debit and government credit if the payout fails
+      await Transaction.findOneAndUpdate({ referenceId: `tds_${referenceId}` }, { status: TransactionStatus.FAILED });
+      await Transaction.findOneAndUpdate({ referenceId: `govt_tax_${referenceId}` }, { status: TransactionStatus.FAILED });
+
       return res.status(500).json({
         success: false,
         error: 'Payout gateway failed. Funds have been credited back.',
@@ -87,7 +128,7 @@ payoutRouter.post('/withdraw', async (req: Request, res: Response) => {
 
     return res.json({
       success: true,
-      message: 'Withdrawal settled into bank account within 3 seconds.',
+      message: 'Withdrawal settled into bank account within 3 seconds (30% TDS deducted).',
       referenceId,
     });
   } catch (error: any) {
@@ -227,10 +268,12 @@ payoutRouter.get('/balance/:userId', async (req, res) => {
   try {
     const balances = await getUserBalances(userId);
     const history = await Transaction.find({ userId: new Types.ObjectId(userId) }).sort({ createdAt: -1 });
+    const user = await User.findById(userId);
     return res.json({
       success: true,
       balances,
       history,
+      user,
     });
   } catch (error: any) {
     return res.status(500).json({ error: error.message });

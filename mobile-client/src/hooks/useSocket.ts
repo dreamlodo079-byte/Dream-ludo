@@ -19,12 +19,18 @@ export const useSocket = (userId: string | null) => {
     const socket = io(SOCKET_SERVER_URL);
     socketRef.current = socket;
 
-    socket.on('connect', () => {
+    const handleConnect = () => {
       setIsConnected(true);
       console.log('Connected to game server:', socket.id);
       // Register player user ID to bind reconnections
       socket.emit('REGISTER_USER', { userId });
-    });
+    };
+
+    if (socket.connected) {
+      handleConnect();
+    }
+
+    socket.on('connect', handleConnect);
 
     socket.on('disconnect', () => {
       setIsConnected(false);

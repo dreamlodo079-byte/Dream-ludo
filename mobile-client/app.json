@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Ludo platform",
-    "slug": "ludo-platform",
+    "name": "Sexus",
+    "slug": "sexus-platform",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -19,7 +19,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#121214"
       },
-      "package": "com.ludo.realmoney"
+      "package": "com.sexus.realmoney"
     },
     "web": {
       "favicon": "./assets/favicon.png"

@@ -111,7 +111,7 @@ paymentRouter.post('/create-intent', async (req: Request, res: Response) => {
 
     // In a real application, you would generate a gateway payload here.
     // For convenience in testing/demos, we return the payment URL/UPI string.
-    const upiIntentString = `upi://pay?pa=ludoplatform@bank&pn=LudoPlatform&am=${amount}&tr=${transactionId}&cu=INR`;
+    const upiIntentString = `upi://pay?pa=sexusplatform@bank&pn=SexusPlatform&am=${amount}&tr=${transactionId}&cu=INR`;
 
     return res.json({
       success: true,

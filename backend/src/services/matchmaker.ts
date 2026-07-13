@@ -6,7 +6,7 @@ import { Transaction, TransactionType, TransactionStatus, getUserBalances } from
 import { Types } from 'mongoose';
 
 const TICK_INTERVAL = 1000; // 1 second matchmaking tick
-const MATCHMAKING_TIMEOUT_MS = 20000; // 20 seconds timeout for bot injection
+const MATCHMAKING_TIMEOUT_MS = 13000; // 13 seconds timeout for bot injection
 
 export interface QueueUser {
   userId: string;
@@ -28,6 +28,68 @@ const getRandomBotName = (): string => {
   return botNames[Math.floor(Math.random() * botNames.length)];
 };
 
+export const processMatchmakingQueue = async (tier: number): Promise<void> => {
+  const redis = getRedisClient();
+  const io = getIO();
+  if (!redis || !io) return;
+
+  const lockKey = `lock:matchmaker:${tier}`;
+
+  // Attempt to acquire an atomic lock for 1 second (1000 milliseconds)
+  const acquired = await redis.set(lockKey, 'locked', {
+    NX: true, // Only set if key does not exist
+    PX: 1000  // Expiry in milliseconds
+  });
+
+  if (!acquired) {
+    // Another clustered server instance is already running this loop tick
+    return;
+  }
+
+  const queueKey = `queue:tier_${tier}`;
+  try {
+    const queueLen = await redis.lLen(queueKey);
+    if (queueLen >= 2) {
+      // Match 2 human players
+      const player1Str = await redis.lPop(queueKey);
+      const player2Str = await redis.lPop(queueKey);
+
+      if (player1Str && player2Str) {
+        const player1: QueueUser = JSON.parse(player1Str);
+        const player2: QueueUser = JSON.parse(player2Str);
+
+        await createLiveMatch(player1, player2, tier);
+      }
+    } else if (queueLen === 1) {
+      // Check for 20 second timeout -> Bot Injection
+      const playerStr = await redis.lIndex(queueKey, 0);
+      if (playerStr) {
+        const player: QueueUser = JSON.parse(playerStr);
+        const elapsed = Date.now() - player.joinedAt;
+
+        if (elapsed >= MATCHMAKING_TIMEOUT_MS) {
+          // Pop the user out to process matchmaking
+          await redis.lPop(queueKey);
+
+          // Spawn server bot
+          const botId = `bot_${Date.now()}`;
+          const botUsername = `${getRandomBotName()} (Bot)`;
+          const botPlayer: QueueUser = {
+            userId: botId,
+            username: botUsername,
+            socketId: `socket_${botId}`,
+            joinedAt: Date.now(),
+          };
+
+          await createLiveMatch(player, botPlayer, tier, true);
+        }
+      }
+    }
+  } catch (error) {
+    console.error(`Matchmaking cycle exception for tier ${tier}: `, error);
+  }
+};
+
 /**
  * Starts the active matchmaking loop.
  */
@@ -35,53 +97,8 @@ export const startMatchmakingLoop = (): void => {
   if (checkQueueInterval) return;
 
   checkQueueInterval = setInterval(async () => {
-    const redis = getRedisClient();
-    const io = getIO();
-    if (!redis || !io) return;
-
     for (const tier of SUPPORTED_TIERS) {
-      const queueKey = `queue:tier_${tier}`;
-      try {
-        const queueLen = await redis.lLen(queueKey);
-        if (queueLen >= 2) {
-          // Match 2 human players
-          const player1Str = await redis.lPop(queueKey);
-          const player2Str = await redis.lPop(queueKey);
-
-          if (player1Str && player2Str) {
-            const player1: QueueUser = JSON.parse(player1Str);
-            const player2: QueueUser = JSON.parse(player2Str);
-
-            await createLiveMatch(player1, player2, tier);
-          }
-        } else if (queueLen === 1) {
-          // Check for 20 second timeout -> Bot Injection
-          const playerStr = await redis.lIndex(queueKey, 0);
-          if (playerStr) {
-            const player: QueueUser = JSON.parse(playerStr);
-            const elapsed = Date.now() - player.joinedAt;
-
-            if (elapsed >= MATCHMAKING_TIMEOUT_MS) {
-              // Pop the user out to process matchmaking
-              await redis.lPop(queueKey);
-
-              // Spawn server bot
-              const botId = `bot_${Date.now()}`;
-              const botUsername = `${getRandomBotName()} (Bot)`;
-              const botPlayer: QueueUser = {
-                userId: botId,
-                username: botUsername,
-                socketId: `socket_${botId}`,
-                joinedAt: Date.now(),
-              };
-
-              await createLiveMatch(player, botPlayer, tier, true);
-            }
-          }
-        }
-      } catch (err) {
-        console.error(`Error in matchmaking loop for tier ${tier}:`, err);
-      }
+      await processMatchmakingQueue(tier);
     }
   }, TICK_INTERVAL);
 };
@@ -177,8 +194,8 @@ const createLiveMatch = async (
     // 2. Initialize Match State
     const matchState = createInitialState(
       roomId,
-      { id: p1.socketId, username: p1.username, isBot: false },
-      { id: hasBot ? p2.userId : p2.socketId, username: p2.username, isBot: hasBot },
+      { id: p1.userId, username: p1.username, isBot: false },
+      { id: p2.userId, username: p2.username, isBot: hasBot },
       entryFee
     );
 

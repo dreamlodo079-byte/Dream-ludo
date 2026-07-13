@@ -5,6 +5,13 @@ export interface IUser extends Document {
   username: string;
   upiId?: string;
   isActive: boolean;
+  isKycVerified: boolean;
+  panNumber?: string | null;
+  aadhaarNumber?: string | null;
+  kycStatus: 'NONE' | 'PENDING' | 'APPROVED' | 'REJECTED';
+  kycType?: 'PAN' | 'AADHAAR' | null;
+  kycDocumentNumber?: string | null;
+  kycName?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -29,6 +36,40 @@ const UserSchema = new Schema<IUser>(
     isActive: {
       type: Boolean,
       default: true,
+    },
+    isKycVerified: {
+      type: Boolean,
+      default: false,
+    },
+    panNumber: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    aadhaarNumber: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    kycStatus: {
+      type: String,
+      enum: ['NONE', 'PENDING', 'APPROVED', 'REJECTED'],
+      default: 'NONE',
+    },
+    kycType: {
+      type: String,
+      enum: ['PAN', 'AADHAAR', null],
+      default: null,
+    },
+    kycDocumentNumber: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    kycName: {
+      type: String,
+      default: null,
+      trim: true,
     },
   },
   {

@@ -1,6 +1,6 @@
 import { Server, Socket } from 'socket.io';
-import { getRoomState, cacheRoomState, deleteRoomState, getRedisClient, createDuplicateRedisClient } from '../config/redis';
-import { createAdapter } from '@socket.io/redis-adapter';
+import { getRoomState, cacheRoomState, deleteRoomState, getRedisClient } from '../config/redis';
+import { initializeRedisAdapter } from '../config/redisAdapter';
 import {
   MatchState,
   executeRoll,
@@ -37,13 +37,7 @@ export const initializeSocketIO = (server: any): Server => {
     },
   });
 
-  const pubClient = createDuplicateRedisClient();
-  const subClient = createDuplicateRedisClient();
-
-  Promise.all([pubClient.connect(), subClient.connect()]).then(() => {
-    io.adapter(createAdapter(pubClient, subClient));
-    console.log('Clustered Socket.io Redis adapter initialized successfully.');
-  }).catch((err) => {
+  initializeRedisAdapter(io).catch((err) => {
     console.error('Failed to initialize Socket.io Redis adapter:', err);
   });
 
@@ -89,15 +83,9 @@ export const initializeSocketIO = (server: any): Server => {
         socket.join(roomId);
         getRoomState(roomId).then((state: MatchState | null) => {
           if (state) {
-            // Update the socket ID of the reconnected player if human
             const pIndex = state.players.findIndex((p) => p.id === userId);
-            if (pIndex !== -1) {
-              state.players[pIndex].id = socket.id; // Map back to new socket ID for events
-            }
-            cacheRoomState(roomId, state).then(() => {
-              io.to(roomId).emit('MATCH_STATE_UPDATE', state);
-              io.to(roomId).emit('SYSTEM_ALERT', { message: `${state.players[pIndex]?.username || 'A player'} has reconnected.` });
-            });
+            io.to(roomId).emit('MATCH_STATE_UPDATE', state);
+            io.to(roomId).emit('SYSTEM_ALERT', { message: `${state.players[pIndex]?.username || 'A player'} has reconnected.` });
           }
         });
       }
@@ -111,8 +99,8 @@ export const initializeSocketIO = (server: any): Server => {
       if (!state || state.isTerminated) return;
 
       const activePlayer = state.players[state.activePlayerIndex];
-      // Only active human player can request roll
-      if (activePlayer.id !== userId && activePlayer.id !== socket.id) {
+      // Only active human player can request roll (stable userId comparison)
+      if (activePlayer.id !== userId) {
         socket.emit('ERROR', { message: "It's not your turn" });
         return;
       }
@@ -158,7 +146,8 @@ export const initializeSocketIO = (server: any): Server => {
       if (!state || state.isTerminated) return;
 
       const activePlayer = state.players[state.activePlayerIndex];
-      if (activePlayer.id !== userId && activePlayer.id !== socket.id) {
+      // Turn validation based on stable userId
+      if (activePlayer.id !== userId) {
         socket.emit('ERROR', { message: "It's not your turn" });
         return;
       }
@@ -198,8 +187,8 @@ export const initializeSocketIO = (server: any): Server => {
             console.log(`Reconnection timeout. User ${userId} forfeited match in room ${roomId}`);
             const state: MatchState | null = await getRoomState(roomId);
             if (state && !state.isTerminated) {
-              // Forfeit: The other player wins
-              const otherPlayerIndex = state.players.findIndex((p) => p.id !== userId && p.id !== socket.id);
+              // Forfeit: The other player wins (stable userId search)
+              const otherPlayerIndex = state.players.findIndex((p) => p.id !== userId);
               const otherPlayer = state.players[otherPlayerIndex];
               if (otherPlayer) {
                 state.winnerId = otherPlayer.id;

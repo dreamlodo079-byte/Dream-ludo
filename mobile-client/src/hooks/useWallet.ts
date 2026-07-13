@@ -32,12 +32,14 @@ export const useWallet = () => {
       if (response.data.success) {
         setBalances(response.data.balances);
         setHistory(response.data.history);
+        return response.data.user;
       }
     } catch (err: any) {
       setError(err.response?.data?.error || err.message || 'Failed to fetch wallet info');
     } finally {
       setLoading(false);
     }
+    return null;
   }, []);
 
   const addCash = useCallback(async (userId: string, amount: number): Promise<{ success: boolean; upiIntent?: string; transactionId?: string; error?: string }> => {
