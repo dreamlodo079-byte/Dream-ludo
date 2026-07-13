@@ -11,7 +11,7 @@ import {
   Clipboard,
   Linking,
 } from 'react-native';
-import Svg, { Rect, Path, G, Defs, LinearGradient, Stop, Circle, Line } from 'react-native-svg';
+import Svg, { Rect, Path, G, Defs, LinearGradient, Stop, Circle, Line, Polyline } from 'react-native-svg';
 import axios from 'axios';
 import { useWallet } from '../hooks/useWallet';
 
@@ -665,12 +665,7 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
   );
 };
 
-// Polyline definition mock to compile clean vector icon placeholders
-const Polyline = (props: any) => {
-  const points = props.points.split(' ');
-  const d = `M ${points[0]} L ${points[1]} L ${points[2]}`;
-  return <Path d={d} fill="none" stroke={props.stroke} strokeWidth={props.strokeWidth} />;
-};
+
 
 const styles = StyleSheet.create({
   container: {
