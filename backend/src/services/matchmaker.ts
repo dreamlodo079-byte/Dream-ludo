@@ -131,7 +131,7 @@ export const joinQueue = async (
 
   // Check if player is already in this or other queue to prevent duplicates
   const existingQueue = await redis.lRange(queueKey, 0, -1);
-  const isAlreadyQueued = existingQueue.some((item) => JSON.parse(item).userId === userId);
+  const isAlreadyQueued = existingQueue.some((item: string) => JSON.parse(item).userId === userId);
 
   if (isAlreadyQueued) {
     return { success: true, message: 'Already in queue' };

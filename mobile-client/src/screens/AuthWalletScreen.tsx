@@ -29,7 +29,7 @@ interface UserProfile {
 }
 
 interface AuthWalletScreenProps {
-  onLoginSuccess: (user: UserProfile) => void;
+  onLoginSuccess: (user: UserProfile, token?: string) => void;
   currentUser: UserProfile | null;
   onLogout?: () => void;
   onUserUpdate?: (user: UserProfile) => void;
@@ -145,10 +145,50 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
       });
       if (response.data.success) {
         axios.defaults.headers.common['x-auth-token'] = response.data.token;
-        onLoginSuccess(response.data.user);
+        onLoginSuccess(response.data.user, response.data.token);
       }
     } catch (err: any) {
       Alert.alert('Authentication Error', err.response?.data?.error || err.message);
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
+
+  const handleQuickDevLogin = async () => {
+    setIsLoggingIn(true);
+    try {
+      const response = await axios.post(`${API_SERVER_URL}/api/users/login`, {
+        phone: '9876543210',
+        username: 'QuickTester',
+      });
+      if (response.data.success && response.data.user) {
+        if (response.data.token) {
+          axios.defaults.headers.common['x-auth-token'] = response.data.token;
+        }
+        
+        // Only top up test cash if current total balance is below ₹100
+        try {
+          const balRes = await axios.get(`${API_SERVER_URL}/api/payout/balance/${response.data.user._id}`);
+          if (balRes.data.success && balRes.data.balances.total < 100) {
+            await axios.post(`${API_SERVER_URL}/api/payments/simulate-success`, {
+              userId: response.data.user._id,
+              transactionId: `dev_init_${Date.now()}`,
+              amount: 1000,
+            });
+          }
+        } catch (_) {
+          // Fallback initial credit
+          await axios.post(`${API_SERVER_URL}/api/payments/simulate-success`, {
+            userId: response.data.user._id,
+            transactionId: `dev_init_${Date.now()}`,
+            amount: 1000,
+          });
+        }
+
+        onLoginSuccess(response.data.user, response.data.token);
+      }
+    } catch (err: any) {
+      Alert.alert('Quick Login Error', err.response?.data?.error || err.message);
     } finally {
       setIsLoggingIn(false);
     }
@@ -339,6 +379,14 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
             ) : (
               <Text style={styles.authButtonText}>ENTER PLATFORM</Text>
             )}
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={[styles.authButton, { backgroundColor: '#10B981', marginTop: 12 }]} 
+            onPress={handleQuickDevLogin} 
+            disabled={isLoggingIn}
+          >
+            <Text style={styles.authButtonText}>⚡ 1-TAP QUICK DEMO (AUTO LOGIN & FUND)</Text>
           </TouchableOpacity>
         </View>
       </View>

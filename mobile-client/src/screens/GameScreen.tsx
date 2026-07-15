@@ -51,6 +51,7 @@ interface GameScreenProps {
   clearAlert: () => void;
   requestRoll: (roomId: string) => void;
   requestMove: (roomId: string, tokenIndex: number) => void;
+  requestForfeit?: (roomId: string) => void;
   isConnected: boolean;
 }
 
@@ -105,17 +106,23 @@ const COMMON_TRACK_COORDS = [
   { x: 0, y: 7 },
 ];
 
-const SAFE_COMMON_INDICES = [0, 8, 13, 21, 26, 34, 39, 47];
-const PLAYER_START_OFFSETS = [0, 26];
+const SAFE_COMMON_INDICES = [1, 9, 14, 22, 27, 35, 40, 48];
+const PLAYER_START_OFFSETS = [1, 27];
+
+const getCommonIndex = (playerIndex: number, pos: number): number => {
+  if (pos < 0 || pos > 50) return -1;
+  const startOffset = PLAYER_START_OFFSETS[playerIndex];
+  return (startOffset + pos) % 52;
+};
 
 const RED_YARD_TOKEN_COORDS = [
-  { x: 1.5, y: 1.5 }, { x: 3.5, y: 1.5 },
-  { x: 1.5, y: 3.5 }, { x: 3.5, y: 3.5 },
+  { x: 1.8, y: 1.8 }, { x: 4.2, y: 1.8 },
+  { x: 1.8, y: 4.2 }, { x: 4.2, y: 4.2 },
 ];
 
 const GREEN_YARD_TOKEN_COORDS = [
-  { x: 10.5, y: 10.5 }, { x: 12.5, y: 10.5 },
-  { x: 10.5, y: 12.5 }, { x: 12.5, y: 12.5 },
+  { x: 10.8, y: 10.8 }, { x: 13.2, y: 10.8 },
+  { x: 10.8, y: 13.2 }, { x: 13.2, y: 13.2 },
 ];
 
 const RED_HOME_PATH_COORDS = [
@@ -233,29 +240,19 @@ const Pawn3D: React.FC<Pawn3DProps> = ({ color, size }) => {
 
       {/* Neck (tapered body) */}
       <Path
-        d="M 10 29 C 10 24, 12 20, 16 17 C 20 20, 22 24, 22 29 Z"
+        d="M 10 29 C 10 24, 12 18, 13 14 L 19 14 C 20 18, 22 24, 22 29 Z"
         fill={`url(#${gradId})`}
-        stroke="#FFFFFF"
-        strokeWidth="0.8"
       />
 
-      {/* Ring/collar */}
-      <Ellipse cx="16" cy="18" rx="5" ry="1.5" fill={c.dark} />
-      <Ellipse cx="16" cy="17.5" rx="5" ry="1.5" fill={`url(#${gradId})`} stroke="#FFFFFF" strokeWidth="0.6" />
-
-      {/* Head (sphere) */}
-      <Circle cx="16" cy="11" r="6.5" fill={c.dark} />
-      <Circle cx="16" cy="10.5" r="6.5" fill={`url(#${gradId})`} stroke="#FFFFFF" strokeWidth="1" />
-
-      {/* Glossy highlight */}
-      <Circle cx="14" cy="9" r="3" fill={`url(#${shineId})`} />
-      <Circle cx="14" cy="9" r="1.5" fill="#FFFFFF" opacity="0.6" />
+      {/* Glossy Head */}
+      <Circle cx="16" cy="11" r="7" fill={`url(#${gradId})`} stroke="#FFFFFF" strokeWidth="0.8" />
+      <Circle cx="16" cy="11" r="7" fill={`url(#${shineId})`} />
     </Svg>
   );
 };
 
-// ============ STAR PATH ============
-const getStarPath = (cx: number, cy: number, r: number) => {
+// ============ STAR VECTOR SVG ============
+const renderStar = (cx: number, cy: number, r: number) => {
   const points: string[] = [];
   for (let i = 0; i < 10; i++) {
     const angle = (Math.PI / 5) * i - Math.PI / 2;
@@ -264,6 +261,8 @@ const getStarPath = (cx: number, cy: number, r: number) => {
   }
   return `M ${points.join(' L ')} Z`;
 };
+
+const getStarPath = renderStar;
 
 // ============ ARROW PATH FOR HOME ENTRY ============
 const getArrowPath = (cx: number, cy: number, size: number, direction: 'up' | 'down' | 'left' | 'right') => {
@@ -292,6 +291,8 @@ interface PlayerCardProps {
   align: 'left' | 'right';
 }
 
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+
 const PlayerCard: React.FC<PlayerCardProps> = ({
   username,
   color,
@@ -303,29 +304,33 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
   align,
 }) => {
   const c = COLORS[color];
-  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const animatedRatio = useRef(new Animated.Value(turnTimer / totalTime)).current;
 
   useEffect(() => {
     if (isActive) {
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(pulseAnim, { toValue: 1.05, duration: 700, useNativeDriver: true }),
-          Animated.timing(pulseAnim, { toValue: 1, duration: 700, useNativeDriver: true }),
-        ])
-      ).start();
+      Animated.timing(animatedRatio, {
+        toValue: Math.max(0, (turnTimer - 1) / totalTime),
+        duration: 1000,
+        useNativeDriver: false,
+        easing: Easing.linear,
+      }).start();
     } else {
-      pulseAnim.setValue(1);
+      animatedRatio.setValue(1);
     }
-  }, [isActive]);
+  }, [turnTimer, isActive, totalTime]);
 
-  const progress = Math.max(0, Math.min(1, turnTimer / totalTime));
-  const ringSize = 56;
-  const strokeWidth = 4;
+  // Circle timer SVG calculations
+  const ringSize = 48;
+  const strokeWidth = 3.5;
   const radius = (ringSize - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
-  const strokeDashoffset = circumference * (1 - progress);
-
-  const timerColor = turnTimer <= 5 ? '#EF4444' : turnTimer <= 8 ? '#F59E0B' : c.primary;
+  
+  const animatedDashoffset = animatedRatio.interpolate({
+    inputRange: [0, 1],
+    outputRange: [circumference, 0],
+  });
+  
+  const timerColor = turnTimer <= 4 ? '#EF4444' : c.primary;
 
   return (
     <Animated.View
@@ -333,17 +338,14 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
         styles.playerCard,
         {
           borderColor: isActive ? c.primary : '#E2E8F0',
+          borderWidth: isActive ? 2 : 1.5,
           backgroundColor: isActive ? c.bg : '#FFFFFF',
-          transform: [{ scale: pulseAnim }],
-          shadowColor: isActive ? c.primary : '#000',
-          shadowOpacity: isActive ? 0.25 : 0.08,
         },
       ]}
     >
-      {/* Avatar with Timer Ring */}
-      <View style={styles.avatarContainer}>
-        <Svg width={ringSize} height={ringSize} style={StyleSheet.absoluteFill}>
-          {/* Background ring */}
+      {/* Avatar Container with Timer Ring */}
+      <View style={styles.avatarWrapper}>
+        <Svg width={ringSize} height={ringSize} style={styles.timerRing}>
           <Circle
             cx={ringSize / 2}
             cy={ringSize / 2}
@@ -352,9 +354,8 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
             strokeWidth={strokeWidth}
             fill="none"
           />
-          {/* Progress ring */}
           {isActive && (
-            <Circle
+            <AnimatedCircle
               cx={ringSize / 2}
               cy={ringSize / 2}
               r={radius}
@@ -362,7 +363,7 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
               strokeWidth={strokeWidth}
               fill="none"
               strokeDasharray={circumference}
-              strokeDashoffset={strokeDashoffset}
+              strokeDashoffset={animatedDashoffset}
               strokeLinecap="round"
               transform={`rotate(-90 ${ringSize / 2} ${ringSize / 2})`}
             />
@@ -408,6 +409,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   clearAlert,
   requestRoll,
   requestMove,
+  requestForfeit,
   isConnected,
 }) => {
   const [diceDisplayVal, setDiceDisplayVal] = useState<number>(1);
@@ -489,6 +491,25 @@ export const GameScreen: React.FC<GameScreenProps> = ({
     ).start();
   }, []);
 
+  const tokenRotateAnim = useRef(new Animated.Value(0)).current;
+
+  // Rotation animation for playable tokens in yard
+  useEffect(() => {
+    Animated.loop(
+      Animated.timing(tokenRotateAnim, {
+        toValue: 1,
+        duration: 4000,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      })
+    ).start();
+  }, []);
+
+  const spinAnim = tokenRotateAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
+
   // Your Turn banner animation
   useEffect(() => {
     if (!matchState) return;
@@ -506,6 +527,75 @@ export const GameScreen: React.FC<GameScreenProps> = ({
       yourTurnAnim.setValue(1);
     }
   }, [matchState?.activePlayerIndex, matchState?.hasRolled]);
+
+  const getStackingInfo = (pIdx: number, tIdx: number, pos: number) => {
+    if (pos === -1 || pos === 56 || !matchState?.players) {
+      return { subX: 0, subY: 0, scale: 1.0, stackCount: 1 };
+    }
+
+    const startOffset = PLAYER_START_OFFSETS[pIdx];
+    let cellId: string;
+    if (pos >= 51 && pos <= 55) {
+      cellId = `home_${pIdx}_${pos}`;
+    } else {
+      const commonIdx = (startOffset + pos) % 52;
+      cellId = `common_${commonIdx}`;
+    }
+
+    const coOccupying: Array<{ pIdx: number; tIdx: number; globalIdx: number }> = [];
+    matchState.players.forEach((player: any, pIndex: number) => {
+      const pStart = PLAYER_START_OFFSETS[pIndex];
+      player.tokens.forEach((otherPos: number, tokenIndex: number) => {
+        let otherCellId: string | null = null;
+        if (otherPos >= 51 && otherPos <= 55) {
+          otherCellId = `home_${pIndex}_${otherPos}`;
+        } else if (otherPos >= 0 && otherPos <= 50) {
+          const cIdx = (pStart + otherPos) % 52;
+          otherCellId = `common_${cIdx}`;
+        }
+        if (otherCellId === cellId) {
+          coOccupying.push({ pIdx: pIndex, tIdx: tokenIndex, globalIdx: pIndex * 4 + tokenIndex });
+        }
+      });
+    });
+
+    const stackCount = coOccupying.length;
+    if (stackCount <= 1) {
+      return { subX: 0, subY: 0, scale: 1.0, stackCount: 1 };
+    }
+
+    const myGlobalIdx = pIdx * 4 + tIdx;
+    const subIndex = coOccupying.findIndex((item) => item.globalIdx === myGlobalIdx);
+    const subIdx = subIndex === -1 ? 0 : subIndex;
+
+    const offsetAmount = CELL_SIZE * 0.18;
+
+    if (stackCount === 2) {
+      const offsets = [
+        { x: -offsetAmount, y: -offsetAmount * 0.5 },
+        { x: offsetAmount, y: offsetAmount * 0.5 },
+      ];
+      const selected = offsets[subIdx % 2];
+      return { subX: selected.x, subY: selected.y, scale: 0.76, stackCount };
+    } else if (stackCount === 3) {
+      const offsets = [
+        { x: -offsetAmount, y: -offsetAmount * 0.7 },
+        { x: offsetAmount, y: -offsetAmount * 0.7 },
+        { x: 0, y: offsetAmount * 0.8 },
+      ];
+      const selected = offsets[subIdx % 3];
+      return { subX: selected.x, subY: selected.y, scale: 0.68, stackCount };
+    } else {
+      const offsets = [
+        { x: -offsetAmount, y: -offsetAmount * 0.7 },
+        { x: offsetAmount, y: -offsetAmount * 0.7 },
+        { x: -offsetAmount, y: offsetAmount * 0.7 },
+        { x: offsetAmount, y: offsetAmount * 0.7 },
+      ];
+      const selected = offsets[subIdx % 4];
+      return { subX: selected.x, subY: selected.y, scale: 0.60, stackCount };
+    }
+  };
 
   const getTokenCoords = (playerIndex: number, tokenIndex: number, pos: number): { x: number; y: number } => {
     let gridX = 0;
@@ -531,39 +621,162 @@ export const GameScreen: React.FC<GameScreenProps> = ({
       gridY = coord.y + 0.5;
     }
 
-    return {
+    const basePos = {
       x: gridX * CELL_SIZE - CELL_SIZE * 0.5,
       y: gridY * CELL_SIZE - CELL_SIZE * 0.6,
+    };
+
+    const stacking = getStackingInfo(playerIndex, tokenIndex, pos);
+    return {
+      x: basePos.x + stacking.subX,
+      y: basePos.y + stacking.subY,
     };
   };
 
   useEffect(() => {
     if (!matchState) return;
 
+    // Detect if there is a capture in this state update
+    let activeCapture: {
+      attackerIdx: number;
+      attackerPIdx: number;
+      attackerTIdx: number;
+      attackerStart: number;
+      attackerEnd: number;
+      victimIdx: number;
+      victimPIdx: number;
+      victimTIdx: number;
+      victimStart: number;
+    } | null = null;
+
     matchState.players.forEach((player: any, pIdx: number) => {
       player.tokens.forEach((serverPos: number, tIdx: number) => {
         const tokenIdx = pIdx * 4 + tIdx;
         const visualPos = visualPositions.current[tokenIdx];
 
+        if (serverPos > visualPos && visualPos !== -1) {
+          const attackerCommon = getCommonIndex(pIdx, serverPos);
+          matchState.players.forEach((oppPlayer: any, oppIdx: number) => {
+            if (oppIdx === pIdx) return;
+            oppPlayer.tokens.forEach((oppServerPos: number, oppTIdx: number) => {
+              const oppTokenIdx = oppIdx * 4 + oppTIdx;
+              const oppVisualPos = visualPositions.current[oppTokenIdx];
+              if (oppServerPos === -1 && oppVisualPos !== -1) {
+                const victimCommon = getCommonIndex(oppIdx, oppVisualPos);
+                if (attackerCommon !== -1 && attackerCommon === victimCommon) {
+                  activeCapture = {
+                    attackerIdx: tokenIdx,
+                    attackerPIdx: pIdx,
+                    attackerTIdx: tIdx,
+                    attackerStart: visualPos,
+                    attackerEnd: serverPos,
+                    victimIdx: oppTokenIdx,
+                    victimPIdx: oppIdx,
+                    victimTIdx: oppTIdx,
+                    victimStart: oppVisualPos,
+                  };
+                }
+              }
+            });
+          });
+        }
+      });
+    });
+
+    if (activeCapture) {
+      const {
+        attackerIdx, attackerPIdx, attackerTIdx, attackerStart, attackerEnd,
+        victimIdx, victimPIdx, victimTIdx, victimStart
+      } = activeCapture;
+
+      // Lock both tokens from parallel rendering triggers
+      isTokenAnimating.current[attackerIdx] = true;
+      isTokenAnimating.current[victimIdx] = true;
+
+      // Run sequence sequentially
+      const runCoordinatedCapture = async () => {
+        // 1. Attacker walks forward to target tile
+        await animateStepPath(attackerPIdx, attackerTIdx, attackerStart, attackerEnd);
+        // 2. Small dramatic impact pause
+        await new Promise((r) => setTimeout(r, 150));
+        // 3. Captured victim slides back to yard
+        await animateBackwardPath(victimPIdx, victimTIdx, victimStart, -1);
+      };
+
+      runCoordinatedCapture();
+    }
+
+    matchState.players.forEach((player: any, pIdx: number) => {
+      player.tokens.forEach((serverPos: number, tIdx: number) => {
+        const tokenIdx = pIdx * 4 + tIdx;
+
+        // Skip default animations if this token is currently in the active capture sequence
+        if (activeCapture && (tokenIdx === activeCapture.attackerIdx || tokenIdx === activeCapture.victimIdx)) {
+          return;
+        }
+
+        const visualPos = visualPositions.current[tokenIdx];
+        const targetCoords = getTokenCoords(pIdx, tIdx, serverPos);
+
         if (visualPos === -1 && serverPos !== -1) {
-          const targetCoords = getTokenCoords(pIdx, tIdx, 0);
           Animated.spring(pawnPositions[tokenIdx], {
             toValue: targetCoords,
             useNativeDriver: true,
             friction: 6,
             tension: 40,
           }).start();
-          visualPositions.current[tokenIdx] = 0;
+          visualPositions.current[tokenIdx] = serverPos;
+        } else if (serverPos < visualPos && !isTokenAnimating.current[tokenIdx]) {
+          isTokenAnimating.current[tokenIdx] = true;
+          animateBackwardPath(pIdx, tIdx, visualPos, serverPos);
         } else if (serverPos !== visualPos && !isTokenAnimating.current[tokenIdx]) {
           isTokenAnimating.current[tokenIdx] = true;
           animateStepPath(pIdx, tIdx, visualPos, serverPos);
-        } else if (visualPos === -1 && serverPos === -1) {
-          const targetCoords = getTokenCoords(pIdx, tIdx, -1);
+        } else {
           pawnPositions[tokenIdx].setValue(targetCoords);
+          visualPositions.current[tokenIdx] = serverPos;
         }
       });
     });
   }, [matchState?.players]);
+
+  const animateBackwardPath = async (pIdx: number, tIdx: number, start: number, end: number) => {
+    const tokenIdx = pIdx * 4 + tIdx;
+    const stopAt = Math.max(0, end);
+
+    for (let currentStep = start; currentStep > stopAt; currentStep--) {
+      const nextStep = currentStep - 1;
+      const endCoords = getTokenCoords(pIdx, tIdx, nextStep);
+
+      await new Promise<void>((resolve) => {
+        Animated.timing(pawnPositions[tokenIdx], {
+          toValue: endCoords,
+          duration: 120, // satisfying step-by-step backward slide speed
+          useNativeDriver: true,
+          easing: Easing.linear,
+        }).start(() => resolve());
+      });
+      visualPositions.current[tokenIdx] = nextStep;
+    }
+
+    // Now fly/spring from 0 into the yard lobby pocket (-1) if capturing
+    const finalCoords = getTokenCoords(pIdx, tIdx, end);
+    if (end === -1) {
+      await new Promise<void>((resolve) => {
+        Animated.spring(pawnPositions[tokenIdx], {
+          toValue: finalCoords,
+          useNativeDriver: true,
+          friction: 6,
+          tension: 40,
+        }).start(() => resolve());
+      });
+      visualPositions.current[tokenIdx] = -1;
+    } else {
+      pawnPositions[tokenIdx].setValue(finalCoords);
+      visualPositions.current[tokenIdx] = end;
+    }
+    isTokenAnimating.current[tokenIdx] = false;
+  };
 
   const animateStepPath = async (pIdx: number, tIdx: number, start: number, end: number) => {
     const tokenIdx = pIdx * 4 + tIdx;
@@ -709,6 +922,9 @@ export const GameScreen: React.FC<GameScreenProps> = ({
 
   const confirmExit = () => {
     setShowExitConfirm(false);
+    if (requestForfeit) {
+      requestForfeit(roomId);
+    }
     onLeaveMatch();
   };
 
@@ -821,7 +1037,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
             y={CELL_SIZE * 1.2}
             width={CELL_SIZE * 3.6}
             height={CELL_SIZE * 3.6}
-            fill={COLORS.red.bg}
+            fill="#FFFFFF"
             rx={8}
           />
           {RED_YARD_TOKEN_COORDS.map((coord, i) => (
@@ -829,18 +1045,8 @@ export const GameScreen: React.FC<GameScreenProps> = ({
               <Circle
                 cx={coord.x * CELL_SIZE}
                 cy={coord.y * CELL_SIZE}
-                r={CELL_SIZE * 0.5}
-                fill="#FFFFFF"
-                stroke={COLORS.red.primary}
-                strokeWidth={2}
-              />
-              <Circle
-                cx={coord.x * CELL_SIZE}
-                cy={coord.y * CELL_SIZE}
-                r={CELL_SIZE * 0.42}
-                fill="#FFFFFF"
-                stroke={COLORS.red.light}
-                strokeWidth={1}
+                r={CELL_SIZE * 0.45}
+                fill={COLORS.red.light}
               />
             </G>
           ))}
@@ -866,29 +1072,19 @@ export const GameScreen: React.FC<GameScreenProps> = ({
             y={CELL_SIZE * 1.2}
             width={CELL_SIZE * 3.6}
             height={CELL_SIZE * 3.6}
-            fill={COLORS.yellow.bg}
+            fill="#FFFFFF"
             rx={8}
           />
           {[
-            { x: 10.5, y: 1.5 }, { x: 12.5, y: 1.5 },
-            { x: 10.5, y: 3.5 }, { x: 12.5, y: 3.5 },
+            { x: 10.8, y: 1.8 }, { x: 13.2, y: 1.8 },
+            { x: 10.8, y: 4.2 }, { x: 13.2, y: 4.2 },
           ].map((coord, i) => (
             <G key={`yellow_yard_${i}`}>
               <Circle
                 cx={coord.x * CELL_SIZE}
                 cy={coord.y * CELL_SIZE}
-                r={CELL_SIZE * 0.5}
-                fill="#FFFFFF"
-                stroke={COLORS.yellow.primary}
-                strokeWidth={2}
-              />
-              <Circle
-                cx={coord.x * CELL_SIZE}
-                cy={coord.y * CELL_SIZE}
-                r={CELL_SIZE * 0.42}
-                fill="#FFFFFF"
-                stroke={COLORS.yellow.light}
-                strokeWidth={1}
+                r={CELL_SIZE * 0.45}
+                fill={COLORS.yellow.light}
               />
             </G>
           ))}
@@ -914,7 +1110,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
             y={CELL_SIZE * 10.2}
             width={CELL_SIZE * 3.6}
             height={CELL_SIZE * 3.6}
-            fill={COLORS.green.bg}
+            fill="#FFFFFF"
             rx={8}
           />
           {GREEN_YARD_TOKEN_COORDS.map((coord, i) => (
@@ -922,18 +1118,8 @@ export const GameScreen: React.FC<GameScreenProps> = ({
               <Circle
                 cx={coord.x * CELL_SIZE}
                 cy={coord.y * CELL_SIZE}
-                r={CELL_SIZE * 0.5}
-                fill="#FFFFFF"
-                stroke={COLORS.green.primary}
-                strokeWidth={2}
-              />
-              <Circle
-                cx={coord.x * CELL_SIZE}
-                cy={coord.y * CELL_SIZE}
-                r={CELL_SIZE * 0.42}
-                fill="#FFFFFF"
-                stroke={COLORS.green.light}
-                strokeWidth={1}
+                r={CELL_SIZE * 0.45}
+                fill={COLORS.green.light}
               />
             </G>
           ))}
@@ -959,29 +1145,19 @@ export const GameScreen: React.FC<GameScreenProps> = ({
             y={CELL_SIZE * 10.2}
             width={CELL_SIZE * 3.6}
             height={CELL_SIZE * 3.6}
-            fill={COLORS.blue.bg}
+            fill="#FFFFFF"
             rx={8}
           />
           {[
-            { x: 1.5, y: 10.5 }, { x: 3.5, y: 10.5 },
-            { x: 1.5, y: 12.5 }, { x: 3.5, y: 12.5 },
+            { x: 1.8, y: 10.8 }, { x: 4.2, y: 10.8 },
+            { x: 1.8, y: 13.2 }, { x: 4.2, y: 13.2 },
           ].map((coord, i) => (
             <G key={`blue_yard_${i}`}>
               <Circle
                 cx={coord.x * CELL_SIZE}
                 cy={coord.y * CELL_SIZE}
-                r={CELL_SIZE * 0.5}
-                fill="#FFFFFF"
-                stroke={COLORS.blue.primary}
-                strokeWidth={2}
-              />
-              <Circle
-                cx={coord.x * CELL_SIZE}
-                cy={coord.y * CELL_SIZE}
-                r={CELL_SIZE * 0.42}
-                fill="#FFFFFF"
-                stroke={COLORS.blue.light}
-                strokeWidth={1}
+                r={CELL_SIZE * 0.45}
+                fill={COLORS.blue.light}
               />
             </G>
           ))}
@@ -1017,10 +1193,10 @@ export const GameScreen: React.FC<GameScreenProps> = ({
           {/* ============ COMMON TRACK ============ */}
           {COMMON_TRACK_COORDS.map((coord, index) => {
             const isSafe = SAFE_COMMON_INDICES.includes(index);
-            const isRedStart = index === 0;
-            const isYellowStart = index === 13;
-            const isGreenStart = index === 26;
-            const isBlueStart = index === 39;
+            const isRedStart = index === 1;
+            const isYellowStart = index === 14;
+            const isGreenStart = index === 27;
+            const isBlueStart = index === 40;
 
             let fillSrc = '#FFFFFF';
             let borderColor = '#94A3B8';
@@ -1197,6 +1373,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
             
             const canMoveToken = isUserToken && isMyTurn && hasRollVal && moveableTokenIndex !== undefined;
             const sizeMultiplier = canMoveToken ? tokenPulseAnim : 1.0;
+            const isInYard = player.tokens[representativeTIdx] === -1;
 
             const handlePress = () => {
               if (canMoveToken && moveableTokenIndex !== undefined) {
@@ -1221,13 +1398,46 @@ export const GameScreen: React.FC<GameScreenProps> = ({
                   },
                 ]}
               >
-                {canMoveToken && <View style={styles.glowHighlight} />}
                 <TouchableOpacity
                   activeOpacity={0.85}
                   onPress={handlePress}
                   disabled={!canMoveToken}
                   style={styles.pawnTouch}
                 >
+                  <Animated.View 
+                    pointerEvents="none"
+                    style={{
+                      position: 'absolute',
+                      width: CELL_SIZE * 1.25,
+                      height: CELL_SIZE * 1.25,
+                      opacity: (canMoveToken && isInYard) ? 1 : 0,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <Animated.View 
+                      style={[
+                        styles.dottedHighlight,
+                        {
+                          position: 'relative',
+                          borderColor: pIdx === 0 ? COLORS.red.primary : COLORS.green.primary,
+                          transform: [{ rotate: spinAnim }]
+                        }
+                      ]} 
+                    />
+                  </Animated.View>
+                  <Animated.View 
+                    pointerEvents="none"
+                    style={[
+                      styles.glowHighlight,
+                      {
+                        opacity: (canMoveToken && !isInYard) ? 1 : 0,
+                        borderColor: pIdx === 0 ? COLORS.red.primary : COLORS.green.primary,
+                        backgroundColor: pIdx === 0 ? 'rgba(230, 57, 70, 0.12)' : 'rgba(46, 125, 50, 0.12)',
+                        shadowColor: pIdx === 0 ? COLORS.red.primary : COLORS.green.primary,
+                      }
+                    ]} 
+                  />
                   <Pawn3D color={pIdx === 0 ? 'red' : 'green'} size={CELL_SIZE * 0.95} />
                   
                   {/* Micro-badge showing stack count */}
@@ -1549,6 +1759,17 @@ const styles = StyleSheet.create({
     marginRight: 10,
     position: 'relative',
   },
+  avatarWrapper: {
+    width: 48,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+    position: 'relative',
+  },
+  timerRing: {
+    position: 'absolute',
+  },
   avatar: {
     width: 42,
     height: 42,
@@ -1651,17 +1872,21 @@ const styles = StyleSheet.create({
   },
   glowHighlight: {
     position: 'absolute',
-    width: CELL_SIZE * 1.1,
-    height: CELL_SIZE * 1.1,
-    borderRadius: (CELL_SIZE * 1.1) / 2,
-    borderWidth: 3,
-    borderColor: '#FBBF24',
-    backgroundColor: 'rgba(251, 191, 36, 0.25)',
-    top: 8,
-    shadowColor: '#FBBF24',
+    width: CELL_SIZE * 1.05,
+    height: CELL_SIZE * 1.05,
+    borderRadius: (CELL_SIZE * 1.05) / 2,
+    borderWidth: 2.2,
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 8,
+    shadowOpacity: 0.6,
+    shadowRadius: 5,
+  },
+  dottedHighlight: {
+    position: 'absolute',
+    width: CELL_SIZE * 1.25,
+    height: CELL_SIZE * 1.25,
+    borderRadius: (CELL_SIZE * 1.25) / 2,
+    borderWidth: 3,
+    borderStyle: 'dashed',
   },
 
   // ============ BOTTOM PANEL ============

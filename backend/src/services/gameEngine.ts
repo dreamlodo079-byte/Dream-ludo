@@ -23,10 +23,10 @@ export interface MatchState {
 // Common track length
 const COMMON_TRACK_LENGTH = 52;
 // Safe zone common indices (0-indexed values matching the 8 global protected cells)
-const SAFE_COMMON_INDICES = [0, 8, 13, 21, 26, 34, 39, 47];
+const SAFE_COMMON_INDICES = [1, 9, 14, 22, 27, 35, 40, 48];
 
 // Start offsets on the common board for players
-const PLAYER_START_OFFSETS = [0, 26];
+const PLAYER_START_OFFSETS = [1, 27];
 
 /**
  * Returns the common board position index (0-51) for a player's local token position.
@@ -158,24 +158,13 @@ export const executeRoll = (state: MatchState): { roll: number; shouldPassTurn: 
       return { roll, shouldPassTurn: true, consecutiveReset: true };
     }
     
-    // Player gets another roll sequence, first check if valid moves exist
     const validMoves = getValidMoves(state, roll);
-    if (validMoves.length === 0) {
-      // No moves available, pass turn immediately
-      rotateTurn(state);
-      return { roll, shouldPassTurn: true, consecutiveReset: false };
-    }
-    return { roll, shouldPassTurn: false, consecutiveReset: false };
+    return { roll, shouldPassTurn: validMoves.length === 0, consecutiveReset: false };
   } else {
     // Normal roll (1-5), reset consecutive sixes
     state.consecutiveSixes = 0;
     const validMoves = getValidMoves(state, roll);
-    if (validMoves.length === 0) {
-      // No moves available, pass turn immediately
-      rotateTurn(state);
-      return { roll, shouldPassTurn: true, consecutiveReset: false };
-    }
-    return { roll, shouldPassTurn: false, consecutiveReset: false };
+    return { roll, shouldPassTurn: validMoves.length === 0, consecutiveReset: false };
   }
 };
 

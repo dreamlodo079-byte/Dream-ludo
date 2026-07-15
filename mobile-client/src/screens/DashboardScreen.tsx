@@ -113,6 +113,18 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
       return;
     }
 
+    if (balances.total < selectedTier) {
+      Alert.alert(
+        'Insufficient Wallet Balance',
+        `Your balance is ₹${balances.total.toFixed(2)}. Entry fee is ₹${selectedTier}. Please add cash or claim rewards to play!`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Add Cash', onPress: onGoToWallet },
+        ]
+      );
+      return;
+    }
+
     setIsSearching(true);
     setSearchTimer(13); // Align countdown limit to 13s
 

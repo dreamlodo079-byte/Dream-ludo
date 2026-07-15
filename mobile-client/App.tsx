@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { SafeAreaView, StyleSheet, StatusBar, View, Text, TouchableOpacity } from 'react-native';
+import { SafeAreaView, StyleSheet, StatusBar, View, Text, TouchableOpacity, Platform } from 'react-native';
+import axios from 'axios';
 import { useAppAutoUpdate } from './src/hooks/useAppAutoUpdate';
 import { useSocket } from './src/hooks/useSocket';
 import { AuthWalletScreen } from './src/screens/AuthWalletScreen';
@@ -37,8 +38,33 @@ export default function App() {
     clearAlert,
     requestRoll,
     requestMove,
+    requestForfeit,
+    resetMatchState,
     socket,
   } = useSocket(currentUser ? currentUser._id : null);
+
+  // Load session from localStorage on startup
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      const savedUser = localStorage.getItem('currentUser');
+      const savedView = localStorage.getItem('view');
+      const savedToken = localStorage.getItem('authToken');
+      if (savedUser) {
+        setCurrentUser(JSON.parse(savedUser));
+        if (savedToken) {
+          axios.defaults.headers.common['x-auth-token'] = savedToken;
+        }
+        setView(savedView === 'game' ? 'dashboard' : (savedView as any) || 'dashboard');
+      }
+    }
+  }, []);
+
+  // Sync view to localStorage on view changes
+  useEffect(() => {
+    if (Platform.OS === 'web' && currentUser) {
+      localStorage.setItem('view', view);
+    }
+  }, [view, currentUser]);
 
   // Listen to Socket Match State shifts to trigger game screen overlay
   useEffect(() => {
@@ -48,12 +74,20 @@ export default function App() {
     }
   }, [matchState]);
 
-  const handleLoginSuccess = (user: UserProfile) => {
+  const handleLoginSuccess = (user: UserProfile, token?: string) => {
     setCurrentUser(user);
     setView('dashboard');
+    if (Platform.OS === 'web') {
+      localStorage.setItem('currentUser', JSON.stringify(user));
+      if (token) {
+        localStorage.setItem('authToken', token);
+        axios.defaults.headers.common['x-auth-token'] = token;
+      }
+    }
   };
 
   const handleLeaveMatch = () => {
+    resetMatchState();
     setActiveRoomId(null);
     setView('dashboard');
   };
@@ -61,6 +95,11 @@ export default function App() {
   const handleLogout = () => {
     setCurrentUser(null);
     setView('auth');
+    if (Platform.OS === 'web') {
+      localStorage.removeItem('currentUser');
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('view');
+    }
   };
 
   return (
@@ -129,6 +168,7 @@ export default function App() {
             clearAlert={clearAlert}
             requestRoll={requestRoll}
             requestMove={requestMove}
+            requestForfeit={requestForfeit}
             isConnected={isConnected}
           />
         )}

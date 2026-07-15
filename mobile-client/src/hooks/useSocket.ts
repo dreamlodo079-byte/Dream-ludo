@@ -62,6 +62,17 @@ export const useSocket = (userId: string | null) => {
       setMatchState(data.state);
     });
 
+    socket.on('TIMER_TICK', (data: { turnTimer: number; activePlayerIndex: number }) => {
+      setMatchState((prev: any) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          turnTimer: data.turnTimer,
+          activePlayerIndex: data.activePlayerIndex,
+        };
+      });
+    });
+
     socket.on('SYSTEM_ALERT', (data: { message: string }) => {
       setAlertMessage(data.message);
     });
@@ -92,8 +103,21 @@ export const useSocket = (userId: string | null) => {
     }
   };
 
+  const requestForfeit = (roomId: string) => {
+    if (socketRef.current) {
+      socketRef.current.emit('FORFEIT_MATCH', { roomId });
+    }
+  };
+
   const clearAlert = () => {
     setAlertMessage(null);
+  };
+
+  const resetMatchState = () => {
+    setMatchState(null);
+    setWinnerInfo(null);
+    setDiceRollInfo(null);
+    setTokenMoveInfo(null);
   };
 
   return {
@@ -107,5 +131,7 @@ export const useSocket = (userId: string | null) => {
     clearAlert,
     requestRoll,
     requestMove,
+    requestForfeit,
+    resetMatchState,
   };
 };

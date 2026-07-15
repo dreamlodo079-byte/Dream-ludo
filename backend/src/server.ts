@@ -100,6 +100,16 @@ app.post('/api/users/login', async (req, res) => {
     if (!user) {
       user = new User({ phone, username });
       await user.save();
+
+      // Automatically grant ₹1,000 Welcome Test Credit to new signups
+      const welcomeTxn = new Transaction({
+        userId: user._id,
+        amount: 1000,
+        type: TransactionType.DEPOSIT,
+        status: TransactionStatus.SUCCESS,
+        referenceId: `welcome_${user._id.toString()}`,
+      });
+      await welcomeTxn.save();
     }
 
     // Sign JWT access token on login

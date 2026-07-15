@@ -122,12 +122,25 @@ export const initializeSocketIO = (server: any): Server => {
         });
 
         if (shouldPassTurn) {
-          io.to(roomId).emit('MATCH_STATE_UPDATE', state);
-          // Check if the next player is bot
-          checkAndTriggerBot(roomId, state);
+          const playerName = activePlayer.username;
+          if (consecutiveReset) {
+            io.to(roomId).emit('SYSTEM_ALERT', { message: `${playerName} rolled three 6s in a row. Turn voided!` });
+          } else {
+            io.to(roomId).emit('SYSTEM_ALERT', { message: `${playerName} rolled ${roll} (No valid moves). Passing turn.` });
+          }
+
+          setTimeout(async () => {
+            const currentState = await getRoomState(roomId);
+            if (currentState && !currentState.isTerminated) {
+              const { rotateTurn } = require('./gameEngine');
+              rotateTurn(currentState);
+              await cacheRoomState(roomId, currentState);
+              io.to(roomId).emit('MATCH_STATE_UPDATE', currentState);
+              checkAndTriggerBot(roomId, currentState);
+            }
+          }, 1200);
         } else {
-          // If player has moves, wait for them to choose. If no moves, executeRoll already passed turn
-          // Start bot turn if player has rolled and is a bot
+          // If player has moves, wait for them to choose.
           const nextActivePlayer = state.players[state.activePlayerIndex];
           if (nextActivePlayer.isBot && state.hasRolled) {
             triggerBotTurn(roomId);
@@ -172,6 +185,28 @@ export const initializeSocketIO = (server: any): Server => {
         }
       } catch (err: any) {
         socket.emit('ERROR', { message: err.message });
+      }
+    });
+
+    socket.on('FORFEIT_MATCH', async ({ roomId }: { roomId: string }) => {
+      const userId = socketUserMap.get(socket.id);
+      if (!userId || !roomId) return;
+
+      console.log(`User ${userId} requested explicit forfeit for room ${roomId}`);
+      const state: MatchState | null = await getRoomState(roomId);
+      if (state && !state.isTerminated) {
+        const otherPlayerIndex = state.players.findIndex((p) => p.id !== userId);
+        const otherPlayer = state.players[otherPlayerIndex];
+        if (otherPlayer) {
+          state.winnerId = otherPlayer.id;
+          state.isTerminated = true;
+          await cacheRoomState(roomId, state);
+          userActiveRooms.delete(userId);
+          io.to(roomId).emit('MATCH_STATE_UPDATE', state);
+          await handleMatchTermination(roomId, state);
+        }
+      } else {
+        userActiveRooms.delete(userId);
       }
     });
 
