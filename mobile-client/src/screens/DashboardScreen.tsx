@@ -10,12 +10,13 @@ import {
   ScrollView,
   Animated,
   Dimensions,
+  useWindowDimensions,
 } from 'react-native';
 import axios from 'axios';
 import { useWallet } from '../hooks/useWallet';
+import Svg, { Rect, Circle, Path, Defs, RadialGradient, Stop, G } from 'react-native-svg';
 
 const API_SERVER_URL = process.env.EXPO_PUBLIC_SERVER_URL || 'http://localhost:5000';
-const { width } = Dimensions.get('window');
 
 interface DashboardScreenProps {
   currentUser: { _id: string; username: string };
@@ -38,6 +39,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   onGoToChallenges,
   onLogout,
 }) => {
+  const { width } = useWindowDimensions();
   const { balances, fetchWallet } = useWallet();
   const [selectedTier, setSelectedTier] = useState<number>(50);
   const [isSearching, setIsSearching] = useState(false);
@@ -55,11 +57,28 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
 
   // Animations scale for button presses
   const buttonScale = useRef(new Animated.Value(1)).current;
+  const ctaPulse = useRef(new Animated.Value(1)).current;
+  const radarPulse = useRef(new Animated.Value(1)).current;
+  const radarOpacity = useRef(new Animated.Value(1)).current;
 
   // Fetch wallet balance and active tournaments on load
   useEffect(() => {
     fetchWallet(currentUser._id);
     fetchActiveTournament();
+
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(ctaPulse, { toValue: 1.03, duration: 1000, useNativeDriver: true }),
+        Animated.timing(ctaPulse, { toValue: 1, duration: 1000, useNativeDriver: true }),
+      ])
+    ).start();
+
+    Animated.loop(
+      Animated.parallel([
+        Animated.timing(radarPulse, { toValue: 3, duration: 2000, useNativeDriver: true }),
+        Animated.timing(radarOpacity, { toValue: 0, duration: 2000, useNativeDriver: true }),
+      ])
+    ).start();
   }, [currentUser._id]);
 
   const fetchActiveTournament = async () => {
@@ -77,13 +96,11 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
     }
   };
 
-  // Underline slide animation for tab change
-  const handleTabChange = (tab: 'REGULAR' | 'QUICK' | 'TURBO') => {
-    setActiveTab(tab);
+  useEffect(() => {
     let targetX = 0;
     const tabWidth = (width - 40) / 3;
-    if (tab === 'QUICK') targetX = tabWidth;
-    if (tab === 'TURBO') targetX = tabWidth * 2;
+    if (activeTab === 'QUICK') targetX = tabWidth;
+    if (activeTab === 'TURBO') targetX = tabWidth * 2;
 
     Animated.spring(underlineTranslateX, {
       toValue: targetX,
@@ -91,6 +108,11 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
       tension: 50,
       friction: 8,
     }).start();
+  }, [width, activeTab, underlineTranslateX]);
+
+  // Underline slide animation for tab change
+  const handleTabChange = (tab: 'REGULAR' | 'QUICK' | 'TURBO') => {
+    setActiveTab(tab);
   };
 
   const pressInButton = () => {
@@ -240,14 +262,34 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
     <View style={styles.container}>
       {/* Fixed Premium White Header Bar */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.headerLink} onPress={handleLogout}>
-          <Text style={styles.logoutLinkText}>LOGOUT</Text>
+        <TouchableOpacity 
+          style={styles.avatarProfile} 
+          onPress={() => Alert.alert('Profile', 'Would you like to logout?', [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Logout', onPress: handleLogout, style: 'destructive' }
+          ])}
+        >
+          <View style={styles.avatarCircle}>
+            <Text style={styles.avatarText}>{currentUser.username.charAt(0).toUpperCase()}</Text>
+          </View>
+          <View style={styles.onlineDot} />
         </TouchableOpacity>
         
         <Text style={styles.logoText}>SEXUS</Text>
         
         <TouchableOpacity style={styles.walletPill} onPress={onGoToWallet}>
-          <Text style={styles.walletIcon}>🪙</Text>
+          <Svg width="18" height="18" viewBox="0 0 24 24" style={{ marginRight: 6 }}>
+            <Defs>
+              <RadialGradient id="coinGrad" cx="50%" cy="50%" rx="50%" ry="50%">
+                <Stop offset="0%" stopColor="#FCD34D" />
+                <Stop offset="70%" stopColor="#F59E0B" />
+                <Stop offset="100%" stopColor="#D97706" />
+              </RadialGradient>
+            </Defs>
+            <Circle cx="12" cy="12" r="11" fill="url(#coinGrad)" stroke="#B45309" strokeWidth="1" />
+            <Circle cx="12" cy="12" r="8.5" fill="none" stroke="#FEF3C7" strokeWidth="0.8" strokeDasharray="2,1" />
+            <Path d="M9 7h6M9 9h6M9 9c3 0 4 2 4 4s-2 3-4 3M11 16l4 4" stroke="#FFF" strokeWidth="1.8" strokeLinecap="round" />
+          </Svg>
           <Text style={styles.walletBalance}>₹{balances.total.toFixed(2)}</Text>
         </TouchableOpacity>
       </View>
@@ -257,12 +299,23 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         <View style={styles.tabsWrapper}>
           <View style={styles.tabsContainer}>
             <TouchableOpacity style={styles.tabBtn} onPress={() => handleTabChange('REGULAR')}>
+              <Svg width="16" height="16" viewBox="0 0 24 24" fill="none" style={{ marginBottom: 4 }}>
+                <Path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" fill={activeTab === 'REGULAR' ? "#6366F1" : "#E2E8F0"} stroke={activeTab === 'REGULAR' ? "#4F46E5" : "#94A3B8"} strokeWidth="2" strokeLinejoin="round" />
+              </Svg>
               <Text style={[styles.tabBtnText, activeTab === 'REGULAR' && styles.tabBtnTextActive]}>REGULAR</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.tabBtn} onPress={() => handleTabChange('QUICK')}>
+              <Svg width="16" height="16" viewBox="0 0 24 24" fill="none" style={{ marginBottom: 4 }}>
+                <Circle cx="12" cy="13" r="8" stroke={activeTab === 'QUICK' ? "#F59E0B" : "#94A3B8"} strokeWidth="2" />
+                <Path d="M12 5V2M9 2h6M12 9l3 3" stroke={activeTab === 'QUICK' ? "#F59E0B" : "#94A3B8"} strokeWidth="2" strokeLinecap="round" />
+                <Path d="M11 12l2.5-3.5h-3l2-3.5" fill={activeTab === 'QUICK' ? "#F59E0B" : "#94A3B8"} />
+              </Svg>
               <Text style={[styles.tabBtnText, activeTab === 'QUICK' && styles.tabBtnTextActive]}>QUICK</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.tabBtn} onPress={() => handleTabChange('TURBO')}>
+              <Svg width="16" height="16" viewBox="0 0 24 24" fill="none" style={{ marginBottom: 4 }}>
+                <Path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" fill={activeTab === 'TURBO' ? "#EF4444" : "#CBD5E1"} stroke={activeTab === 'TURBO' ? "#DC2626" : "#94A3B8"} strokeWidth="1.5" strokeLinejoin="round" />
+              </Svg>
               <Text style={[styles.tabBtnText, activeTab === 'TURBO' && styles.tabBtnTextActive]}>TURBO</Text>
             </TouchableOpacity>
           </View>
@@ -348,22 +401,31 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
               key={fee}
               style={[styles.tierCard, selectedTier === fee && styles.selectedTierCard]}
               onPress={() => setSelectedTier(fee)}
+              activeOpacity={0.7}
               disabled={isSearching}
             >
               <Text style={[styles.tierFeeText, selectedTier === fee && styles.selectedText]}>
                 ₹{fee}
               </Text>
               {/* Win payout field with Emerald Green color highlight */}
-              <Text style={[styles.tierUnitText, selectedTier === fee ? styles.selectedUnitText : styles.greenWinText]}>
-                Win ₹{(fee * 1.8).toFixed(0)}
-              </Text>
+              <View style={styles.winBadge}>
+                <Text style={styles.winBadgeText}>💰 WIN ₹{(fee * 1.8).toFixed(0)}</Text>
+              </View>
             </TouchableOpacity>
           ))}
         </View>
 
         {isSearching ? (
           <View style={styles.searchingCard}>
-            <ActivityIndicator size="large" color="#6366F1" />
+            <View style={{ alignItems: 'center', justifyContent: 'center', height: 120 }}>
+              <Animated.View style={{ transform: [{ scale: radarPulse }], opacity: radarOpacity, position: 'absolute' }}>
+                <Svg width="120" height="120" viewBox="0 0 120 120">
+                  <Circle cx="60" cy="60" r="50" fill="none" stroke="#6366F1" strokeWidth="2" opacity="0.5" />
+                  <Circle cx="60" cy="60" r="30" fill="none" stroke="#6366F1" strokeWidth="1" opacity="0.3" />
+                </Svg>
+              </Animated.View>
+              <ActivityIndicator size="large" color="#6366F1" />
+            </View>
             <Text style={styles.searchingText}>LOOKING FOR ACTIVE PLAYERS...</Text>
             <Text style={styles.timerText}>Starting match shortly in {searchTimer}s</Text>
             <TouchableOpacity style={styles.cancelBtn} onPress={handleCancelSearch}>
@@ -373,7 +435,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         ) : (
           <View style={styles.actionsContainer}>
             {/* Find Live Match Button with scale animation wrappers */}
-            <Animated.View style={{ transform: [{ scale: buttonScale }] }}>
+            <Animated.View style={{ transform: [{ scale: buttonScale }, { scale: ctaPulse }] }}>
               <TouchableOpacity
                 style={styles.primaryActionBtn}
                 onPress={handleJoinMatchmaking}
@@ -381,7 +443,12 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 onPressOut={pressOutButton}
                 activeOpacity={0.9}
               >
-                <Text style={styles.primaryActionText}>FIND LIVE MATCH</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Svg width="20" height="20" viewBox="0 0 24 24" fill="none" style={{ marginRight: 8 }}>
+                    <Path d="M20 4L4 20M4 4l16 16M12 12V4" stroke="#FFF" strokeWidth="2.5" strokeLinecap="round" />
+                  </Svg>
+                  <Text style={styles.primaryActionText}>FIND LIVE MATCH</Text>
+                </View>
               </TouchableOpacity>
             </Animated.View>
 
@@ -406,15 +473,24 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         {/* Global navigation shortcuts */}
         <View style={styles.shortcutsRow}>
           <TouchableOpacity style={styles.shortcutBtn} onPress={onGoToLeaderboard}>
-            <Text style={styles.shortcutEmoji}>🏆</Text>
+            <Svg width="22" height="22" viewBox="0 0 24 24" fill="none" style={{ marginBottom: 4 }}>
+              <Path d="M6 9H4.5a2.5 2.5 0 010-5H6M18 9h1.5a2.5 2.5 0 000-5H18M4 22h16M10 14.66V17h4v-2.34M12 2a7 7 0 00-7 7c0 3.18 2.13 5.86 5 6.71V20h4v-4.29c2.87-.85 5-3.53 5-6.71a7 7 0 00-7-7z" stroke="#6366F1" strokeWidth="2" strokeLinecap="round" />
+            </Svg>
             <Text style={styles.shortcutText}>Rankings</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.shortcutBtn} onPress={onGoToChallenges}>
-            <Text style={styles.shortcutEmoji}>🎁</Text>
+            <Svg width="22" height="22" viewBox="0 0 24 24" fill="none" style={{ marginBottom: 4 }}>
+              <Circle cx="12" cy="12" r="10" stroke="#10B981" strokeWidth="2" />
+              <Circle cx="12" cy="12" r="6" stroke="#10B981" strokeWidth="2" />
+              <Circle cx="12" cy="12" r="2" fill="#10B981" />
+            </Svg>
             <Text style={styles.shortcutText}>Milestones</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.shortcutBtn} onPress={onGoToWallet}>
-            <Text style={styles.shortcutEmoji}>💳</Text>
+            <Svg width="22" height="22" viewBox="0 0 24 24" fill="none" style={{ marginBottom: 4 }}>
+              <Rect x="2" y="5" width="20" height="14" rx="2" stroke="#F59E0B" strokeWidth="2" />
+              <Path d="M2 10h20M6 14h4" stroke="#F59E0B" strokeWidth="2" />
+            </Svg>
             <Text style={styles.shortcutText}>Wallet</Text>
           </TouchableOpacity>
         </View>
@@ -439,19 +515,37 @@ const styles = StyleSheet.create({
     borderColor: '#F1F5F9', // Clean slate border
     marginTop: 20,
   },
-  headerLink: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    backgroundColor: '#FFF5F5',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#FEE2E2',
+  avatarProfile: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
   },
-  logoutLinkText: {
-    color: '#EF4444', // Red logout trigger link
+  avatarCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#EEF2FF',
+    borderWidth: 1.5,
+    borderColor: '#6366F1',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText: {
+    color: '#6366F1',
     fontWeight: 'bold',
-    fontSize: 10,
-    letterSpacing: 0.5,
+    fontSize: 16,
+  },
+  onlineDot: {
+    position: 'absolute',
+    right: -2,
+    bottom: -2,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#10B981',
+    borderWidth: 2,
+    borderColor: '#FFF',
   },
   logoText: {
     fontSize: 20,
@@ -674,13 +768,19 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#0F172A',
   },
-  tierUnitText: {
-    fontSize: 11,
-    marginTop: 3,
-    fontWeight: '700',
+  winBadge: {
+    marginTop: 6,
+    backgroundColor: '#ECFDF5',
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#D1FAE5',
   },
-  greenWinText: {
-    color: '#10B981', // Brilliant emerald accent Win text fields
+  winBadgeText: {
+    color: '#10B981',
+    fontSize: 11,
+    fontWeight: '800',
   },
   selectedUnitText: {
     color: '#6366F1',

@@ -12,6 +12,7 @@ import {
   Easing,
   StatusBar,
   SafeAreaView,
+  useWindowDimensions,
 } from 'react-native';
 import Svg, {
   Rect,
@@ -30,10 +31,11 @@ import axios from 'axios';
 
 const API_SERVER_URL = process.env.EXPO_PUBLIC_SERVER_URL || 'http://localhost:5000';
 
-const { width, height } = Dimensions.get('window');
-// Bigger board - use more screen width
-const BOARD_SIZE = Math.min(width - 20, height * 0.55);
-const CELL_SIZE = BOARD_SIZE / 15;
+const { width: initWidth, height: initHeight } = Dimensions.get('window');
+// Initial dummy values for StyleSheet
+const INITIAL_MAX_BOARD = Math.min(initWidth - 20, 500);
+const INITIAL_BOARD_SIZE = Math.min(INITIAL_MAX_BOARD, initHeight - 380);
+const INITIAL_CELL_SIZE = INITIAL_BOARD_SIZE / 15;
 
 interface UserProfile {
   _id: string;
@@ -412,6 +414,11 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   requestForfeit,
   isConnected,
 }) => {
+  const { width, height } = useWindowDimensions();
+  const MAX_BOARD_WIDTH = Math.min(width - 20, 500);
+  const BOARD_SIZE = Math.max(200, Math.min(MAX_BOARD_WIDTH, height - 380));
+  const CELL_SIZE = BOARD_SIZE / 15;
+
   const [diceDisplayVal, setDiceDisplayVal] = useState<number>(1);
   const [isDiceAnimating, setIsDiceAnimating] = useState(false);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
@@ -984,7 +991,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
       </View>
 
       {/* ========== BOARD ========== */}
-      <View style={styles.boardWrapper}>
+      <View style={[styles.boardWrapper, { width: BOARD_SIZE, height: BOARD_SIZE }]}>
         <Svg width={BOARD_SIZE} height={BOARD_SIZE} style={styles.boardSvg}>
           <Defs>
             <LinearGradient id="redGrad" x1="0" y1="0" x2="1" y2="1">
@@ -1386,6 +1393,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
                 key={`${pIdx}_token_view_group_${representativeTIdx}`}
                 style={[
                   styles.pawnWrapper,
+                  { width: CELL_SIZE, height: CELL_SIZE * 1.15 },
                   {
                     transform: [
                       { translateX: pawnPositions[tokenIdx].x },
@@ -1418,6 +1426,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
                     <Animated.View 
                       style={[
                         styles.dottedHighlight,
+                        { width: CELL_SIZE * 1.25, height: CELL_SIZE * 1.25, borderRadius: (CELL_SIZE * 1.25) / 2 },
                         {
                           position: 'relative',
                           borderColor: pIdx === 0 ? COLORS.red.primary : COLORS.green.primary,
@@ -1430,6 +1439,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
                     pointerEvents="none"
                     style={[
                       styles.glowHighlight,
+                      { width: CELL_SIZE * 1.05, height: CELL_SIZE * 1.05, borderRadius: (CELL_SIZE * 1.05) / 2 },
                       {
                         opacity: (canMoveToken && !isInYard) ? 1 : 0,
                         borderColor: pIdx === 0 ? COLORS.red.primary : COLORS.green.primary,
@@ -1847,8 +1857,8 @@ const styles = StyleSheet.create({
   // ============ BOARD ============
   boardWrapper: {
     position: 'relative',
-    width: BOARD_SIZE,
-    height: BOARD_SIZE,
+    width: INITIAL_BOARD_SIZE,
+    height: INITIAL_BOARD_SIZE,
     borderWidth: 3,
     borderColor: '#1E293B',
     borderRadius: 12,
@@ -1865,16 +1875,16 @@ const styles = StyleSheet.create({
   },
   pawnWrapper: {
     position: 'absolute',
-    width: CELL_SIZE,
-    height: CELL_SIZE * 1.15,
+    width: INITIAL_CELL_SIZE,
+    height: INITIAL_CELL_SIZE * 1.15,
     alignItems: 'center',
     justifyContent: 'center',
   },
   glowHighlight: {
     position: 'absolute',
-    width: CELL_SIZE * 1.05,
-    height: CELL_SIZE * 1.05,
-    borderRadius: (CELL_SIZE * 1.05) / 2,
+    width: INITIAL_CELL_SIZE * 1.05,
+    height: INITIAL_CELL_SIZE * 1.05,
+    borderRadius: (INITIAL_CELL_SIZE * 1.05) / 2,
     borderWidth: 2.2,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.6,
@@ -1882,9 +1892,9 @@ const styles = StyleSheet.create({
   },
   dottedHighlight: {
     position: 'absolute',
-    width: CELL_SIZE * 1.25,
-    height: CELL_SIZE * 1.25,
-    borderRadius: (CELL_SIZE * 1.25) / 2,
+    width: INITIAL_CELL_SIZE * 1.25,
+    height: INITIAL_CELL_SIZE * 1.25,
+    borderRadius: (INITIAL_CELL_SIZE * 1.25) / 2,
     borderWidth: 3,
     borderStyle: 'dashed',
   },
