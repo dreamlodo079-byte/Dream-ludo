@@ -29,6 +29,9 @@ interface UserProfile {
   kycType?: 'PAN' | 'AADHAAR' | null;
   kycDocumentNumber?: string | null;
   kycName?: string | null;
+  referralCode?: string;
+  friendsJoined?: number;
+  referredBy?: string | null;
 }
 
 interface AuthWalletScreenProps {
@@ -36,6 +39,7 @@ interface AuthWalletScreenProps {
   currentUser: UserProfile | null;
   onLogout?: () => void;
   onUserUpdate?: (user: UserProfile) => void;
+  onNavigateAdmin?: () => void;
 }
 
 // Custom Premium Vector Icons
@@ -87,6 +91,7 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
   currentUser,
   onLogout,
   onUserUpdate,
+  onNavigateAdmin,
 }) => {
   const { balances, history, loading, error, fetchWallet, addCash, withdrawWinnings } = useWallet();
 
@@ -100,6 +105,9 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
   const [otpTimer, setOtpTimer] = useState(0);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [referredByCode, setReferredByCode] = useState('');
+  const [isFocusedRefCode, setIsFocusedRefCode] = useState(false);
+  const [isRefClaimed, setIsRefClaimed] = useState(false);
 
   // Focus rings tracking
   const [isFocusedPhone, setIsFocusedPhone] = useState(false);
@@ -125,7 +133,9 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
   const [kycDocNum, setKycDocNum] = useState('');
   const [isSubmittingKyc, setIsSubmittingKyc] = useState(false);
 
-  const referralCode = 'SEXUS50SEXUS';
+  const referralCode = currentUser?.referralCode || 'SEXUS50SEXUS';
+  const friendsJoined = currentUser?.friendsJoined || 0;
+  const totalCashEarned = friendsJoined * 100;
   const referralUrl = `https://sexus.platform/signup?ref=${referralCode}`;
 
   const [isHistoryExpanded, setIsHistoryExpanded] = useState(false);
@@ -196,6 +206,7 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
         username: isLoginMode ? undefined : username,
         password,
         isLogin: isLoginMode,
+        referredByCode: !isLoginMode ? (referredByCode.trim().toUpperCase() || undefined) : undefined,
       });
 
       if (response.data.success) {
@@ -228,10 +239,12 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
         password,
         otp: otpCode,
         isLogin: isLoginMode,
+        referredByCode: !isLoginMode ? (referredByCode.trim().toUpperCase() || undefined) : undefined,
       });
 
       if (response.data.success) {
         axios.defaults.headers.common['x-auth-token'] = response.data.token;
+        axios.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`;
         onLoginSuccess(response.data.user, response.data.token);
       }
     } catch (err: any) {
@@ -251,6 +264,7 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
       if (response.data.success && response.data.user) {
         if (response.data.token) {
           axios.defaults.headers.common['x-auth-token'] = response.data.token;
+          axios.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`;
         }
 
         try {
@@ -531,6 +545,55 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
                     <Text style={{ fontSize: 16 }}>{showPassword ? '🙈' : '👁️'}</Text>
                   </TouchableOpacity>
                 </View>
+
+                {!isLoginMode && (
+                  <View style={{ marginBottom: 12 }}>
+                    <View style={[
+                      styles.referralCapsuleWrapper,
+                      isFocusedRefCode && styles.referralCapsuleFocused,
+                      isRefClaimed && styles.referralCapsuleClaimed
+                    ]}>
+                      <Text style={{ fontSize: 16, marginRight: 8 }}>🎁</Text>
+                      <TextInput
+                        style={styles.referralCapsuleInput}
+                        placeholder="Referral Code (Optional)"
+                        placeholderTextColor="#94A3B8"
+                        value={referredByCode}
+                        onChangeText={(txt) => {
+                          setReferredByCode(txt.toUpperCase());
+                          setIsRefClaimed(false);
+                        }}
+                        onFocus={() => setIsFocusedRefCode(true)}
+                        onBlur={() => setIsFocusedRefCode(false)}
+                        autoCapitalize="characters"
+                        autoCorrect={false}
+                      />
+                      <TouchableOpacity
+                        style={[styles.claimBonusBtn, isRefClaimed && styles.claimBonusBtnClaimed]}
+                        onPress={() => {
+                          if (!referredByCode.trim()) {
+                            showCustomAlert('Referral Code', 'Please enter a referral code first.', 'info');
+                            return;
+                          }
+                          setIsRefClaimed(true);
+                          showCustomAlert(
+                            'Referral Code Applied! 🎁',
+                            `Code "${referredByCode.trim().toUpperCase()}" verified! You will receive ₹10 extra bonus cash upon completing signup.`,
+                            'success'
+                          );
+                        }}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={styles.claimBonusText}>{isRefClaimed ? '✓ CLAIMED' : 'CLAIM'}</Text>
+                      </TouchableOpacity>
+                    </View>
+                    <Text style={styles.referralHintSub}>
+                      {isRefClaimed
+                        ? '✨ Referral bonus unlocked! Complete signup to receive ₹10 bonus cash.'
+                        : '💡 Have a friend\'s code? Type it & tap CLAIM for ₹10 bonus cash!'}
+                    </Text>
+                  </View>
+                )}
 
                 <TouchableOpacity
                   style={styles.authButton}
@@ -867,12 +930,12 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
       
       <View style={styles.referMetricsGrid}>
         <View style={styles.referMetricCol}>
-          <Text style={styles.referMetricVal}>12</Text>
+          <Text style={styles.referMetricVal}>{friendsJoined}</Text>
           <Text style={styles.referMetricLabel}>Friends Joined</Text>
         </View>
         <View style={styles.metricDivider} />
         <View style={styles.referMetricCol}>
-          <Text style={[styles.referMetricVal, styles.greenText]}>₹600</Text>
+          <Text style={[styles.referMetricVal, styles.greenText]}>₹{totalCashEarned}</Text>
           <Text style={styles.referMetricLabel}>Total Cash Earned</Text>
         </View>
       </View>
@@ -1098,6 +1161,26 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
           <Text style={styles.usernameHeader}>{currentUser.username}</Text>
           <Text style={styles.phoneSub}>{currentUser.phone}</Text>
         </View>
+
+        {/* Hidden Super-Admin Telemetry Dashboard Mounting Switch */}
+        {(currentUser.phone === '7389927777' || currentUser.phone.endsWith('7389927777')) && (
+          <TouchableOpacity
+            style={styles.adminCardRow}
+            onPress={() => {
+              if (onNavigateAdmin) onNavigateAdmin();
+            }}
+            activeOpacity={0.8}
+          >
+            <View style={styles.adminCardLeft}>
+              <Text style={styles.adminCardIcon}>🎛️</Text>
+              <View>
+                <Text style={styles.adminCardTitle}>Admin Telemetry Dashboard</Text>
+                <Text style={styles.adminCardSub}>Super-Admin Operational & Revenue Controls</Text>
+              </View>
+            </View>
+            <Text style={styles.adminCardArrow}>➔</Text>
+          </TouchableOpacity>
+        )}
 
         {/* 2. Wallet Balance Card (Always on Top) */}
         {renderBalanceCard()}
@@ -2077,6 +2160,97 @@ const styles = StyleSheet.create({
     color: '#64748B',
     textAlign: 'center',
     textDecorationLine: 'underline',
+  },
+  adminCardRow: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1.5,
+    borderColor: '#4F46E5',
+    shadowColor: '#4F46E5',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  adminCardLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  adminCardIcon: {
+    fontSize: 22,
+    marginRight: 12,
+  },
+  adminCardTitle: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#0F172A',
+  },
+  adminCardSub: {
+    fontSize: 11,
+    color: '#4F46E5',
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  adminCardArrow: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#4F46E5',
+  },
+  referralCapsuleWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EEF2FF',
+    borderWidth: 1.5,
+    borderColor: '#C7D2FE',
+    borderRadius: 24,
+    paddingHorizontal: 14,
+    height: 48,
+    marginTop: 8,
+  },
+  referralCapsuleFocused: {
+    borderColor: '#4F46E5',
+    backgroundColor: '#FFFFFF',
+  },
+  referralCapsuleClaimed: {
+    borderColor: '#10B981',
+    backgroundColor: '#ECFDF5',
+  },
+  referralCapsuleInput: {
+    flex: 1,
+    height: '100%',
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1E293B',
+    letterSpacing: 0.5,
+  },
+  claimBonusBtn: {
+    backgroundColor: '#4F46E5',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  claimBonusBtnClaimed: {
+    backgroundColor: '#10B981',
+  },
+  claimBonusText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  referralHintSub: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#6366F1',
+    marginTop: 4,
+    marginLeft: 12,
   },
 });
 export default AuthWalletScreen;

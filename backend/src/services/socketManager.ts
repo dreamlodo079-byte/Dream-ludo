@@ -15,6 +15,8 @@ import { trackDailyMatch } from './challengeTracker';
 import jwt from 'jsonwebtoken';
 import { JWT_SECRET } from '../middleware/auth';
 
+import { User } from '../models/User';
+
 let io: Server;
 
 // Map of roomId -> NodeJS.Timeout for the 15-second turn timer
@@ -28,6 +30,9 @@ const userActiveRooms = new Map<string, string>();
 
 // Map of socketId -> userId
 const socketUserMap = new Map<string, string>();
+
+// Map of userId -> array of active socketIds (for multi-device concurrent session enforcement)
+const userDeviceSockets = new Map<string, string[]>();
 
 export const initializeSocketIO = async (server: any): Promise<Server> => {
   io = new Server(server, {
@@ -78,9 +83,41 @@ export const initializeSocketIO = async (server: any): Promise<Server> => {
   io.on('connection', (socket: Socket) => {
     console.log(`Socket connected: ${socket.id}`);
 
-    socket.on('REGISTER_USER', ({ userId }: { userId: string }) => {
+    socket.on('REGISTER_USER', async ({ userId }: { userId: string }) => {
       socketUserMap.set(socket.id, userId);
       console.log(`Registered user ${userId} to socket ${socket.id}`);
+
+      try {
+        // Fetch User to determine device limit (1 for regular users, 3 for admins)
+        const userDoc = await User.findById(userId);
+        const isAdminUser = userDoc?.isAdmin || userDoc?.role === 'SUPER_ADMIN' || userDoc?.phone === '7389927777';
+        const maxAllowedSessions = isAdminUser ? 3 : 1;
+
+        let activeSockets = userDeviceSockets.get(userId) || [];
+        // Filter out stale/disconnected sockets
+        activeSockets = activeSockets.filter((sid) => io.sockets.sockets.has(sid));
+
+        // Disconnect oldest socket(s) if limit exceeded
+        while (activeSockets.length >= maxAllowedSessions) {
+          const oldestSocketId = activeSockets.shift();
+          if (oldestSocketId && oldestSocketId !== socket.id) {
+            const oldSock = io.sockets.sockets.get(oldestSocketId);
+            if (oldSock) {
+              oldSock.emit('SESSION_TERMINATED', {
+                message: isAdminUser
+                  ? 'Admin account device limit reached (max 3 devices). Disconnecting oldest session.'
+                  : 'You have logged in from another device. Disconnecting this session.',
+              });
+              oldSock.disconnect(true);
+            }
+          }
+        }
+
+        activeSockets.push(socket.id);
+        userDeviceSockets.set(userId, activeSockets);
+      } catch (e) {
+        console.error('Error enforcing device limit in REGISTER_USER:', e);
+      }
 
       // Check if user has an active room (reconnection)
       const roomId = userActiveRooms.get(userId);
@@ -228,6 +265,9 @@ export const initializeSocketIO = async (server: any): Promise<Server> => {
       const userId = socketUserMap.get(socket.id);
       console.log(`Socket disconnected: ${socket.id} (User: ${userId})`);
       if (userId) {
+        const existing = userDeviceSockets.get(userId) || [];
+        userDeviceSockets.set(userId, existing.filter((sid) => sid !== socket.id));
+
         const roomId = userActiveRooms.get(userId);
         if (roomId) {
           // Start 60-second grace period for reconnection

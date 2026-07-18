@@ -95,11 +95,14 @@ function AppContent() {
   const handleLoginSuccess = (user: UserProfile, token?: string) => {
     setCurrentUser(user);
     setView('dashboard');
+    if (token) {
+      axios.defaults.headers.common['x-auth-token'] = token;
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    }
     if (Platform.OS === 'web') {
       localStorage.setItem('currentUser', JSON.stringify(user));
       if (token) {
         localStorage.setItem('authToken', token);
-        axios.defaults.headers.common['x-auth-token'] = token;
       }
     }
   };

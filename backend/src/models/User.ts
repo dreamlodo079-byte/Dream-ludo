@@ -6,6 +6,8 @@ export interface IUser extends Document {
   upiId?: string;
   isActive: boolean;
   isKycVerified: boolean;
+  role: 'USER' | 'SUPER_ADMIN';
+  isAdmin: boolean;
   panNumber?: string | null;
   aadhaarNumber?: string | null;
   kycStatus: 'NONE' | 'PENDING' | 'APPROVED' | 'REJECTED';
@@ -15,6 +17,9 @@ export interface IUser extends Document {
   depositBalance: number;
   winningsBalance: number;
   bonusBalance: number;
+  referralCode?: string;
+  friendsJoined?: number;
+  referredBy?: string | null;
   password?: string;
   createdAt: Date;
   updatedAt: Date;
@@ -46,6 +51,15 @@ const UserSchema = new Schema<IUser, IUserModel>(
       default: true,
     },
     isKycVerified: {
+      type: Boolean,
+      default: false,
+    },
+    role: {
+      type: String,
+      enum: ['USER', 'SUPER_ADMIN'],
+      default: 'USER',
+    },
+    isAdmin: {
       type: Boolean,
       default: false,
     },
@@ -95,16 +109,38 @@ const UserSchema = new Schema<IUser, IUserModel>(
       type: Number,
       default: 0,
     },
+    referralCode: {
+      type: String,
+      unique: true,
+      sparse: true,
+      uppercase: true,
+      trim: true,
+    },
+    friendsJoined: {
+      type: Number,
+      default: 0,
+    },
+    referredBy: {
+      type: String,
+      default: null,
+      trim: true,
+    },
   },
   {
     timestamps: true,
   }
 );
 
-// Pre-save hook: set bonusBalance to 10.00 for new registrations
+// Pre-save hook: set bonusBalance and unique uppercase referralCode for new registrations
 UserSchema.pre('save', function (next) {
   if (this.isNew) {
-    this.bonusBalance = 10.00;
+    if (!this.bonusBalance) {
+      this.bonusBalance = 10.00;
+    }
+    if (!this.referralCode) {
+      const suffix = Math.random().toString(36).substring(2, 8).toUpperCase();
+      this.referralCode = `SEXUS${suffix}`;
+    }
   }
   next();
 });
