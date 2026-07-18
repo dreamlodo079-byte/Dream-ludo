@@ -2,7 +2,7 @@ export interface Player {
   id: string; // Socket ID or User database ID
   username: string;
   color: 'red' | 'green';
-  tokens: number[]; // Array of 4 tokens, values range from -1 (in yard) to 56 (home run terminal)
+  tokens: number[]; // Array of tokens, values range from -1 (in yard) to 56 (home run terminal)
   isBot: boolean;
 }
 
@@ -18,6 +18,15 @@ export interface MatchState {
   isTerminated: boolean;
   entryFee: number;
   preTurnTokens?: number[][]; // Coordinates snapshot at start of turn to process 3x consecutive 6s rollback
+
+  // Custom Game Modes (QUICK, REGULAR, ROOMS)
+  gameMode?: 'QUICK' | 'REGULAR' | 'ROOMS';
+  matchTimer?: number; // Countdown timer for QUICK mode
+  scores?: number[]; // Scores for players in QUICK mode
+  customRules?: {
+    turnTimer?: number;
+    tokenCount?: number;
+  };
 }
 
 // Common track length
@@ -46,7 +55,7 @@ export const getCommonIndex = (playerIndex: number, localPos: number): number =>
  */
 export const rotateTurn = (state: MatchState): void => {
   state.activePlayerIndex = (state.activePlayerIndex + 1) % state.players.length;
-  state.turnTimer = 15;
+  state.turnTimer = state.customRules?.turnTimer || (state.gameMode === 'ROOMS' && state.customRules?.turnTimer) || 15;
   state.hasRolled = false;
   state.diceRoll = null;
   state.consecutiveSixes = 0;
@@ -60,8 +69,14 @@ export const createInitialState = (
   roomId: string,
   player0: { id: string; username: string; isBot: boolean },
   player1: { id: string; username: string; isBot: boolean },
-  entryFee: number
+  entryFee: number,
+  gameMode: 'QUICK' | 'REGULAR' | 'ROOMS' = 'REGULAR',
+  customRules?: { turnTimer?: number; tokenCount?: number }
 ): MatchState => {
+  const tokenCount = gameMode === 'QUICK' ? 2 : (gameMode === 'ROOMS' && customRules?.tokenCount) || 4;
+  const initialTokens = Array.from({ length: tokenCount }, () => -1);
+  const initialPreTurnTokens = Array.from({ length: 2 }, () => Array.from({ length: tokenCount }, () => -1));
+
   return {
     roomId,
     players: [
@@ -69,14 +84,14 @@ export const createInitialState = (
         id: player0.id,
         username: player0.username,
         color: 'red',
-        tokens: [-1, -1, -1, -1],
+        tokens: [...initialTokens],
         isBot: player0.isBot,
       },
       {
         id: player1.id,
         username: player1.username,
         color: 'green',
-        tokens: [-1, -1, -1, -1],
+        tokens: [...initialTokens],
         isBot: player1.isBot,
       },
     ],
@@ -85,10 +100,14 @@ export const createInitialState = (
     hasRolled: false,
     consecutiveSixes: 0,
     winnerId: null,
-    turnTimer: 15,
+    turnTimer: customRules?.turnTimer || 15,
     isTerminated: false,
     entryFee,
-    preTurnTokens: [[-1, -1, -1, -1], [-1, -1, -1, -1]],
+    preTurnTokens: initialPreTurnTokens,
+    gameMode,
+    matchTimer: gameMode === 'QUICK' ? 300 : undefined,
+    scores: gameMode === 'QUICK' ? [0, 0] : undefined,
+    customRules: gameMode === 'ROOMS' ? customRules : undefined,
   };
 };
 
@@ -105,9 +124,9 @@ export const getValidMoves = (state: MatchState, roll: number): number[] => {
     // Already home, cannot move
     if (pos === 56) continue;
 
-    // Locked in yard: requires a 6 to release to position 0
+    // Locked in yard: QUICK mode bypasses yard release constraint (any roll works)
     if (pos === -1) {
-      if (roll === 6) {
+      if (state.gameMode === 'QUICK' || roll === 6) {
         validTokenIndices.push(i);
       }
       continue;
@@ -192,13 +211,14 @@ export const executeMove = (state: MatchState, tokenIndex: number): { capturedTo
     throw new Error('Token is already home');
   }
 
-  if (currentPos === -1 && roll !== 6) {
+  if (currentPos === -1 && state.gameMode !== 'QUICK' && roll !== 6) {
     throw new Error('Token is locked in yard and requires a 6 to release');
   }
 
   let nextPos = currentPos;
-  if (currentPos === -1 && roll === 6) {
-    nextPos = 0; // Released to start tile
+  if (currentPos === -1) {
+    // Releasing to start tile
+    nextPos = 0;
   } else {
     nextPos = currentPos + roll;
   }
@@ -245,11 +265,30 @@ export const executeMove = (state: MatchState, tokenIndex: number): { capturedTo
     }
   }
 
+  // Calculate scores for QUICK mode
+  if (state.gameMode === 'QUICK') {
+    let pointsEarned = 0;
+    if (currentPos === -1 && nextPos === 0) {
+      pointsEarned = 1; // 1 tile advanced = 1 point
+    } else {
+      pointsEarned = nextPos - currentPos; // 1 tile advanced = 1 point
+    }
+
+    if (hasCaptured) {
+      pointsEarned += 10; // 1 opponent captured = 10 points
+    }
+
+    if (!state.scores) {
+      state.scores = [0, 0];
+    }
+    state.scores[activeIndex] += pointsEarned;
+  }
+
   // Reset roll state
   state.hasRolled = false;
   state.diceRoll = null;
 
-  // Check if player won (all 4 tokens at 56)
+  // Check if player won (all active tokens at 56)
   const isWinner = activePlayer.tokens.every((pos) => pos === 56);
   if (isWinner) {
     state.winnerId = activePlayer.id;
@@ -261,7 +300,7 @@ export const executeMove = (state: MatchState, tokenIndex: number): { capturedTo
     if (getsBonusRoll) {
       state.hasRolled = false;
       state.diceRoll = null;
-      state.turnTimer = 15;
+      state.turnTimer = state.customRules?.turnTimer || (state.gameMode === 'ROOMS' && state.customRules?.turnTimer) || 15;
     } else {
       rotateTurn(state);
     }

@@ -13,9 +13,11 @@ export interface QueueUser {
   username: string;
   socketId: string;
   joinedAt: number;
+  gameMode?: 'QUICK' | 'REGULAR' | 'ROOMS';
 }
 
 const SUPPORTED_TIERS = [50, 100, 500, 1000];
+const PUBLIC_MODES = ['QUICK', 'REGULAR'] as const;
 
 let checkQueueInterval: NodeJS.Timeout | null = null;
 
@@ -28,25 +30,27 @@ const getRandomBotName = (): string => {
   return botNames[Math.floor(Math.random() * botNames.length)];
 };
 
-export const processMatchmakingQueue = async (tier: number): Promise<void> => {
+export const processMatchmakingQueue = async (tier: number, mode: 'QUICK' | 'REGULAR'): Promise<void> => {
   const redis = getRedisClient();
   const io = getIO();
   if (!redis || !io) return;
 
-  const lockKey = `lock:matchmaker:${tier}`;
+  // Mode ROOMS is excluded from automatic matchmaking and bot injection queues
+  if (mode as string === 'ROOMS') return;
 
-  // Attempt to acquire an atomic lock for 1 second (1000 milliseconds)
+  const lockKey = `lock:matchmaker:${tier}:${mode}`;
+
+  // Attempt to acquire an atomic lock for 1 second
   const acquired = await redis.set(lockKey, 'locked', {
-    NX: true, // Only set if key does not exist
-    PX: 1000  // Expiry in milliseconds
+    NX: true,
+    PX: 1000
   });
 
   if (!acquired) {
-    // Another clustered server instance is already running this loop tick
     return;
   }
 
-  const queueKey = `queue:tier_${tier}`;
+  const queueKey = `queue:tier_${tier}_mode_${mode}`;
   try {
     const queueLen = await redis.lLen(queueKey);
     if (queueLen >= 2) {
@@ -58,17 +62,16 @@ export const processMatchmakingQueue = async (tier: number): Promise<void> => {
         const player1: QueueUser = JSON.parse(player1Str);
         const player2: QueueUser = JSON.parse(player2Str);
 
-        await createLiveMatch(player1, player2, tier);
+        await createLiveMatch(player1, player2, tier, false, mode);
       }
     } else if (queueLen === 1) {
-      // Check for 20 second timeout -> Bot Injection
+      // Check for timeout -> Bot Injection
       const playerStr = await redis.lIndex(queueKey, 0);
       if (playerStr) {
         const player: QueueUser = JSON.parse(playerStr);
         const elapsed = Date.now() - player.joinedAt;
 
         if (elapsed >= MATCHMAKING_TIMEOUT_MS) {
-          // Pop the user out to process matchmaking
           await redis.lPop(queueKey);
 
           // Spawn server bot
@@ -79,14 +82,15 @@ export const processMatchmakingQueue = async (tier: number): Promise<void> => {
             username: botUsername,
             socketId: `socket_${botId}`,
             joinedAt: Date.now(),
+            gameMode: mode,
           };
 
-          await createLiveMatch(player, botPlayer, tier, true);
+          await createLiveMatch(player, botPlayer, tier, true, mode);
         }
       }
     }
   } catch (error) {
-    console.error(`Matchmaking cycle exception for tier ${tier}: `, error);
+    console.error(`Matchmaking cycle exception for tier ${tier} mode ${mode}: `, error);
   }
 };
 
@@ -98,13 +102,15 @@ export const startMatchmakingLoop = (): void => {
 
   checkQueueInterval = setInterval(async () => {
     for (const tier of SUPPORTED_TIERS) {
-      await processMatchmakingQueue(tier);
+      for (const mode of PUBLIC_MODES) {
+        await processMatchmakingQueue(tier, mode);
+      }
     }
   }, TICK_INTERVAL);
 };
 
 /**
- * Handles adding user to entry fee tier sorted queue.
+ * Handles adding user to entry fee tier and mode sorted queue.
  */
 export const joinQueue = async (
   userId: string,
@@ -112,7 +118,9 @@ export const joinQueue = async (
   socketId: string,
   entryFee: number,
   roomCode?: string,
-  passcode?: string
+  passcode?: string,
+  gameMode: 'QUICK' | 'REGULAR' | 'ROOMS' = 'REGULAR',
+  customRules?: { turnTimer?: number; tokenCount?: number }
 ): Promise<{ success: boolean; message: string }> => {
   if (!SUPPORTED_TIERS.includes(entryFee)) {
     return { success: false, message: `Unsupported entry fee tier: ${entryFee}` };
@@ -134,15 +142,20 @@ export const joinQueue = async (
     username,
     socketId,
     joinedAt: Date.now(),
+    gameMode,
   };
 
   // If private room credentials are provided, match directly
   if (roomCode && passcode) {
     const lobbyKey = `private_lobby:${roomCode}:${passcode}`;
-    const waitingPlayerStr = await redis.get(lobbyKey);
+    const waitingLobbyStr = await redis.get(lobbyKey);
 
-    if (waitingPlayerStr) {
-      const waitingPlayer: QueueUser = JSON.parse(waitingPlayerStr);
+    if (waitingLobbyStr) {
+      const lobbyData = JSON.parse(waitingLobbyStr);
+      const waitingPlayer: QueueUser = lobbyData.creator;
+      const rules = lobbyData.customRules;
+      const fee = lobbyData.entryFee;
+      const mode = lobbyData.gameMode || 'ROOMS';
 
       if (waitingPlayer.userId === userId) {
         return { success: true, message: 'Already waiting in private room' };
@@ -150,7 +163,7 @@ export const joinQueue = async (
 
       // Check opponent balance
       const oppBalances = await getUserBalances(waitingPlayer.userId);
-      if (oppBalances.total < entryFee) {
+      if (oppBalances.total < fee) {
         await redis.del(lobbyKey);
         return { success: false, message: 'Opponent has insufficient balance to play' };
       }
@@ -158,20 +171,26 @@ export const joinQueue = async (
       // Delete the waiting key
       await redis.del(lobbyKey);
 
-      // Launch the match asynchronously
-      createLiveMatch(waitingPlayer, queueUser, entryFee);
+      // Launch the match asynchronously with cached creator parameters
+      createLiveMatch(waitingPlayer, queueUser, fee, false, mode, rules);
 
       return { success: true, message: 'Lobby joined! Match starting...' };
     } else {
-      // Store current player as the waiting player (10 minutes TTL)
-      await redis.set(lobbyKey, JSON.stringify(queueUser), { PX: 600000 });
+      // Store creator player parameters (10 minutes TTL)
+      const lobbyData = {
+        creator: queueUser,
+        customRules,
+        entryFee,
+        gameMode: 'ROOMS'
+      };
+      await redis.set(lobbyKey, JSON.stringify(lobbyData), { PX: 600000 });
       return { success: true, message: 'Waiting for friend to join room...' };
     }
   }
 
-  const queueKey = `queue:tier_${entryFee}`;
+  const queueKey = `queue:tier_${entryFee}_mode_${gameMode}`;
 
-  // Check if player is already in this or other queue to prevent duplicates
+  // Check if player is already in this queue to prevent duplicates
   const existingQueue = await redis.lRange(queueKey, 0, -1);
   const isAlreadyQueued = existingQueue.some((item: string) => JSON.parse(item).userId === userId);
 
@@ -180,7 +199,7 @@ export const joinQueue = async (
   }
 
   await redis.rPush(queueKey, JSON.stringify(queueUser));
-  console.log(`User ${username} (${userId}) joined queue tier ${entryFee}`);
+  console.log(`User ${username} (${userId}) joined queue tier ${entryFee} mode ${gameMode}`);
 
   // Ensure loop is running
   startMatchmakingLoop();
@@ -195,13 +214,15 @@ const createLiveMatch = async (
   p1: QueueUser,
   p2: QueueUser,
   entryFee: number,
-  hasBot = false
+  hasBot = false,
+  gameMode: 'QUICK' | 'REGULAR' | 'ROOMS' = 'REGULAR',
+  customRules?: { turnTimer?: number; tokenCount?: number }
 ): Promise<void> => {
   const roomId = `room_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
   const io = getIO();
 
   try {
-    // 1. Process entry fees inside a strict database transaction session
+    // 1. Process entry fees inside a database transaction
     await runInTransaction(async (session) => {
       // Human 1 entry fee
       const p1Txn = new Transaction({
@@ -231,7 +252,9 @@ const createLiveMatch = async (
       roomId,
       { id: p1.userId, username: p1.username, isBot: false },
       { id: p2.userId, username: p2.username, isBot: hasBot },
-      entryFee
+      entryFee,
+      gameMode,
+      customRules
     );
 
     // Save mapping in socket manager for reconnection purposes
@@ -252,7 +275,7 @@ const createLiveMatch = async (
       if (p2Socket) p2Socket.join(roomId);
     }
 
-    console.log(`Match created in room ${roomId}. Players: ${p1.username} vs ${p2.username}`);
+    console.log(`Match created in room ${roomId} (Mode: ${gameMode}). Players: ${p1.username} vs ${p2.username}`);
 
     // Emit match start and state
     io.to(roomId).emit('MATCH_START', { roomId, state: matchState });

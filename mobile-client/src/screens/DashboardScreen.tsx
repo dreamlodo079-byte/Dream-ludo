@@ -63,6 +63,8 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   const [isCreatingLobby, setIsCreatingLobby] = useState(false);
   const [joinRoomCode, setJoinRoomCode] = useState('');
   const [joinPasscode, setJoinPasscode] = useState('');
+  const [customTokens, setCustomTokens] = useState<number>(4);
+  const [customTimer, setCustomTimer] = useState<number>(15);
   const [isJoiningLobby, setIsJoiningLobby] = useState(false);
 
   // Active Tournament
@@ -208,6 +210,10 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         roomCode: roomToken,
         passcode: passwordStr,
         mode: 'ROOMS',
+        customRules: {
+          tokenCount: customTokens,
+          turnTimer: customTimer,
+        }
       });
 
       if (response.data.success) {
@@ -552,6 +558,43 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                       </TouchableOpacity>
                     ))}
                   </View>
+
+                  {/* Custom Rules Selector */}
+                  {!lobbyDetails && (
+                    <View style={{ marginBottom: 16 }}>
+                      <Text style={styles.sectionHeader}>CUSTOM RULES</Text>
+                      
+                      <Text style={styles.toggleLabel}>Active Tokens per Player</Text>
+                      <View style={styles.toggleRow}>
+                        {[2, 3, 4].map((count) => (
+                          <TouchableOpacity
+                            key={count}
+                            style={[styles.toggleBtn, customTokens === count && styles.toggleBtnActive]}
+                            onPress={() => setCustomTokens(count)}
+                          >
+                            <Text style={[styles.toggleBtnText, customTokens === count && styles.toggleBtnTextActive]}>
+                              {count} Tokens
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+
+                      <Text style={styles.toggleLabel}>Turn Timer Duration</Text>
+                      <View style={styles.toggleRow}>
+                        {[15, 30, 45].map((seconds) => (
+                          <TouchableOpacity
+                            key={seconds}
+                            style={[styles.toggleBtn, customTimer === seconds && styles.toggleBtnActive]}
+                            onPress={() => setCustomTimer(seconds)}
+                          >
+                            <Text style={[styles.toggleBtnText, customTimer === seconds && styles.toggleBtnTextActive]}>
+                              {seconds}s
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    </View>
+                  )}
 
                   {lobbyDetails ? (
                     <View style={styles.lobbyDetailsBox}>
@@ -1087,5 +1130,41 @@ const styles = StyleSheet.create({
     color: '#4F46E5', // Brand Indigo accent active
     fontSize: 12,
     fontWeight: 'bold',
+  },
+  toggleLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#475569',
+    marginTop: 8,
+    marginBottom: 6,
+  },
+  toggleRow: {
+    flexDirection: 'row',
+    marginBottom: 12,
+    backgroundColor: '#F3F4F6',
+    padding: 3,
+    borderRadius: 12,
+  },
+  toggleBtn: {
+    flex: 1,
+    paddingVertical: 8,
+    alignItems: 'center',
+    borderRadius: 10,
+  },
+  toggleBtnActive: {
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#475569',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  toggleBtnText: {
+    color: '#64748B',
+    fontWeight: '700',
+    fontSize: 11,
+  },
+  toggleBtnTextActive: {
+    color: '#4F46E5',
   },
 });

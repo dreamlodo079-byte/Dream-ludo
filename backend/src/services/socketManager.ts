@@ -268,6 +268,29 @@ export const startRoomTimer = (roomId: string): void => {
       return;
     }
 
+    // Process global countdown timer for QUICK mode
+    if (state.gameMode === 'QUICK' && state.matchTimer !== undefined) {
+      state.matchTimer -= 1;
+      if (state.matchTimer <= 0) {
+        state.isTerminated = true;
+
+        // Determine winner
+        const score0 = state.scores ? state.scores[0] : 0;
+        const score1 = state.scores ? state.scores[1] : 0;
+        if (score0 > score1) {
+          state.winnerId = state.players[0].id;
+        } else if (score1 > score0) {
+          state.winnerId = state.players[1].id;
+        } else {
+          state.winnerId = state.players[0].id;
+        }
+
+        await cacheRoomState(roomId, state);
+        await handleMatchTermination(roomId, state);
+        return;
+      }
+    }
+
     state.turnTimer -= 1;
 
     if (state.turnTimer <= 0) {
@@ -285,6 +308,8 @@ export const startRoomTimer = (roomId: string): void => {
       io.to(roomId).emit('TIMER_TICK', {
         turnTimer: state.turnTimer,
         activePlayerIndex: state.activePlayerIndex,
+        matchTimer: state.matchTimer,
+        scores: state.scores,
       });
     }
   }, 1000);
