@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import io, { Socket } from 'socket.io-client';
 
 const SOCKET_SERVER_URL = process.env.EXPO_PUBLIC_SERVER_URL || 'http://localhost:5000';
@@ -62,13 +62,15 @@ export const useSocket = (userId: string | null) => {
       setMatchState(data.state);
     });
 
-    socket.on('TIMER_TICK', (data: { turnTimer: number; activePlayerIndex: number }) => {
+    socket.on('TIMER_TICK', (data: { turnTimer: number; activePlayerIndex: number; matchTimer?: number; scores?: number[] }) => {
       setMatchState((prev: any) => {
         if (!prev) return prev;
         return {
           ...prev,
           turnTimer: data.turnTimer,
           activePlayerIndex: data.activePlayerIndex,
+          matchTimer: data.matchTimer !== undefined ? data.matchTimer : prev.matchTimer,
+          scores: data.scores !== undefined ? data.scores : prev.scores,
         };
       });
     });
@@ -91,34 +93,34 @@ export const useSocket = (userId: string | null) => {
     };
   }, [userId]);
 
-  const requestRoll = (roomId: string) => {
+  const requestRoll = useCallback((roomId: string) => {
     if (socketRef.current) {
       socketRef.current.emit('REQUEST_ROLL', { roomId });
     }
-  };
+  }, []);
 
-  const requestMove = (roomId: string, tokenIndex: number) => {
+  const requestMove = useCallback((roomId: string, tokenIndex: number) => {
     if (socketRef.current) {
       socketRef.current.emit('REQUEST_MOVE', { roomId, tokenIndex });
     }
-  };
+  }, []);
 
-  const requestForfeit = (roomId: string) => {
+  const requestForfeit = useCallback((roomId: string) => {
     if (socketRef.current) {
       socketRef.current.emit('FORFEIT_MATCH', { roomId });
     }
-  };
+  }, []);
 
-  const clearAlert = () => {
+  const clearAlert = useCallback(() => {
     setAlertMessage(null);
-  };
+  }, []);
 
-  const resetMatchState = () => {
+  const resetMatchState = useCallback(() => {
     setMatchState(null);
     setWinnerInfo(null);
     setDiceRollInfo(null);
     setTokenMoveInfo(null);
-  };
+  }, []);
 
   return {
     socket: socketRef.current,

@@ -6,8 +6,8 @@ import { Transaction, TransactionType, TransactionStatus } from '../models/Trans
 import { Types } from 'mongoose';
 import { trackDailyMatch } from './challengeTracker';
 
-// Safe zone common indices
-const SAFE_COMMON_INDICES = [0, 8, 13, 21, 26, 34, 39, 47];
+// Safe zone common indices (aligned with gameEngine.ts stars)
+const SAFE_COMMON_INDICES = [1, 9, 14, 22, 27, 35, 40, 48];
 
 /**
  * Triggers a bot action (roll or move) with a human-like delay (1.5s - 3.0s).
@@ -28,6 +28,12 @@ export const triggerBotTurn = (roomId: string): void => {
       if (!state.hasRolled) {
         // Roll Phase
         const { roll, shouldPassTurn, consecutiveReset } = executeRoll(state);
+        
+        // Reset turn timer on successful roll so bot has a fresh 15s to choose its token
+        if (!shouldPassTurn) {
+          state.turnTimer = state.customRules?.turnTimer || (state.gameMode === 'ROOMS' && state.customRules?.turnTimer) || 15;
+        }
+
         await cacheRoomState(roomId, state);
 
         io.to(roomId).emit('DICE_ROLLED', {
@@ -38,8 +44,16 @@ export const triggerBotTurn = (roomId: string): void => {
         });
 
         if (shouldPassTurn) {
+          if (consecutiveReset) {
+            io.to(roomId).emit('SYSTEM_ALERT', { message: `${activePlayer.username} rolled three 6s in a row. Turn voided!` });
+          } else {
+            io.to(roomId).emit('SYSTEM_ALERT', { message: `${activePlayer.username} rolled ${roll} (No valid moves). Passing turn.` });
+          }
+
+          rotateTurn(state);
+          await cacheRoomState(roomId, state);
           io.to(roomId).emit('MATCH_STATE_UPDATE', state);
-          // If turn shifted to another bot (unlikely in 1v1 unless bot rolled 3 6s), trigger bot turn
+          
           const nextPlayer = state.players[state.activePlayerIndex];
           if (nextPlayer.isBot) {
             triggerBotTurn(roomId);
