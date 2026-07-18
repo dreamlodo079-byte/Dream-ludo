@@ -117,6 +117,7 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
   const referralUrl = `https://sexus.platform/signup?ref=${referralCode}`;
 
   const [isHistoryExpanded, setIsHistoryExpanded] = useState(false);
+  const [activePolicy, setActivePolicy] = useState<string | null>(null);
 
   useEffect(() => {
     if (currentUser) {
@@ -695,53 +696,107 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
       <View style={styles.complianceCard}>
         <Text style={styles.cardHeader}>HELP & LEGAL POLICIES</Text>
         
-        <TouchableOpacity style={styles.complianceRow} onPress={() => Alert.alert('Responsible Gaming', 'Set limits, play in moderation (18+ rules).')}>
+        <TouchableOpacity 
+          style={styles.complianceRow} 
+          onPress={() => setActivePolicy(activePolicy === 'responsible' ? null : 'responsible')}
+          activeOpacity={0.7}
+        >
           <View style={styles.complianceLabelRow}>
             <ShieldIcon />
             <Text style={styles.complianceText}>Responsible Gaming</Text>
           </View>
-          <Text style={styles.chevron}>▶</Text>
         </TouchableOpacity>
+        {activePolicy === 'responsible' && (
+          <View style={styles.policyDetailCard}>
+            <Text style={styles.policyDetailTitle}>Responsible Gaming Rules</Text>
+            <Text style={styles.policyDetailText}>🔞 Play in moderation: Set daily time and deposit limits to keep play fun.</Text>
+            <Text style={styles.policyDetailText}>🛑 This is a real-money game. Play responsibly and only with money you can afford to lose.</Text>
+            <Text style={styles.policyDetailText}>📞 Need help? Access our self-exclusion tools or support services instantly.</Text>
+          </View>
+        )}
 
-        <TouchableOpacity style={styles.complianceRow} onPress={() => Alert.alert('Help & Support', 'Reach out to support 24/7.')}>
+        <TouchableOpacity 
+          style={styles.complianceRow} 
+          onPress={() => setActivePolicy(activePolicy === 'support' ? null : 'support')}
+          activeOpacity={0.7}
+        >
           <View style={styles.complianceLabelRow}>
             <HelpIcon />
             <Text style={styles.complianceText}>Help & Support</Text>
           </View>
-          <Text style={styles.chevron}>▶</Text>
         </TouchableOpacity>
+        {activePolicy === 'support' && (
+          <View style={styles.policyDetailCard}>
+            <Text style={styles.policyDetailTitle}>Customer Support</Text>
+            <Text style={styles.policyDetailText}>✉️ Email Support: support@sexusplatform.com</Text>
+            <Text style={styles.policyDetailText}>💬 Live Chat: Connect with our support team 24/7 on WhatsApp or in-app chat.</Text>
+            <Text style={styles.policyDetailText}>⏱️ Typical Response Time: Under 10 minutes.</Text>
+          </View>
+        )}
 
-        <TouchableOpacity style={styles.complianceRow} onPress={() => Alert.alert('Terms of Service', 'Review terms of use details.')}>
+        <TouchableOpacity 
+          style={styles.complianceRow} 
+          onPress={() => setActivePolicy(activePolicy === 'terms' ? null : 'terms')}
+          activeOpacity={0.7}
+        >
           <View style={styles.complianceLabelRow}>
             <BookTextIcon />
             <Text style={styles.complianceText}>Terms of Service</Text>
           </View>
-          <Text style={styles.chevron}>▶</Text>
         </TouchableOpacity>
+        {activePolicy === 'terms' && (
+          <View style={styles.policyDetailCard}>
+            <Text style={styles.policyDetailTitle}>Terms of Service Summary</Text>
+            <Text style={styles.policyDetailText}>⚖️ Eligibility: Users must be 18 years or older to register and play cash games.</Text>
+            <Text style={styles.policyDetailText}>🚫 Fair Play Policy: Use of duplicate accounts, scripts, or cheating tools will result in permanent ban and forfeiture of funds.</Text>
+            <Text style={styles.policyDetailText}>🏦 Account Balance: All deposit and winning balances are held securely.</Text>
+          </View>
+        )}
         
-        <TouchableOpacity style={styles.complianceRow} onPress={() => Alert.alert('Privacy Policy', 'Data encryption and protection terms.')}>
+        <TouchableOpacity 
+          style={styles.complianceRow} 
+          onPress={() => setActivePolicy(activePolicy === 'privacy' ? null : 'privacy')}
+          activeOpacity={0.7}
+        >
           <View style={styles.complianceLabelRow}>
             <ShieldCheckIcon />
             <Text style={styles.complianceText}>Privacy Policy</Text>
           </View>
-          <Text style={styles.chevron}>▶</Text>
         </TouchableOpacity>
+        {activePolicy === 'privacy' && (
+          <View style={styles.policyDetailCard}>
+            <Text style={styles.policyDetailTitle}>Data & Privacy Control</Text>
+            <Text style={styles.policyDetailText}>🔒 Secure Encryption: All personal details, KYC document files, and transaction records are fully encrypted.</Text>
+            <Text style={styles.policyDetailText}>🚫 No Third-Party Sharing: Your data is confidential and never sold to third parties.</Text>
+            <Text style={styles.policyDetailText}>🛡️ Mapped Compliance Keys: Built to fully satisfy RBI guidelines and local data protection regulations.</Text>
+          </View>
+        )}
 
-        <TouchableOpacity style={styles.complianceRow} onPress={() => Alert.alert('Refund Policies', 'View entry fees settlement details.')}>
+        <TouchableOpacity 
+          style={styles.complianceRow} 
+          onPress={() => setActivePolicy(activePolicy === 'refund' ? null : 'refund')}
+          activeOpacity={0.7}
+        >
           <View style={styles.complianceLabelRow}>
             <FileTextIcon />
             <Text style={styles.complianceText}>Refund Policies</Text>
           </View>
-          <Text style={styles.chevron}>▶</Text>
         </TouchableOpacity>
+        {activePolicy === 'refund' && (
+          <View style={styles.policyDetailCard}>
+            <Text style={styles.policyDetailTitle}>Refund & Settlement Terms</Text>
+            <Text style={styles.policyDetailText}>🎲 Game Cancellations: If a game gets canceled due to server or technical errors, your entry fee will be refunded to your wallet instantly.</Text>
+            <Text style={styles.policyDetailText}>🚫 Player Disconnections: If you leave the match or disconnect during gameplay, your entry fee is forfeited.</Text>
+            <Text style={styles.policyDetailText}>⏱️ Withdrawal Settlements: Approved cash withdrawals settle in your bank account in 2 to 24 hours.</Text>
+          </View>
+        )}
 
         {onLogout && (
-          <TouchableOpacity style={[styles.complianceRow, styles.logoutRow]} onPress={handleLogout}>
+          <TouchableOpacity style={[styles.complianceRow, styles.logoutRow]} onPress={handleLogout} activeOpacity={0.7}>
             <View style={styles.complianceLabelRow}>
               <PowerIcon />
               <Text style={[styles.complianceText, styles.logoutText]}>Logout Account</Text>
             </View>
-            <Text style={[styles.chevron, styles.logoutText]}>▶</Text>
           </TouchableOpacity>
         )}
 
@@ -1257,6 +1312,28 @@ const styles = StyleSheet.create({
   chevron: {
     color: '#94A3B8',
     fontSize: 11,
+  },
+  policyDetailCard: {
+    backgroundColor: '#EEF2FF',
+    borderRadius: 16,
+    padding: 14,
+    marginTop: 8,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#E0E7FF',
+  },
+  policyDetailTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#312E81',
+    marginBottom: 8,
+  },
+  policyDetailText: {
+    fontSize: 11,
+    color: '#475569',
+    fontWeight: '600',
+    lineHeight: 16,
+    marginBottom: 6,
   },
   logoutRow: {
     borderBottomWidth: 0,
