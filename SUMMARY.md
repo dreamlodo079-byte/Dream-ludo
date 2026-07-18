@@ -184,3 +184,24 @@ We completed the enterprise DevOps clustering deployment configurations and the 
 - **QUICK Mode**: Capped active tokens to exactly 2 per player. Added a 300-second global match countdown timer that terminates the match and awards the win to the player with the highest score (1 point per tile advanced, 10 points per capture) if the timer hits 0. Released yard tokens bypass standard constraint checks (any roll 1-6 works).
 - **REGULAR Mode**: Enforces standard Ludo rules (4 tokens home, mandatory 6 to release, 15-second turn timers).
 - **ROOMS Mode (Custom Rules)**: Reads configuration rules from the room creation request (e.g. customized turn timers and token counts). Private lobbies remain pending indefinitely on Redis (disabling the 13s bot injection loop). Added interactive custom rule configuration selector toggles in the mobile client's private lobby creator card.
+
+---
+
+## 🎨 10. Simplified Copy, Dynamic Layout & Expandable Ledger Logs
+
+We polished the user-facing text across all screens to improve readability for non-technical users, added layout-shifting cards based on verification checks, and made list logs expandable:
+
+### A. Simplified Copywriting Translations
+- **Wallet balances**: Renamed technical labels (`TOTAL ACCUMULATED WALLET` -> `My Wallet Balance`, `Deposits Cash` -> `Added Money`, `Winnings Cash` -> `Winnings`).
+- **Match CTAs**: Changed `GENERATE UPI INTENT` to `ADD MONEY NOW` and `WITHDRAW TO BANK (IMPS)` to `WITHDRAW MONEY NOW`.
+- **KYC ID verification**: Simplified `KYC COMPLIANCE REQUIRED` to `ID VERIFICATION REQUIRED` and `SUBMIT & VERIFY KYC` to `VERIFY ID NOW`.
+- **Give Up/Exit Match**: Replaced `Forfeit Match` with `Give Up Match` inside [GameScreen.tsx](file:///g:/Ludo/mobile-client/src/screens/GameScreen.tsx) modals.
+- **Transaction Logs**: Changed type labels (`ENTRY_FEE` -> `Game Played`, `PLATFORM_COMMISSION` -> `Platform Charge`, `WINNINGS` -> `Game Won`, `DEPOSIT` -> `Added Cash`, `WITHDRAWAL` -> `Sent to Bank`).
+
+### B. Conditional Wallet Card Placement
+- Programmed [AuthWalletScreen.tsx](file:///g:/Ludo/mobile-client/src/screens/AuthWalletScreen.tsx) to check verification:
+  - If the player's account is **not verified** (KYC pending/none), the "My Wallet Balance" card is shown at the very top (its original default place).
+  - If the player's account is **verified**, the "My Wallet Balance" card shifts dynamically to the bottom of the actions lists (positioned right below the "Withdraw Winnings" section).
+
+### C. Expandable Transaction History
+- Wrapped the transaction list under an expandable header. Users can toggle the view (`isHistoryExpanded`) to expand/collapse details.
