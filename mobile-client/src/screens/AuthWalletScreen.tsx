@@ -37,6 +37,42 @@ interface AuthWalletScreenProps {
 }
 
 // Custom Premium Vector Icons
+const EyeIcon = ({ show }: { show: boolean }) => (
+  <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="#64748B" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    {show ? (
+      <>
+        <Path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+        <Line x1="1" y1="1" x2="23" y2="23" />
+      </>
+    ) : (
+      <>
+        <Path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+        <Circle cx="12" cy="12" r="3" />
+      </>
+    )}
+  </Svg>
+);
+
+const PhoneIcon = () => (
+  <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="#64748B" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.41 2 2 0 0 1 3.6 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.58a16 16 0 0 0 5.51 5.51l.96-.96a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z" />
+  </Svg>
+);
+
+const UserIcon = () => (
+  <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="#64748B" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+    <Circle cx="12" cy="7" r="4" />
+  </Svg>
+);
+
+const LockIcon = () => (
+  <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="#64748B" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2z" />
+    <Path d="M7 11V7a5 5 0 0 1 10 0v4" />
+  </Svg>
+);
+
 const ShieldCheckIcon = () => (
   <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="#4F46E5" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
     <Path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
@@ -96,6 +132,7 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
   const [otpSent, setOtpSent] = useState(false);
   const [otpTimer, setOtpTimer] = useState(0);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   // Focus rings tracking
   const [isFocusedPhone, setIsFocusedPhone] = useState(false);
@@ -425,30 +462,42 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
   if (!currentUser) {
     return (
       <View style={styles.authContainer}>
+        {/* Background gradient blobs */}
+        <Svg style={StyleSheet.absoluteFillObject} width="100%" height="100%">
+          <Defs>
+            <LinearGradient id="authBg" x1="0" y1="0" x2="0.6" y2="1">
+              <Stop offset="0" stopColor="#1E1B4B" />
+              <Stop offset="0.5" stopColor="#2D2A6E" />
+              <Stop offset="1" stopColor="#0F172A" />
+            </LinearGradient>
+          </Defs>
+          <Rect width="100%" height="100%" fill="url(#authBg)" />
+        </Svg>
+
         <View style={styles.authCard}>
+          {/* Logo & Brand */}
+          <View style={styles.authLogoRow}>
+            <View style={styles.authLogoCircle}>
+              <Text style={styles.authLogoEmoji}>🎲</Text>
+            </View>
+          </View>
           <Text style={styles.heading}>SEXUS</Text>
           <Text style={styles.subheading}>Real-Money Mobile Portal</Text>
 
-          {/* Premium Tab Switcher */}
+          {/* Premium Pill Tab Switcher */}
           {!otpSent && (
             <View style={styles.authTabRow}>
               <TouchableOpacity
                 style={[styles.authTab, isLoginMode && styles.authTabActive]}
-                onPress={() => {
-                  setIsLoginMode(true);
-                  setOtpCode('');
-                }}
-                activeOpacity={0.8}
+                onPress={() => { setIsLoginMode(true); setOtpCode(''); }}
+                activeOpacity={0.85}
               >
                 <Text style={[styles.authTabText, isLoginMode && styles.authTabTextActive]}>LOG IN</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.authTab, !isLoginMode && styles.authTabActive]}
-                onPress={() => {
-                  setIsLoginMode(false);
-                  setOtpCode('');
-                }}
-                activeOpacity={0.8}
+                onPress={() => { setIsLoginMode(false); setOtpCode(''); }}
+                activeOpacity={0.85}
               >
                 <Text style={[styles.authTabText, !isLoginMode && styles.authTabTextActive]}>SIGN UP</Text>
               </TouchableOpacity>
@@ -458,104 +507,140 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
           {!otpSent ? (
             <View style={{ width: '100%' }}>
               {!isLoginMode && (
-                <TextInput
-                  style={[styles.input, isFocusedUsername && styles.inputFocused]}
-                  placeholder="Username / Name"
-                  placeholderTextColor="#94A3B8"
-                  value={username}
-                  onChangeText={setUsername}
-                  onFocus={() => setIsFocusedUsername(true)}
-                  onBlur={() => setIsFocusedUsername(false)}
-                  autoCapitalize="words"
-                />
+                <View style={[styles.inputWrapper, isFocusedUsername && styles.inputWrapperFocused]}>
+                  <View style={styles.inputIcon}><UserIcon /></View>
+                  <TextInput
+                    style={styles.inputInner}
+                    placeholder="Username / Full Name"
+                    placeholderTextColor="#94A3B8"
+                    value={username}
+                    onChangeText={setUsername}
+                    onFocus={() => setIsFocusedUsername(true)}
+                    onBlur={() => setIsFocusedUsername(false)}
+                    autoCapitalize="words"
+                  />
+                </View>
               )}
 
-              <TextInput
-                style={[styles.input, isFocusedPhone && styles.inputFocused]}
-                placeholder="Phone Number"
-                placeholderTextColor="#94A3B8"
-                keyboardType="phone-pad"
-                value={phone}
-                onChangeText={setPhone}
-                onFocus={() => setIsFocusedPhone(true)}
-                onBlur={() => setIsFocusedPhone(false)}
-              />
+              <View style={[styles.inputWrapper, isFocusedPhone && styles.inputWrapperFocused]}>
+                <View style={styles.inputIcon}><PhoneIcon /></View>
+                <TextInput
+                  style={styles.inputInner}
+                  placeholder="Phone Number (+91)"
+                  placeholderTextColor="#94A3B8"
+                  keyboardType="phone-pad"
+                  value={phone}
+                  onChangeText={setPhone}
+                  onFocus={() => setIsFocusedPhone(true)}
+                  onBlur={() => setIsFocusedPhone(false)}
+                />
+              </View>
 
-              <TextInput
-                style={[styles.input, isFocusedPassword && styles.inputFocused]}
-                placeholder="Password"
-                placeholderTextColor="#94A3B8"
-                secureTextEntry
-                value={password}
-                onChangeText={setPassword}
-                onFocus={() => setIsFocusedPassword(true)}
-                onBlur={() => setIsFocusedPassword(false)}
-              />
+              <View style={[styles.inputWrapper, isFocusedPassword && styles.inputWrapperFocused]}>
+                <View style={styles.inputIcon}><LockIcon /></View>
+                <TextInput
+                  style={styles.inputInner}
+                  placeholder="Password"
+                  placeholderTextColor="#94A3B8"
+                  secureTextEntry={!showPassword}
+                  value={password}
+                  onChangeText={setPassword}
+                  onFocus={() => setIsFocusedPassword(true)}
+                  onBlur={() => setIsFocusedPassword(false)}
+                />
+                <TouchableOpacity
+                  style={styles.eyeBtn}
+                  onPress={() => setShowPassword(!showPassword)}
+                  activeOpacity={0.7}
+                >
+                  <EyeIcon show={showPassword} />
+                </TouchableOpacity>
+              </View>
 
-              <TouchableOpacity style={styles.authButton} onPress={handleSendOtp} disabled={isLoggingIn} activeOpacity={0.8}>
+              <TouchableOpacity
+                style={styles.authButton}
+                onPress={handleSendOtp}
+                disabled={isLoggingIn}
+                activeOpacity={0.85}
+              >
                 {isLoggingIn ? (
                   <ActivityIndicator color="#fff" />
                 ) : (
-                  <Text style={styles.authButtonText}>{isLoginMode ? 'LOGIN WITH OTP' : 'VERIFY & REGISTER'}</Text>
+                  <Text style={styles.authButtonText}>
+                    {isLoginMode ? 'SEND OTP & LOGIN' : 'SEND OTP & REGISTER'}
+                  </Text>
                 )}
               </TouchableOpacity>
             </View>
           ) : (
             <View style={{ width: '100%', alignItems: 'center' }}>
-              <Text style={styles.otpSentSub}>Enter 6-digit OTP sent to phone</Text>
-              <Text style={[styles.otpSentSub, { fontWeight: 'bold', marginTop: 2, marginBottom: 15 }]}>{phone}</Text>
+              <View style={styles.otpHeaderBox}>
+                <Text style={styles.otpHeaderTitle}>Verify Your Phone</Text>
+                <Text style={styles.otpHeaderSub}>OTP sent to</Text>
+                <Text style={styles.otpHeaderPhone}>{phone}</Text>
+              </View>
 
-              <TextInput
-                style={[styles.input, isFocusedOtp && styles.inputFocused, { textAlign: 'center', letterSpacing: 8, fontSize: 20, fontWeight: 'bold' }]}
-                placeholder="000000"
-                placeholderTextColor="#94A3B8"
-                keyboardType="number-pad"
-                maxLength={6}
-                value={otpCode}
-                onChangeText={setOtpCode}
-                onFocus={() => setIsFocusedOtp(true)}
-                onBlur={() => setIsFocusedOtp(false)}
-              />
+              <View style={[styles.inputWrapper, isFocusedOtp && styles.inputWrapperFocused, { justifyContent: 'center' }]}>
+                <TextInput
+                  style={[styles.inputInner, { textAlign: 'center', letterSpacing: 10, fontSize: 22, fontWeight: '900', color: '#4F46E5' }]}
+                  placeholder="— — — — — —"
+                  placeholderTextColor="#CBD5E1"
+                  keyboardType="number-pad"
+                  maxLength={6}
+                  value={otpCode}
+                  onChangeText={setOtpCode}
+                  onFocus={() => setIsFocusedOtp(true)}
+                  onBlur={() => setIsFocusedOtp(false)}
+                />
+              </View>
 
-              <TouchableOpacity style={styles.authButton} onPress={handleVerifyOtp} disabled={isLoggingIn} activeOpacity={0.8}>
+              <TouchableOpacity
+                style={styles.authButton}
+                onPress={handleVerifyOtp}
+                disabled={isLoggingIn}
+                activeOpacity={0.85}
+              >
                 {isLoggingIn ? (
                   <ActivityIndicator color="#fff" />
                 ) : (
-                  <Text style={styles.authButtonText}>VERIFY & ENTER</Text>
+                  <Text style={styles.authButtonText}>VERIFY & ENTER PLATFORM</Text>
                 )}
               </TouchableOpacity>
 
-              <TouchableOpacity 
-                style={styles.resendBtn} 
-                onPress={handleSendOtp} 
+              <TouchableOpacity
+                style={styles.resendBtn}
+                onPress={handleSendOtp}
                 disabled={otpTimer > 0 || isLoggingIn}
                 activeOpacity={0.8}
               >
                 <Text style={[styles.resendBtnText, otpTimer > 0 && { color: '#94A3B8' }]}>
-                  {otpTimer > 0 ? `Resend OTP in ${otpTimer}s` : 'Resend OTP'}
+                  {otpTimer > 0 ? `⏱ Resend OTP in ${otpTimer}s` : '↺ Resend OTP'}
                 </Text>
               </TouchableOpacity>
 
-              <TouchableOpacity 
-                style={styles.backToAuthBtn} 
-                onPress={() => {
-                  setOtpSent(false);
-                  setOtpCode('');
-                }}
+              <TouchableOpacity
+                style={styles.backToAuthBtn}
+                onPress={() => { setOtpSent(false); setOtpCode(''); }}
                 activeOpacity={0.8}
               >
-                <Text style={styles.backToAuthBtnText}>Edit Phone / Details</Text>
+                <Text style={styles.backToAuthBtnText}>✎ Edit Phone / Details</Text>
               </TouchableOpacity>
             </View>
           )}
 
-          <TouchableOpacity 
-            style={[styles.authButton, { backgroundColor: '#10B981', marginTop: 16 }]} 
-            onPress={handleQuickDevLogin} 
+          <View style={styles.authDivider}>
+            <View style={styles.authDividerLine} />
+            <Text style={styles.authDividerText}>or</Text>
+            <View style={styles.authDividerLine} />
+          </View>
+
+          <TouchableOpacity
+            style={styles.devLoginBtn}
+            onPress={handleQuickDevLogin}
             disabled={isLoggingIn}
-            activeOpacity={0.8}
+            activeOpacity={0.85}
           >
-            <Text style={styles.authButtonText}>⚡ 1-TAP QUICK DEMO (BYPASS OTP)</Text>
+            <Text style={styles.devLoginBtnText}>⚡ 1-TAP DEMO LOGIN (BYPASS OTP)</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -1075,37 +1160,88 @@ const styles = StyleSheet.create({
   },
   authContainer: {
     flex: 1,
-    backgroundColor: '#F3F4F6',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
   },
   authCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 24, // Global component radius
-    padding: 24,
+    backgroundColor: 'rgba(255, 255, 255, 0.97)',
+    borderRadius: 28,
+    paddingHorizontal: 24,
+    paddingTop: 28,
+    paddingBottom: 24,
     width: '100%',
-    maxWidth: 380,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    shadowColor: '#475569',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.05,
-    shadowRadius: 16,
-    elevation: 4,
+    maxWidth: 390,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 20 },
+    shadowOpacity: 0.25,
+    shadowRadius: 40,
+    elevation: 16,
     alignItems: 'center',
   },
+  authLogoRow: {
+    marginBottom: 12,
+  },
+  authLogoCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#EEF2FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#C7D2FE',
+  },
+  authLogoEmoji: {
+    fontSize: 28,
+  },
   heading: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: '900',
-    color: '#0F172A',
-    letterSpacing: 2,
+    color: '#1E1B4B',
+    letterSpacing: 3,
+    marginBottom: 2,
   },
   subheading: {
-    fontSize: 12,
-    color: '#475569',
-    marginTop: 4,
-    marginBottom: 24,
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 3,
+    marginBottom: 22,
+    letterSpacing: 0.5,
+  },
+  inputWrapper: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    marginBottom: 14,
+    height: 52,
+    paddingHorizontal: 14,
+  },
+  inputWrapperFocused: {
+    borderColor: '#4F46E5',
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#4F46E5',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  inputIcon: {
+    marginRight: 10,
+  },
+  inputInner: {
+    flex: 1,
+    fontSize: 14,
+    color: '#0F172A',
+    fontWeight: '600',
+  },
+  eyeBtn: {
+    padding: 4,
+    marginLeft: 6,
   },
   input: {
     width: '100%',
@@ -1119,7 +1255,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   inputFocused: {
-    borderColor: '#4F46E5', // Brand active focus active state rings
+    borderColor: '#4F46E5',
     backgroundColor: '#FFFFFF',
     shadowColor: '#4F46E5',
     shadowOffset: { width: 0, height: 2 },
@@ -1128,16 +1264,80 @@ const styles = StyleSheet.create({
   },
   authButton: {
     width: '100%',
-    backgroundColor: '#4F46E5', // Brand indigo active button
-    borderRadius: 24, // Global component radius
-    padding: 14,
+    backgroundColor: '#4F46E5',
+    borderRadius: 14,
+    height: 52,
     alignItems: 'center',
+    justifyContent: 'center',
     marginTop: 8,
+    shadowColor: '#4F46E5',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 5,
   },
   authButtonText: {
     color: '#FFFFFF',
-    fontWeight: 'bold',
-    fontSize: 14,
+    fontWeight: '800',
+    fontSize: 13,
+    letterSpacing: 0.8,
+  },
+  authDivider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    marginTop: 18,
+    marginBottom: 4,
+  },
+  authDividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#E2E8F0',
+  },
+  authDividerText: {
+    marginHorizontal: 10,
+    fontSize: 11,
+    color: '#94A3B8',
+    fontWeight: '600',
+  },
+  devLoginBtn: {
+    width: '100%',
+    backgroundColor: '#F0FDF4',
+    borderRadius: 14,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+    borderWidth: 1.5,
+    borderColor: '#10B981',
+  },
+  devLoginBtnText: {
+    color: '#059669',
+    fontWeight: '800',
+    fontSize: 12,
+    letterSpacing: 0.5,
+  },
+  otpHeaderBox: {
+    alignItems: 'center',
+    marginBottom: 20,
+    paddingHorizontal: 10,
+  },
+  otpHeaderTitle: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#1E1B4B',
+    marginBottom: 4,
+  },
+  otpHeaderSub: {
+    fontSize: 12,
+    color: '#64748B',
+    fontWeight: '600',
+  },
+  otpHeaderPhone: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#4F46E5',
+    marginTop: 2,
   },
   profileCard: {
     alignItems: 'center',
@@ -1806,33 +2006,34 @@ const styles = StyleSheet.create({
   },
   authTabRow: {
     flexDirection: 'row',
-    backgroundColor: '#F1F5F9',
-    borderRadius: 12,
+    backgroundColor: '#EEF2FF',
+    borderRadius: 50,
     padding: 4,
-    marginBottom: 20,
+    marginBottom: 22,
     width: '100%',
   },
   authTab: {
     flex: 1,
     paddingVertical: 10,
     alignItems: 'center',
-    borderRadius: 8,
+    borderRadius: 50,
   },
   authTabActive: {
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    backgroundColor: '#4F46E5',
+    shadowColor: '#4F46E5',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
   authTabText: {
     fontSize: 13,
-    fontWeight: '700',
-    color: '#64748B',
+    fontWeight: '800',
+    color: '#6366F1',
+    letterSpacing: 0.5,
   },
   authTabTextActive: {
-    color: '#4F46E5',
+    color: '#FFFFFF',
   },
   otpSentSub: {
     fontSize: 14,
