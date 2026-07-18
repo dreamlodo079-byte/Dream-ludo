@@ -543,11 +543,11 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 {/* Tournament Timing Details */}
                 <View style={styles.timingRow}>
                   <View style={[styles.timingCol, styles.timingColLeft]}>
-                    <Text style={styles.timingLabel}>REGISTRATION OPEN</Text>
+                    <Text style={styles.timingLabel}>REGISTRATION OPENS</Text>
                     <Text style={styles.timingValue}>{formatDateTime(tournament.startsAt)}</Text>
                   </View>
                   <View style={styles.timingCol}>
-                    <Text style={styles.timingLabel}>MATCH COMMENCES</Text>
+                    <Text style={styles.timingLabel}>GAME STARTS</Text>
                     <Text style={styles.timingValue}>{formatDateTime(tournament.endsAt)}</Text>
                   </View>
                 </View>
