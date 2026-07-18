@@ -31,7 +31,15 @@
       "fallbackToCacheTimeout": 3000
     },
     "runtimeVersion": {
-      "policy": "appVersion"
-    }
+      "policy": "sdkVersion"
+    },
+    "plugins": [
+      [
+        "expo-updates",
+        {
+          "username": "sexus"
+        }
+      ]
+    ]
   }
 }

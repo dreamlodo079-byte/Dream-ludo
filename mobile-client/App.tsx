@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { SafeAreaView, StyleSheet, StatusBar, View, Text, TouchableOpacity, Platform } from 'react-native';
 import axios from 'axios';
-import { useAppAutoUpdate } from './src/hooks/useAppAutoUpdate';
+import { useOTAUpdates } from './src/hooks/useOTAUpdates';
 import { useSocket } from './src/hooks/useSocket';
 import { AuthWalletScreen } from './src/screens/AuthWalletScreen';
 import { DashboardScreen } from './src/screens/DashboardScreen';
@@ -31,7 +31,7 @@ export default function App() {
 
 function AppContent() {
   // 1. Silent Background Over-The-Air Update Engine (OTA)
-  useAppAutoUpdate();
+  useOTAUpdates();
 
   const { fetchWallet } = useWallet();
 

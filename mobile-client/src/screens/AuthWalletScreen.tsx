@@ -497,7 +497,7 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
                     placeholderTextColor="#94A3B8"
                     keyboardType="phone-pad"
                     value={phone}
-                    onChangeText={setPhone}
+                    onChangeText={(text) => setPhone(text.replace(/[^0-9]/g, ''))}
                     onFocus={() => setIsFocusedPhone(true)}
                     onBlur={() => setIsFocusedPhone(false)}
                     autoCorrect={false}
