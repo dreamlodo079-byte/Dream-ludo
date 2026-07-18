@@ -1576,13 +1576,13 @@ export const GameScreen: React.FC<GameScreenProps> = ({
         <View style={styles.modalOverlay}>
           <View style={styles.exitModal}>
             <Text style={styles.exitModalIcon}>⚠️</Text>
-            <Text style={styles.exitModalTitle}>Forfeit Match?</Text>
+            <Text style={styles.exitModalTitle}>Give Up Match?</Text>
             <Text style={styles.exitModalMessage}>
               You will lose your entry fee of{' '}
               <Text style={{ fontWeight: '900', color: '#EF4444' }}>
                 ₹{matchState.entryFee || 0}
               </Text>{' '}
-              and your opponent will win the prize.
+              and the other player will win the money.
             </Text>
             <View style={styles.exitModalButtons}>
               <TouchableOpacity
@@ -1597,7 +1597,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
                 onPress={confirmExit}
                 activeOpacity={0.8}
               >
-                <Text style={styles.exitConfirmText}>Forfeit</Text>
+                <Text style={styles.exitConfirmText}>Give Up</Text>
               </TouchableOpacity>
             </View>
           </View>

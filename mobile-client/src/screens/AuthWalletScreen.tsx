@@ -116,6 +116,8 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
   const referralCode = 'NEXUS50SEXUS';
   const referralUrl = `https://sexus.platform/signup?ref=${referralCode}`;
 
+  const [isHistoryExpanded, setIsHistoryExpanded] = useState(false);
+
   useEffect(() => {
     if (currentUser) {
       fetchWallet(currentUser._id).then((updatedUser) => {
@@ -395,6 +397,36 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
     );
   }
 
+  const renderBalanceCard = () => (
+    <View style={styles.balanceCard}>
+      <Svg style={StyleSheet.absoluteFillObject} width="100%" height="100%">
+        <Defs>
+          <LinearGradient id="balanceGrad" x1="0" y1="0" x2="1" y2="1">
+            <Stop offset="0" stopColor="#312E81" />
+            <Stop offset="1" stopColor="#1E3A8A" />
+          </LinearGradient>
+        </Defs>
+        <Rect width="100%" height="100%" fill="url(#balanceGrad)" rx={24} />
+      </Svg>
+      
+      <View style={styles.balanceCardContent}>
+        <Text style={styles.balanceTitle}>MY WALLET BALANCE</Text>
+        <Text style={styles.balanceAmount}>₹{balances.total.toFixed(2)}</Text>
+
+        <View style={styles.splitBalances}>
+          <View style={styles.splitNode}>
+            <Text style={styles.splitLabel}>Added Money</Text>
+            <Text style={styles.splitVal}>₹{balances.deposits.toFixed(2)}</Text>
+          </View>
+          <View style={[styles.splitNode, styles.borderLeft]}>
+            <Text style={styles.splitLabel}>Winnings</Text>
+            <Text style={[styles.splitVal, styles.greenText]}>₹{balances.winnings.toFixed(2)}</Text>
+          </View>
+        </View>
+      </View>
+    </View>
+  );
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
       {/* Premium Profile Section */}
@@ -414,41 +446,15 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
         <Text style={styles.phoneSub}>{currentUser.phone}</Text>
       </View>
 
-      {/* Deep Gradient Wallet Summary Card */}
-      <View style={styles.balanceCard}>
-        <Svg style={StyleSheet.absoluteFillObject} width="100%" height="100%">
-          <Defs>
-            <LinearGradient id="balanceGrad" x1="0" y1="0" x2="1" y2="1">
-              <Stop offset="0" stopColor="#4F46E5" />
-              <Stop offset="1" stopColor="#2563EB" />
-            </LinearGradient>
-          </Defs>
-          <Rect width="100%" height="100%" fill="url(#balanceGrad)" rx={24} />
-        </Svg>
-        
-        <View style={styles.balanceCardContent}>
-          <Text style={styles.balanceTitle}>TOTAL ACCUMULATED WALLET</Text>
-          <Text style={styles.balanceAmount}>₹{balances.total.toFixed(2)}</Text>
-
-          <View style={styles.splitBalances}>
-            <View style={styles.splitNode}>
-              <Text style={styles.splitLabel}>Deposits Cash</Text>
-              <Text style={styles.splitVal}>₹{balances.deposits.toFixed(2)}</Text>
-            </View>
-            <View style={[styles.splitNode, styles.borderLeft]}>
-              <Text style={styles.splitLabel}>Winnings Cash</Text>
-              <Text style={[styles.splitVal, styles.greenText]}>₹{balances.winnings.toFixed(2)}</Text>
-            </View>
-          </View>
-        </View>
-      </View>
+      {/* 1. Wallet Balance Card (Shown on Top ONLY IF KYC is not verified) */}
+      {!currentUser.isKycVerified && renderBalanceCard()}
 
       {/* Deposit cash portal */}
       <View style={styles.actionCard}>
-        <Text style={styles.cardHeader}>ADD PLAYING FUNDS</Text>
+        <Text style={styles.cardHeader}>ADD MONEY TO WALLET</Text>
         <TextInput
           style={[styles.input, isFocusedDeposit && styles.inputFocused]}
-          placeholder="Enter Deposit Amount (INR)"
+          placeholder="Enter Amount (INR)"
           placeholderTextColor="#94A3B8"
           keyboardType="numeric"
           value={depositAmount}
@@ -457,7 +463,7 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
           onBlur={() => setIsFocusedDeposit(false)}
         />
         <TouchableOpacity style={styles.actionBtn} onPress={handleDeposit} disabled={loading}>
-          <Text style={styles.actionBtnText}>GENERATE UPI INTENT</Text>
+          <Text style={styles.actionBtnText}>ADD MONEY NOW</Text>
         </TouchableOpacity>
 
         {upiIntentLink && (
@@ -473,8 +479,8 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
       {/* Tabbed KYC Compliance Card */}
       {currentUser.isKycVerified ? (
         <View style={[styles.actionCard, styles.verifiedKycCard]}>
-          <Text style={styles.cardHeader}>🔒 KYC COMPLIANCE VERIFIED</Text>
-          <Text style={styles.verifiedKycText}>✓ Your identity profile is approved and active.</Text>
+          <Text style={styles.cardHeader}>🔒 ACCOUNT VERIFIED</Text>
+          <Text style={styles.verifiedKycText}>✓ Your identity is verified successfully.</Text>
           <View style={styles.kycDetailsRow}>
             <Text style={styles.kycDetailLabel}>Verification Mode</Text>
             <Text style={styles.kycDetailVal}>{currentUser.kycType === 'PAN' ? 'PAN Card' : 'Aadhaar Card'}</Text>
@@ -494,9 +500,9 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
         </View>
       ) : (
         <View style={[styles.actionCard, styles.pendingKycCard]}>
-          <Text style={styles.cardHeader}>🛡️ KYC COMPLIANCE REQUIRED</Text>
+          <Text style={styles.cardHeader}>🛡️ ID VERIFICATION REQUIRED</Text>
           <Text style={styles.kycPromptText}>
-            You must verify your PAN or Aadhaar card details to unlock instant cash withdrawals.
+            Verify your PAN or Aadhaar card details to unlock instant cash withdrawals.
           </Text>
 
           {/* Type Selector Tabs */}
@@ -542,7 +548,7 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
             {isSubmittingKyc ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.actionBtnText}>SUBMIT & VERIFY KYC</Text>
+              <Text style={styles.actionBtnText}>VERIFY ID NOW</Text>
             )}
           </TouchableOpacity>
         </View>
@@ -551,7 +557,7 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
       {/* Withdrawal Winnings Portal */}
       {currentUser.isKycVerified && (
         <View style={styles.actionCard}>
-          <Text style={styles.cardHeader}>WITHDRAW WINNINGS INSTANTLY</Text>
+          <Text style={styles.cardHeader}>SEND WINNINGS TO BANK</Text>
           <TextInput
             style={[styles.input, isFocusedWithdraw && styles.inputFocused]}
             placeholder="Withdraw Amount (INR)"
@@ -564,7 +570,7 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
           />
           <TextInput
             style={[styles.input, isFocusedUpi && styles.inputFocused]}
-            placeholder="Recipient UPI ID (e.g. name@upi)"
+            placeholder="Enter your UPI ID (e.g. name@upi)"
             placeholderTextColor="#94A3B8"
             value={upiId}
             onChangeText={setUpiId}
@@ -573,14 +579,17 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
             onBlur={() => setIsFocusedUpi(false)}
           />
           <TouchableOpacity style={[styles.actionBtn, styles.withdrawBtn]} onPress={handleWithdrawal} disabled={loading}>
-            <Text style={styles.actionBtnText}>WITHDRAW TO BANK (IMPS)</Text>
+            <Text style={styles.actionBtnText}>WITHDRAW MONEY NOW</Text>
           </TouchableOpacity>
         </View>
       )}
 
+      {/* 2. Wallet Balance Card (Shown at the bottom ONLY IF KYC is completed) */}
+      {currentUser.isKycVerified && renderBalanceCard()}
+
       {/* Refer & Share matrix */}
       <View style={styles.actionCard}>
-        <Text style={styles.cardHeader}>🎁 REFER & SHARE TO EARN CASH</Text>
+        <Text style={styles.cardHeader}>🎁 SHARE & REFER TO EARN</Text>
         
         <View style={styles.referMetricsGrid}>
           <View style={styles.referMetricCol}>
@@ -590,7 +599,7 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
           <View style={styles.metricDivider} />
           <View style={styles.referMetricCol}>
             <Text style={[styles.referMetricVal, styles.greenText]}>₹600</Text>
-            <Text style={styles.referMetricLabel}>Total Earned</Text>
+            <Text style={styles.referMetricLabel}>Total Cash Earned</Text>
           </View>
         </View>
 
@@ -619,44 +628,72 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
         </TouchableOpacity>
       </View>
 
-      {/* Ledger History List */}
+      {/* Expandable Transaction History List */}
       <View style={styles.historyCard}>
-        <Text style={styles.cardHeader}>LEDGER JOURNAL LOGS</Text>
-        {history.length === 0 ? (
-          <View style={styles.emptyLedgerContainer}>
-            <Svg width={40} height={40} viewBox="0 0 24 24" fill="none" stroke="#94A3B8" strokeWidth={1.5}>
-              <Path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
-              <Polyline points="14 2 14 8 20 8" />
-              <Line x1="16" y1="13" x2="8" y2="13" />
-              <Line x1="16" y1="17" x2="8" y2="17" />
-              <Line x1="10" y1="9" x2="8" y2="9" />
-            </Svg>
-            <Text style={styles.noHistory}>No transactions logged in this timeframe.</Text>
+        <TouchableOpacity 
+          style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 4 }}
+          onPress={() => setIsHistoryExpanded(!isHistoryExpanded)}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.cardHeader}>TRANSACTION HISTORY</Text>
+          <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#4F46E5' }}>
+            {isHistoryExpanded ? '▲ Hide' : '▼ View History'}
+          </Text>
+        </TouchableOpacity>
+
+        {isHistoryExpanded && (
+          <View style={{ marginTop: 12 }}>
+            {history.length === 0 ? (
+              <View style={styles.emptyLedgerContainer}>
+                <Svg width={40} height={40} viewBox="0 0 24 24" fill="none" stroke="#94A3B8" strokeWidth={1.5}>
+                  <Path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+                  <Polyline points="14 2 14 8 20 8" />
+                  <Line x1="16" y1="13" x2="8" y2="13" />
+                  <Line x1="16" y1="17" x2="8" y2="17" />
+                  <Line x1="10" y1="9" x2="8" y2="9" />
+                </Svg>
+                <Text style={styles.noHistory}>No transactions logged in this timeframe.</Text>
+              </View>
+            ) : (
+              history.map((txn) => {
+                let simpleType: string = txn.type;
+                if (txn.type === 'ENTRY_FEE') simpleType = 'Game Played';
+                else if (txn.type === 'PLATFORM_COMMISSION') simpleType = 'Platform Charge';
+                else if (txn.type === 'WINNINGS') simpleType = 'Game Won';
+                else if (txn.type === 'DEPOSIT') simpleType = 'Added Cash';
+                else if (txn.type === 'WITHDRAWAL') simpleType = 'Sent to Bank';
+
+                let simpleStatus: string = txn.status;
+                if (txn.status === 'SUCCESS') simpleStatus = 'Successful';
+                else if (txn.status === 'PENDING') simpleStatus = 'Pending';
+                else if (txn.status === 'FAILED') simpleStatus = 'Failed';
+
+                return (
+                  <View key={txn._id} style={styles.txnRow}>
+                    <View>
+                      <Text style={styles.txnType}>{simpleType}</Text>
+                      <Text style={styles.txnDate}>{new Date(txn.createdAt).toLocaleDateString()}</Text>
+                      <Text style={styles.txnRef} numberOfLines={1}>Ref: {txn.referenceId}</Text>
+                    </View>
+                    <View style={styles.txnRight}>
+                      <Text style={[styles.txnAmount, txn.amount < 0 ? styles.redText : styles.greenText]}>
+                        {txn.amount > 0 ? `+${txn.amount}` : txn.amount}
+                      </Text>
+                      <Text style={[styles.txnStatus, styles[txn.status.toLowerCase() as keyof typeof styles || 'pending']]}>
+                        {simpleStatus}
+                      </Text>
+                    </View>
+                  </View>
+                );
+              })
+            )}
           </View>
-        ) : (
-          history.map((txn) => (
-            <View key={txn._id} style={styles.txnRow}>
-              <View>
-                <Text style={styles.txnType}>{txn.type}</Text>
-                <Text style={styles.txnDate}>{new Date(txn.createdAt).toLocaleDateString()}</Text>
-                <Text style={styles.txnRef} numberOfLines={1}>Ref: {txn.referenceId}</Text>
-              </View>
-              <View style={styles.txnRight}>
-                <Text style={[styles.txnAmount, txn.amount < 0 ? styles.redText : styles.greenText]}>
-                  {txn.amount > 0 ? `+${txn.amount}` : txn.amount}
-                </Text>
-                <Text style={[styles.txnStatus, styles[txn.status.toLowerCase() as keyof typeof styles || 'pending']]}>
-                  {txn.status}
-                </Text>
-              </View>
-            </View>
-          ))
         )}
       </View>
 
       {/* Administrative Compliance rows stack */}
       <View style={styles.complianceCard}>
-        <Text style={styles.cardHeader}>ACCOUNT & COMPLIANCE</Text>
+        <Text style={styles.cardHeader}>HELP & LEGAL POLICIES</Text>
         
         <TouchableOpacity style={styles.complianceRow} onPress={() => Alert.alert('Responsible Gaming', 'Set limits, play in moderation (18+ rules).')}>
           <View style={styles.complianceLabelRow}>
@@ -674,7 +711,7 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
           <Text style={styles.chevron}>▶</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.complianceRow} onPress={() => Alert.alert('Terms of Service', 'Review standard terms of use.')}>
+        <TouchableOpacity style={styles.complianceRow} onPress={() => Alert.alert('Terms of Service', 'Review terms of use details.')}>
           <View style={styles.complianceLabelRow}>
             <BookTextIcon />
             <Text style={styles.complianceText}>Terms of Service</Text>
