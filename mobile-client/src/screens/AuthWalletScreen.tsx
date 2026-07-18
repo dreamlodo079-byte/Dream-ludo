@@ -623,6 +623,40 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
             </TouchableOpacity>
           </View>
         </ScrollView>
+
+        {/* Premium Custom Alert Modal */}
+        {customAlert.visible && (
+          <Modal visible={true} transparent animationType="fade">
+            <View style={styles.alertOverlay}>
+              <View style={styles.alertCard}>
+                <View style={[
+                  styles.alertIconCircle,
+                  customAlert.type === 'success' ? styles.alertIcon_success :
+                  customAlert.type === 'error' ? styles.alertIcon_error :
+                  styles.alertIcon_info
+                ]}>
+                  <Text style={[styles.alertIconText, { color: customAlert.type === 'success' ? '#10B981' : customAlert.type === 'error' ? '#EF4444' : '#4F46E5' }]}>
+                    {customAlert.type === 'success' ? '✓' : customAlert.type === 'error' ? '✕' : 'ℹ'}
+                  </Text>
+                </View>
+                <Text style={styles.alertTitle}>{customAlert.title}</Text>
+                <Text style={styles.alertMessage}>{customAlert.message}</Text>
+                <TouchableOpacity 
+                  style={[
+                    styles.alertButton,
+                    customAlert.type === 'success' ? styles.alertBtn_success :
+                    customAlert.type === 'error' ? styles.alertBtn_error :
+                    styles.alertBtn_info
+                  ]} 
+                  onPress={() => setCustomAlert({ ...customAlert, visible: false })}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.alertButtonText}>Got It</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </Modal>
+        )}
       </KeyboardAvoidingView>
     );
   }
