@@ -14,7 +14,7 @@ import {
   Modal,
 } from 'react-native';
 import axios from 'axios';
-import Svg, { Circle, Path, Rect, Defs, RadialGradient, Stop, Polyline } from 'react-native-svg';
+import Svg, { Circle, Path, Rect, Defs, RadialGradient, Stop, Polyline, LinearGradient } from 'react-native-svg';
 import { useWallet } from '../hooks/useWallet';
 
 // Import sub-screens to render in capsule view
@@ -25,6 +25,59 @@ import { LiveArenaScreen } from './LiveArenaScreen';
 
 const API_SERVER_URL = process.env.EXPO_PUBLIC_SERVER_URL || 'http://localhost:5000';
 const ENTRY_FEES = [50, 100, 500, 1000];
+
+interface AnimatedPressableProps {
+  onPress: () => void;
+  disabled?: boolean;
+  style?: any;
+  contentStyle?: any;
+  children: React.ReactNode;
+}
+
+const AnimatedPressable: React.FC<AnimatedPressableProps> = ({
+  onPress,
+  disabled,
+  style,
+  contentStyle,
+  children,
+}) => {
+  const scale = useRef(new Animated.Value(1)).current;
+
+  const onPressIn = () => {
+    if (disabled) return;
+    Animated.spring(scale, {
+      toValue: 0.96,
+      useNativeDriver: true,
+      tension: 180,
+      friction: 12,
+    }).start();
+  };
+
+  const onPressOut = () => {
+    if (disabled) return;
+    Animated.spring(scale, {
+      toValue: 1,
+      useNativeDriver: true,
+      tension: 180,
+      friction: 12,
+    }).start();
+  };
+
+  return (
+    <Animated.View style={[{ transform: [{ scale }] }, style]}>
+      <TouchableOpacity
+        activeOpacity={0.9}
+        onPressIn={onPressIn}
+        onPressOut={onPressOut}
+        onPress={onPress}
+        disabled={disabled}
+        style={contentStyle}
+      >
+        {children}
+      </TouchableOpacity>
+    </Animated.View>
+  );
+};
 
 interface DashboardScreenProps {
   currentUser: { _id: string; username: string; isKycVerified?: boolean };
@@ -391,24 +444,105 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
               </TouchableOpacity>
             </View>
 
+            {tournament && (
+              <View style={styles.tournamentCard}>
+                <Svg style={StyleSheet.absoluteFillObject} width="100%" height="100%" opacity={0.06}>
+                  <Defs>
+                    <LinearGradient id="isoGrad" x1="0" y1="0" x2="1" y2="1">
+                      <Stop offset="0" stopColor="#4F46E5" stopOpacity="0.8" />
+                      <Stop offset="1" stopColor="#10B981" stopOpacity="0.8" />
+                    </LinearGradient>
+                  </Defs>
+                  <Path d="M0,20 L150,90 L300,20 M0,80 L150,150 L300,80" fill="none" stroke="url(#isoGrad)" strokeWidth="2" />
+                  <Path d="M50,10 L120,45 L70,80 L0,45 Z" fill="url(#isoGrad)" opacity={0.2} />
+                  <Path d="M200,100 L270,135 L220,170 L150,135 Z" fill="url(#isoGrad)" opacity={0.2} />
+                  <Circle cx="280" cy="50" r="40" fill="url(#isoGrad)" opacity={0.15} />
+                </Svg>
+                <View style={styles.tournamentBanner}>
+                  <View>
+                    <Text style={styles.tournamentSub}>LIVE POOL TOURNAMENT</Text>
+                    <Text style={styles.tournamentTitle}>{tournament.title.toUpperCase()}</Text>
+                  </View>
+                  <View style={styles.prizeBadge}>
+                    <Text style={styles.prizeText}>Prize Pool</Text>
+                    <Text style={styles.prizePool}>₹{tournament.totalPrizePool.toLocaleString()}</Text>
+                  </View>
+                </View>
+
+                <View style={styles.trackerContainer}>
+                  <View style={styles.trackerTextRow}>
+                    <Text style={styles.trackerLabel}>Registration Density</Text>
+                    <Text style={styles.trackerDensity}>
+                      {tournament.registeredCount}/{tournament.maxEntries} Joined
+                    </Text>
+                  </View>
+                  <View style={styles.progressBarBg}>
+                    <View
+                      style={[
+                        styles.progressBarFill,
+                        { width: `${(tournament.registeredCount / tournament.maxEntries) * 100}%` }
+                      ]}
+                    />
+                  </View>
+                  <Text style={styles.spotsLeftText}>
+                    {(tournament.maxEntries - tournament.registeredCount).toLocaleString()} SPOTS LEFT
+                  </Text>
+                </View>
+
+                <View style={styles.buyInRow}>
+                  <View>
+                    <Text style={styles.buyInLabel}>Entry Fee</Text>
+                    <Text style={styles.buyInValue}>₹{tournament.entryFee}</Text>
+                  </View>
+                  <AnimatedPressable
+                    style={[
+                      styles.buyInBtn,
+                      isRegistered && styles.buyInBtnRegistered,
+                      isRegisteringTournament && styles.buyInBtnDisabled,
+                      { paddingVertical: 0 }
+                    ]}
+                    contentStyle={{ width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center', paddingVertical: 12 }}
+                    onPress={handleJoinTournament}
+                    disabled={isRegisteringTournament}
+                  >
+                    {isRegisteringTournament ? (
+                      <ActivityIndicator color="#FFF" />
+                    ) : (
+                      <Text style={styles.buyInBtnText}>
+                        {isRegistered ? 'Registered • Awaiting Start' : 'Register Now'}
+                      </Text>
+                    )}
+                  </AnimatedPressable>
+                </View>
+              </View>
+            )}
+
             {/* QUICK Tab layout */}
             {activeSegment === 'QUICK' && (
               <View>
                 <Text style={styles.sectionHeader}>SELECT QUICK MATCH FEE</Text>
-                 <View style={styles.tiersContainer}>
+                <View style={styles.tiersContainer}>
                   {ENTRY_FEES.map((fee) => (
-                    <TouchableOpacity
+                    <AnimatedPressable
                       key={fee}
-                      style={[styles.tierCard, selectedTier === fee && styles.selectedTierCard]}
+                      style={[
+                        styles.tierCard,
+                        selectedTier === fee && styles.selectedTierCard,
+                        { paddingVertical: 0 }
+                      ]}
+                      contentStyle={{ width: '100%', alignItems: 'center', justifyContent: 'center', paddingVertical: 16 }}
                       onPress={() => { setSelectedTier(fee); setCustomFeeText(''); }}
-                      activeOpacity={0.7}
                       disabled={isSearching}
                     >
+                      <Svg style={StyleSheet.absoluteFillObject} width="100%" height="100%" opacity={0.06}>
+                        <Path d="M-10,30 L50,0 L110,30 L50,60 Z" fill="#4F46E5" />
+                        <Path d="M50,70 L110,40 L170,70 L110,100 Z" fill="#10B981" />
+                      </Svg>
                       <Text style={[styles.tierFeeText, selectedTier === fee && styles.selectedText]}>₹{fee}</Text>
                       <View style={styles.winBadge}>
                         <Text style={styles.winBadgeText}>💰 WIN ₹{(fee * 1.8).toFixed(0)}</Text>
                       </View>
-                    </TouchableOpacity>
+                    </AnimatedPressable>
                   ))}
                 </View>
 
@@ -454,20 +588,19 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                     </TouchableOpacity>
                   </View>
                 ) : (
-                  <Animated.View style={{ transform: [{ scale: buttonScale }, { scale: ctaPulse }] }}>
-                    <TouchableOpacity
-                      style={styles.primaryActionBtn}
-                      onPress={handleJoinMatchmaking}
-                      activeOpacity={0.9}
-                    >
-                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        <Svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FFF" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 8 }}>
-                          <Path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
-                        </Svg>
-                        <Text style={styles.primaryActionText}>FIND QUICK MATCH</Text>
-                      </View>
-                    </TouchableOpacity>
-                  </Animated.View>
+                  <AnimatedPressable
+                    style={[
+                      styles.primaryActionBtn,
+                      { padding: 0 }
+                    ]}
+                    contentStyle={{ width: '100%', padding: 16, alignItems: 'center', justifyContent: 'center', flexDirection: 'row' }}
+                    onPress={handleJoinMatchmaking}
+                  >
+                    <Svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FFF" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 8 }}>
+                      <Path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+                    </Svg>
+                    <Text style={styles.primaryActionText}>FIND QUICK MATCH</Text>
+                  </AnimatedPressable>
                 )}
               </View>
             )}
@@ -475,80 +608,29 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             {/* REGULAR Tab layout */}
             {activeSegment === 'REGULAR' && (
               <View>
-                {tournament && (
-                  <View style={styles.tournamentCard}>
-                    <View style={styles.tournamentBanner}>
-                      <View>
-                        <Text style={styles.tournamentSub}>LIVE POOL TOURNAMENT</Text>
-                        <Text style={styles.tournamentTitle}>{tournament.title.toUpperCase()}</Text>
-                      </View>
-                      <View style={styles.prizeBadge}>
-                        <Text style={styles.prizeText}>Prize Pool</Text>
-                        <Text style={styles.prizePool}>₹{tournament.totalPrizePool.toLocaleString()}</Text>
-                      </View>
-                    </View>
-
-                    <View style={styles.trackerContainer}>
-                      <View style={styles.trackerTextRow}>
-                        <Text style={styles.trackerLabel}>Registration Density</Text>
-                        <Text style={styles.trackerDensity}>
-                          {tournament.registeredCount}/{tournament.maxEntries} Joined
-                        </Text>
-                      </View>
-                      <View style={styles.progressBarBg}>
-                        <View
-                          style={[
-                            styles.progressBarFill,
-                            { width: `${(tournament.registeredCount / tournament.maxEntries) * 100}%` }
-                          ]}
-                        />
-                      </View>
-                      <Text style={styles.spotsLeftText}>
-                        {(tournament.maxEntries - tournament.registeredCount).toLocaleString()} SPOTS LEFT
-                      </Text>
-                    </View>
-
-                    <View style={styles.buyInRow}>
-                      <View>
-                        <Text style={styles.buyInLabel}>Entry Fee</Text>
-                        <Text style={styles.buyInValue}>₹{tournament.entryFee}</Text>
-                      </View>
-                      <TouchableOpacity
-                        style={[
-                          styles.buyInBtn,
-                          isRegistered && styles.buyInBtnRegistered,
-                          isRegisteringTournament && styles.buyInBtnDisabled
-                        ]}
-                        onPress={handleJoinTournament}
-                        disabled={isRegisteringTournament}
-                      >
-                        {isRegisteringTournament ? (
-                          <ActivityIndicator color="#FFF" />
-                        ) : (
-                          <Text style={styles.buyInBtnText}>
-                            {isRegistered ? 'Registered • Awaiting Start' : 'Register Now'}
-                          </Text>
-                        )}
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                )}
-
                 <Text style={styles.sectionHeader}>SELECT CLASSIC MATCH FEE</Text>
                 <View style={styles.tiersContainer}>
                   {ENTRY_FEES.map((fee) => (
-                    <TouchableOpacity
+                    <AnimatedPressable
                       key={fee}
-                      style={[styles.tierCard, selectedTier === fee && styles.selectedTierCard]}
+                      style={[
+                        styles.tierCard,
+                        selectedTier === fee && styles.selectedTierCard,
+                        { paddingVertical: 0 }
+                      ]}
+                      contentStyle={{ width: '100%', alignItems: 'center', justifyContent: 'center', paddingVertical: 16 }}
                       onPress={() => { setSelectedTier(fee); setCustomFeeText(''); }}
-                      activeOpacity={0.7}
                       disabled={isSearching}
                     >
+                      <Svg style={StyleSheet.absoluteFillObject} width="100%" height="100%" opacity={0.06}>
+                        <Path d="M-10,30 L50,0 L110,30 L50,60 Z" fill="#4F46E5" />
+                        <Path d="M50,70 L110,40 L170,70 L110,100 Z" fill="#10B981" />
+                      </Svg>
                       <Text style={[styles.tierFeeText, selectedTier === fee && styles.selectedText]}>₹{fee}</Text>
                       <View style={styles.winBadge}>
                         <Text style={styles.winBadgeText}>💰 WIN ₹{(fee * 1.8).toFixed(0)}</Text>
                       </View>
-                    </TouchableOpacity>
+                    </AnimatedPressable>
                   ))}
                 </View>
 
@@ -587,13 +669,16 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                     </TouchableOpacity>
                   </View>
                 ) : (
-                  <TouchableOpacity
-                    style={[styles.primaryActionBtn, { backgroundColor: '#2563EB' }]}
+                  <AnimatedPressable
+                    style={[
+                      styles.primaryActionBtn,
+                      { backgroundColor: '#2563EB', padding: 0 }
+                    ]}
+                    contentStyle={{ width: '100%', padding: 16, alignItems: 'center', justifyContent: 'center' }}
                     onPress={handleJoinMatchmaking}
-                    activeOpacity={0.9}
                   >
                     <Text style={styles.primaryActionText}>FIND REGULAR MATCH</Text>
-                  </TouchableOpacity>
+                  </AnimatedPressable>
                 )}
               </View>
             )}
@@ -834,7 +919,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F3F4F6', // Ultra-light Slate Ice White Canvas
+    backgroundColor: '#F8FAFC', // Premium Canvas Backdrop (#F8FAFC canvas background)
   },
   header: {
     height: 64,
@@ -927,12 +1012,14 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     alignItems: 'center',
     marginBottom: 12,
-    // Global micro-shadow profile
+    // High-End Skeuomorphic Elevation & 3D shadow depth
     shadowColor: '#475569',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.05,
-    shadowRadius: 16,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.08,
+    shadowRadius: 24,
+    elevation: 6,
+    position: 'relative',
+    overflow: 'hidden',
   },
   selectedTierCard: {
     borderColor: '#4F46E5',
@@ -967,12 +1054,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 12,
-    // Global shadow profile
+    // High-End Skeuomorphic Elevation & 3D shadow depth
     shadowColor: '#475569',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.05,
-    shadowRadius: 16,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.08,
+    shadowRadius: 24,
+    elevation: 6,
   },
   primaryActionText: {
     color: '#FFFFFF',
@@ -1101,11 +1188,14 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     borderWidth: 1,
     borderColor: '#E5E7EB',
+    // High-End Skeuomorphic Elevation & 3D shadow depth
     shadowColor: '#475569',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.05,
-    shadowRadius: 16,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.08,
+    shadowRadius: 24,
+    elevation: 6,
+    position: 'relative',
+    overflow: 'hidden',
   },
   tournamentBanner: {
     flexDirection: 'row',
