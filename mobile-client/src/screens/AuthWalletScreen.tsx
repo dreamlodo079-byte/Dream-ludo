@@ -10,6 +10,7 @@ import {
   Alert,
   Clipboard,
   Linking,
+  Modal,
 } from 'react-native';
 import Svg, { Rect, Path, G, Defs, LinearGradient, Stop, Circle, Line, Polyline } from 'react-native-svg';
 import axios from 'axios';
@@ -119,6 +120,17 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
   const [isHistoryExpanded, setIsHistoryExpanded] = useState(false);
   const [activePolicy, setActivePolicy] = useState<string | null>(null);
 
+  const [customAlert, setCustomAlert] = useState<{ visible: boolean; title: string; message: string; type: 'success' | 'error' | 'info' }>({
+    visible: false,
+    title: '',
+    message: '',
+    type: 'info',
+  });
+
+  const showCustomAlert = (title: string, message: string, type: 'success' | 'error' | 'info' = 'info') => {
+    setCustomAlert({ visible: true, title, message, type });
+  };
+
   useEffect(() => {
     if (currentUser) {
       fetchWallet(currentUser._id).then((updatedUser) => {
@@ -208,7 +220,7 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
     if (!currentUser) return;
     const amount = Number(depositAmount);
     if (isNaN(amount) || amount <= 0) {
-      Alert.alert('Deposit Error', 'Please enter a valid deposit amount.');
+      showCustomAlert('Deposit Error', 'Please enter a valid deposit amount.', 'error');
       return;
     }
 
@@ -216,9 +228,9 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
     if (result.success && result.upiIntent && result.transactionId) {
       setUpiIntentLink(result.upiIntent);
       setActiveTxnId(result.transactionId);
-      Alert.alert('Payment Intent Created', `Redirecting to payment apps for: ${amount} INR`);
+      showCustomAlert('Payment Intent Created', `Redirecting to payment apps for: ${amount} INR`, 'info');
     } else {
-      Alert.alert('Deposit Failed', result.error || 'Server rejected request');
+      showCustomAlert('Deposit Failed', result.error || 'Server rejected request', 'error');
     }
   };
 
@@ -231,20 +243,20 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
         amount: Number(depositAmount),
       });
 
-      Alert.alert('Payment Success', 'Mock payment verified successfully! Balance updated.');
+      showCustomAlert('Payment Success', 'Mock payment verified successfully! Balance updated.', 'success');
       setUpiIntentLink(null);
       setActiveTxnId(null);
       setDepositAmount('');
       fetchWallet(currentUser._id);
     } catch (err: any) {
-      Alert.alert('Simulated Webhook Error', err.response?.data?.error || err.message);
+      showCustomAlert('Simulated Webhook Error', err.response?.data?.error || err.message, 'error');
     }
   };
 
   const handleSubmitKyc = async () => {
     if (!currentUser) return;
     if (!kycName.trim() || !kycDocNum.trim()) {
-      Alert.alert('KYC Error', 'Please enter your full name and document number.');
+      showCustomAlert('KYC Error', 'Please enter your full name and document number.', 'error');
       return;
     }
 
@@ -252,14 +264,14 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
     if (kycType === 'PAN') {
       const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
       if (!panRegex.test(normalizedDoc.toUpperCase())) {
-        Alert.alert('Format Error', 'Invalid PAN number format. Must be like ABCDE1234F.');
+        showCustomAlert('Format Error', 'Invalid PAN number format. Must be like ABCDE1234F.', 'error');
         return;
       }
     } else {
       const cleanAadhaar = normalizedDoc.replace(/\s|-/g, '');
       const aadhaarRegex = /^\d{12}$/;
       if (!aadhaarRegex.test(cleanAadhaar)) {
-        Alert.alert('Format Error', 'Invalid Aadhaar format. Must be exactly 12 digits.');
+        showCustomAlert('Format Error', 'Invalid Aadhaar format. Must be exactly 12 digits.', 'error');
         return;
       }
     }
@@ -274,7 +286,7 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
       });
 
       if (response.data.success && response.data.user) {
-        Alert.alert('KYC Verified', 'Your KYC has been successfully verified! You can now withdraw winnings.');
+        showCustomAlert('KYC Verified', 'Your KYC has been successfully verified! You can now withdraw winnings.', 'success');
         if (onUserUpdate) {
           onUserUpdate(response.data.user);
         }
@@ -282,7 +294,7 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
         setKycName('');
       }
     } catch (err: any) {
-      Alert.alert('KYC Verification Failed', err.response?.data?.error || err.message);
+      showCustomAlert('KYC Verification Failed', err.response?.data?.error || err.message, 'error');
     } finally {
       setIsSubmittingKyc(false);
     }
@@ -292,27 +304,27 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
     if (!currentUser) return;
 
     if (!currentUser.isKycVerified) {
-      Alert.alert('KYC Required', 'You must complete your KYC verification below before you can withdraw winnings.');
+      showCustomAlert('KYC Required', 'You must complete your KYC verification below before you can withdraw winnings.', 'info');
       return;
     }
 
     const amount = Number(withdrawAmount);
     if (isNaN(amount) || amount <= 0) {
-      Alert.alert('Withdrawal Error', 'Please enter a valid amount.');
+      showCustomAlert('Withdrawal Error', 'Please enter a valid amount.', 'error');
       return;
     }
     if (!upiId) {
-      Alert.alert('Withdrawal Error', 'Please enter a target UPI ID.');
+      showCustomAlert('Withdrawal Error', 'Please enter a target UPI ID.', 'error');
       return;
     }
 
     const result = await withdrawWinnings(currentUser._id, amount, upiId);
     if (result.success) {
-      Alert.alert('Withdrawal Successful', 'IMPS transfer completed. Winnings balance locked and settled.');
+      showCustomAlert('Withdrawal Successful', 'IMPS transfer completed. Winnings balance locked and settled.', 'success');
       setWithdrawAmount('');
       setUpiId('');
     } else {
-      Alert.alert('Withdrawal Failed', result.error || 'Server rejected payout');
+      showCustomAlert('Withdrawal Failed', result.error || 'Server rejected payout', 'error');
     }
   };
 
@@ -328,12 +340,12 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
 
   const handleCopyCode = () => {
     Clipboard.setString(referralCode);
-    Alert.alert('Referral System', 'Referral Code Copied to Clipboard!');
+    showCustomAlert('Referral System', 'Referral Code Copied to Clipboard!', 'success');
   };
 
   const handleCopyLink = () => {
     Clipboard.setString(referralUrl);
-    Alert.alert('Referral System', 'Invite URL Copied to Clipboard!');
+    showCustomAlert('Referral System', 'Invite URL Copied to Clipboard!', 'success');
   };
 
   const handleWhatsAppShare = async () => {
@@ -344,10 +356,10 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
       if (supported) {
         await Linking.openURL(url);
       } else {
-        Alert.alert('WhatsApp Error', 'WhatsApp app is not installed on this device.');
+        showCustomAlert('WhatsApp Error', 'WhatsApp app is not installed on this device.', 'error');
       }
     } catch (err: any) {
-      Alert.alert('Error', err.message);
+      showCustomAlert('Error', err.message, 'error');
     }
   };
 
@@ -817,50 +829,86 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
   );
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
-      {/* Premium Profile Section */}
-      <View style={styles.profileCard}>
-        <View style={styles.avatarContainer}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarEmoji}>👤</Text>
+    <View style={{ flex: 1 }}>
+      <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
+        {/* Premium Profile Section */}
+        <View style={styles.profileCard}>
+          <View style={styles.avatarContainer}>
+            <View style={styles.avatar}>
+              <Text style={styles.avatarEmoji}>👤</Text>
+            </View>
+            <TouchableOpacity 
+              style={styles.cameraOverlay}
+              onPress={() => showCustomAlert('Avatar Editor', 'Profile avatar changes are saved locally.', 'info')}
+            >
+              <Text style={styles.cameraOverlayText}>📸</Text>
+            </TouchableOpacity>
           </View>
-          <TouchableOpacity 
-            style={styles.cameraOverlay}
-            onPress={() => Alert.alert('Avatar Editor', 'Profile avatar changes are saved locally.')}
-          >
-            <Text style={styles.cameraOverlayText}>📸</Text>
-          </TouchableOpacity>
+          <Text style={styles.usernameHeader}>{currentUser.username}</Text>
+          <Text style={styles.phoneSub}>{currentUser.phone}</Text>
         </View>
-        <Text style={styles.usernameHeader}>{currentUser.username}</Text>
-        <Text style={styles.phoneSub}>{currentUser.phone}</Text>
-      </View>
 
-      {/* 2. Wallet Balance Card (Always on Top) */}
-      {renderBalanceCard()}
+        {/* 2. Wallet Balance Card (Always on Top) */}
+        {renderBalanceCard()}
 
-      {/* 3. Add Money to Wallet Card */}
-      {renderAddMoneyCard()}
+        {/* 3. Add Money to Wallet Card */}
+        {renderAddMoneyCard()}
 
-      {/* 4. KYC Card (Shown here ONLY IF NOT verified) */}
-      {!currentUser.isKycVerified && renderKycCard()}
+        {/* 4. KYC Card (Shown here ONLY IF NOT verified) */}
+        {!currentUser.isKycVerified && renderKycCard()}
 
-      {/* 5. Send Winnings to Bank Card */}
-      {renderWithdrawCard()}
+        {/* 5. Send Winnings to Bank Card */}
+        {renderWithdrawCard()}
 
-      {/* 6. KYC Card (Shown at the bottom ONLY IF verified) */}
-      {currentUser.isKycVerified && renderKycCard()}
+        {/* 6. KYC Card (Shown at the bottom ONLY IF verified) */}
+        {currentUser.isKycVerified && renderKycCard()}
 
-      {/* 7. Share & Refer Card */}
-      {renderReferCard()}
+        {/* 7. Share & Refer Card */}
+        {renderReferCard()}
 
-      {/* 8. Transaction History Card */}
-      {renderHistoryCard()}
+        {/* 8. Transaction History Card */}
+        {renderHistoryCard()}
 
-      {/* 9. Help & Legal Policies Card */}
-      {renderComplianceCard()}
+        {/* 9. Help & Legal Policies Card */}
+        {renderComplianceCard()}
 
-      {error && <Text style={styles.errorText}>Error: {error}</Text>}
-    </ScrollView>
+        {error && <Text style={styles.errorText}>Error: {error}</Text>}
+      </ScrollView>
+
+      {/* Premium Custom Alert Modal */}
+      {customAlert.visible && (
+        <Modal visible={true} transparent animationType="fade">
+          <View style={styles.alertOverlay}>
+            <View style={styles.alertCard}>
+              <View style={[
+                styles.alertIconCircle,
+                customAlert.type === 'success' ? styles.alertIcon_success :
+                customAlert.type === 'error' ? styles.alertIcon_error :
+                styles.alertIcon_info
+              ]}>
+                <Text style={[styles.alertIconText, { color: customAlert.type === 'success' ? '#10B981' : customAlert.type === 'error' ? '#EF4444' : '#4F46E5' }]}>
+                  {customAlert.type === 'success' ? '✓' : customAlert.type === 'error' ? '✕' : 'ℹ'}
+                </Text>
+              </View>
+              <Text style={styles.alertTitle}>{customAlert.title}</Text>
+              <Text style={styles.alertMessage}>{customAlert.message}</Text>
+              <TouchableOpacity 
+                style={[
+                  styles.alertButton,
+                  customAlert.type === 'success' ? styles.alertBtn_success :
+                  customAlert.type === 'error' ? styles.alertBtn_error :
+                  styles.alertBtn_info
+                ]} 
+                onPress={() => setCustomAlert({ ...customAlert, visible: false })}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.alertButtonText}>Got It</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+      )}
+    </View>
   );
 };
 
@@ -995,7 +1043,7 @@ const styles = StyleSheet.create({
   balanceCard: {
     position: 'relative',
     borderRadius: 24, // Global component radius
-    height: 154,
+    height: 195,
     marginBottom: 20,
     shadowColor: '#4F46E5',
     shadowOffset: { width: 0, height: 6 },
@@ -1524,6 +1572,85 @@ const styles = StyleSheet.create({
     marginHorizontal: 4,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  alertOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  alertCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 24,
+    alignItems: 'center',
+    width: '100%',
+    maxWidth: 320,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.12,
+    shadowRadius: 20,
+    elevation: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  alertIconCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  alertIcon_success: {
+    backgroundColor: '#D1FAE5',
+  },
+  alertIcon_error: {
+    backgroundColor: '#FEE2E2',
+  },
+  alertIcon_info: {
+    backgroundColor: '#E0E7FF',
+  },
+  alertIconText: {
+    fontSize: 22,
+    fontWeight: '800',
+  },
+  alertTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#0F172A',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  alertMessage: {
+    fontSize: 13,
+    color: '#475569',
+    lineHeight: 18,
+    textAlign: 'center',
+    marginBottom: 20,
+    fontWeight: '600',
+  },
+  alertButton: {
+    width: '100%',
+    height: 44,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  alertBtn_success: {
+    backgroundColor: '#10B981',
+  },
+  alertBtn_error: {
+    backgroundColor: '#EF4444',
+  },
+  alertBtn_info: {
+    backgroundColor: '#4F46E5',
+  },
+  alertButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
   },
 });
 export default AuthWalletScreen;

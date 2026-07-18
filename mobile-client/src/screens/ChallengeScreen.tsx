@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   Alert,
   ScrollView,
+  Modal,
 } from 'react-native';
 import axios from 'axios';
 
@@ -29,6 +30,17 @@ export const ChallengeScreen: React.FC<ChallengeScreenProps> = ({ userId, onBack
   const [loading, setLoading] = useState(false);
   const [claiming, setClaiming] = useState(false);
 
+  const [customAlert, setCustomAlert] = useState<{ visible: boolean; title: string; message: string; type: 'success' | 'error' | 'info' }>({
+    visible: false,
+    title: '',
+    message: '',
+    type: 'info',
+  });
+
+  const showCustomAlert = (title: string, message: string, type: 'success' | 'error' | 'info' = 'info') => {
+    setCustomAlert({ visible: true, title, message, type });
+  };
+
   const fetchChallengeProgress = async () => {
     setLoading(true);
     try {
@@ -38,7 +50,7 @@ export const ChallengeScreen: React.FC<ChallengeScreenProps> = ({ userId, onBack
       }
     } catch (err: any) {
       console.error('Error fetching challenge progress:', err);
-      Alert.alert('Notice', 'Failed to retrieve daily milestone stats.');
+      showCustomAlert('Notice', 'Failed to retrieve daily milestone stats.', 'info');
     } finally {
       setLoading(false);
     }
@@ -50,7 +62,7 @@ export const ChallengeScreen: React.FC<ChallengeScreenProps> = ({ userId, onBack
 
   const handleClaimReward = async () => {
     if (!progress || progress.count < progress.target) {
-      Alert.alert('Incomplete Milestone', 'Keep playing to complete your daily matches target!');
+      showCustomAlert('Incomplete Milestone', 'Keep playing to complete your daily matches target!', 'info');
       return;
     }
 
@@ -60,11 +72,11 @@ export const ChallengeScreen: React.FC<ChallengeScreenProps> = ({ userId, onBack
         userId,
       });
       if (response.data.success) {
-        Alert.alert('Milestone Claimed!', `Reward of ₹${response.data.reward} added to your balance.`);
+        showCustomAlert('Milestone Claimed!', `Reward of ₹${response.data.reward} added to your balance.`, 'success');
         fetchChallengeProgress();
       }
     } catch (err: any) {
-      Alert.alert('Claim Failure', err.response?.data?.error || err.message);
+      showCustomAlert('Claim Failure', err.response?.data?.error || err.message, 'error');
     } finally {
       setClaiming(false);
     }
@@ -77,11 +89,7 @@ export const ChallengeScreen: React.FC<ChallengeScreenProps> = ({ userId, onBack
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={onBack}>
-          <Text style={styles.backBtnText}>◀ BACK</Text>
-        </TouchableOpacity>
         <Text style={styles.headerTitle}>MILESTONES</Text>
-        <View style={styles.placeholder} />
       </View>
 
       {loading ? (
@@ -155,6 +163,38 @@ export const ChallengeScreen: React.FC<ChallengeScreenProps> = ({ userId, onBack
             <Text style={styles.refreshBtnText}>SYNC MILESTONES</Text>
           </TouchableOpacity>
         </ScrollView>
+      )}
+      {customAlert.visible && (
+        <Modal visible={true} transparent animationType="fade">
+          <View style={styles.alertOverlay}>
+            <View style={styles.alertCard}>
+              <View style={[
+                styles.alertIconCircle,
+                customAlert.type === 'success' ? styles.alertIcon_success :
+                customAlert.type === 'error' ? styles.alertIcon_error :
+                styles.alertIcon_info
+              ]}>
+                <Text style={[styles.alertIconText, { color: customAlert.type === 'success' ? '#10B981' : customAlert.type === 'error' ? '#EF4444' : '#4F46E5' }]}>
+                  {customAlert.type === 'success' ? '✓' : customAlert.type === 'error' ? '✕' : 'ℹ'}
+                </Text>
+              </View>
+              <Text style={styles.alertTitle}>{customAlert.title}</Text>
+              <Text style={styles.alertMessage}>{customAlert.message}</Text>
+              <TouchableOpacity 
+                style={[
+                  styles.alertButton,
+                  customAlert.type === 'success' ? styles.alertBtn_success :
+                  customAlert.type === 'error' ? styles.alertBtn_error :
+                  styles.alertBtn_info
+                ]} 
+                onPress={() => setCustomAlert({ ...customAlert, visible: false })}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.alertButtonText}>Got It</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
       )}
     </View>
   );
@@ -361,6 +401,85 @@ const styles = StyleSheet.create({
     color: '#475569',
     fontWeight: '700',
     fontSize: 13,
+  },
+  alertOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  alertCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 24,
+    alignItems: 'center',
+    width: '100%',
+    maxWidth: 320,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.12,
+    shadowRadius: 20,
+    elevation: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  alertIconCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  alertIcon_success: {
+    backgroundColor: '#D1FAE5',
+  },
+  alertIcon_error: {
+    backgroundColor: '#FEE2E2',
+  },
+  alertIcon_info: {
+    backgroundColor: '#E0E7FF',
+  },
+  alertIconText: {
+    fontSize: 22,
+    fontWeight: '800',
+  },
+  alertTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#0F172A',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  alertMessage: {
+    fontSize: 13,
+    color: '#475569',
+    lineHeight: 18,
+    textAlign: 'center',
+    marginBottom: 20,
+    fontWeight: '600',
+  },
+  alertButton: {
+    width: '100%',
+    height: 44,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  alertBtn_success: {
+    backgroundColor: '#10B981',
+  },
+  alertBtn_error: {
+    backgroundColor: '#EF4444',
+  },
+  alertBtn_info: {
+    backgroundColor: '#4F46E5',
+  },
+  alertButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
   },
 });
 export default ChallengeScreen;

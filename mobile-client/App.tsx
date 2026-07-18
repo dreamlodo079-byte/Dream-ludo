@@ -120,6 +120,13 @@ function AppContent() {
     }
   };
 
+  const handleUserUpdate = (updatedUser: any) => {
+    setCurrentUser(updatedUser);
+    if (Platform.OS === 'web') {
+      localStorage.setItem('currentUser', JSON.stringify(updatedUser));
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#F3F4F6" />
@@ -145,6 +152,7 @@ function AppContent() {
             onGoToLeaderboard={() => setView('leaderboard')}
             onGoToChallenges={() => setView('challenges')}
             onLogout={handleLogout}
+            onUserUpdate={handleUserUpdate}
           />
         )}
 
@@ -178,14 +186,6 @@ function AppContent() {
         )}
       </View>
 
-      {/* Socket connection alert footer (developer helper) */}
-      {currentUser && (
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>
-            Server Status: {isConnected ? '🟢 CONNECTED' : '🔴 DISCONNECTED'}
-          </Text>
-        </View>
-      )}
     </SafeAreaView>
   );
 }
@@ -200,18 +200,5 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 600,
     alignSelf: 'center',
-  },
-  footer: {
-    height: 24,
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderTopWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  footerText: {
-    fontSize: 10,
-    color: '#64748B', // Slate gray
-    fontWeight: 'bold',
   },
 });

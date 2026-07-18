@@ -11,6 +11,7 @@ import {
   Animated,
   useWindowDimensions,
   TextInput,
+  Modal,
 } from 'react-native';
 import axios from 'axios';
 import Svg, { Circle, Path, Rect, Defs, RadialGradient, Stop, Polyline } from 'react-native-svg';
@@ -44,8 +45,18 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   const { width } = useWindowDimensions();
   const { balances, fetchWallet } = useWallet();
 
-  // Unified Bottom Navigation view
   const [currentView, setCurrentView] = useState<'HOME' | 'LIVE' | 'LEADERBOARD' | 'PROFILE'>('HOME');
+
+  const [customAlert, setCustomAlert] = useState<{ visible: boolean; title: string; message: string; type: 'success' | 'error' | 'info' }>({
+    visible: false,
+    title: '',
+    message: '',
+    type: 'info',
+  });
+
+  const showCustomAlert = (title: string, message: string, type: 'success' | 'error' | 'info' = 'info') => {
+    setCustomAlert({ visible: true, title, message, type });
+  };
 
   // Upper Carousel Toggle tabs (QUICK, REGULAR, ROOMS)
   const [activeSegment, setActiveSegment] = useState<'QUICK' | 'REGULAR' | 'ROOMS'>('QUICK');
@@ -174,23 +185,23 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
       if (!response.data.success) {
         clearInterval(countdown);
         setIsSearching(false);
-        Alert.alert('Matchmaking Notice', response.data.message || 'Failed to enter queue.');
+        showCustomAlert('Matchmaking Notice', response.data.message || 'Failed to enter queue.', 'info');
       }
     } catch (err: any) {
       clearInterval(countdown);
       setIsSearching(false);
-      Alert.alert('Error', err.response?.data?.error || err.message);
+      showCustomAlert('Error', err.response?.data?.error || err.message, 'error');
     }
   };
 
   const handleCreatePrivateLobby = async () => {
     if (!socketId) {
-      Alert.alert('Connection Notice', 'Establishing server link...');
+      showCustomAlert('Connection Notice', 'Establishing server link...', 'info');
       return;
     }
 
     if (balances.total < selectedTier) {
-      Alert.alert('Insufficient Balance', 'Please top up your wallet in the Profile tab.');
+      showCustomAlert('Insufficient Balance', 'Please top up your wallet in the Profile tab.', 'error');
       return;
     }
 
@@ -220,10 +231,10 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
       if (response.data.success) {
         setLobbyDetails({ roomToken, passwordStr });
       } else {
-        Alert.alert('Lobby Error', response.data.message || 'Failed to initialize private lobby.');
+        showCustomAlert('Lobby Error', response.data.message || 'Failed to initialize private lobby.', 'error');
       }
     } catch (err: any) {
-      Alert.alert('Lobby Setup Error', err.response?.data?.error || err.message);
+      showCustomAlert('Lobby Setup Error', err.response?.data?.error || err.message, 'error');
     } finally {
       setIsCreatingLobby(false);
     }
@@ -231,17 +242,17 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
 
   const handleJoinPrivateLobby = async () => {
     if (!socketId) {
-      Alert.alert('Connection Notice', 'Establishing server link...');
+      showCustomAlert('Connection Notice', 'Establishing server link...', 'info');
       return;
     }
 
     if (!joinRoomCode || !joinPasscode) {
-      Alert.alert('Input Error', 'Please enter both the Room Code and Passcode.');
+      showCustomAlert('Input Error', 'Please enter both the Room Code and Passcode.', 'error');
       return;
     }
 
     if (balances.total < selectedTier) {
-      Alert.alert('Insufficient Balance', 'Please top up your wallet in the Profile tab.');
+      showCustomAlert('Insufficient Balance', 'Please top up your wallet in the Profile tab.', 'error');
       return;
     }
 
@@ -258,12 +269,12 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
       });
 
       if (response.data.success) {
-        Alert.alert('Success', 'Private room joined! Match starting shortly.');
+        showCustomAlert('Success', 'Private room joined! Match starting shortly.', 'success');
       } else {
-        Alert.alert('Join Failure', response.data.message || 'Lobby not found or credentials mismatched.');
+        showCustomAlert('Join Failure', response.data.message || 'Lobby not found or credentials mismatched.', 'error');
       }
     } catch (err: any) {
-      Alert.alert('Join Error', err.response?.data?.error || err.message);
+      showCustomAlert('Join Error', err.response?.data?.error || err.message, 'error');
     } finally {
       setIsJoiningLobby(false);
     }
@@ -275,25 +286,22 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
       const shareMessage = `🎲 Join my Private Sexus Ludo Room!\n\nRoom Code: ${lobbyDetails.roomToken}\nPasscode: ${lobbyDetails.passwordStr}\nEntry Fee: ${selectedTier} INR\n\nOpen the app and input these credentials to join.`;
       await Share.share({ message: shareMessage });
     } catch (error: any) {
-      Alert.alert('Share Error', error.message);
+      showCustomAlert('Share Error', error.message, 'error');
     }
   };
 
   const handleJoinTournament = async () => {
     if (!tournament) return;
     if (isRegistered) {
-      Alert.alert('Tournament Registration', 'You are already registered! Check back when match starts.');
+      showCustomAlert('Tournament Registration', 'You are already registered! Check back when match starts.', 'info');
       return;
     }
 
     if (balances.total < tournament.entryFee) {
-      Alert.alert(
+      showCustomAlert(
         'Insufficient Balance',
-        `Tournament registration requires entry fee of ₹${tournament.entryFee}. Please top up your wallet.`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Add Cash', onPress: () => setCurrentView('PROFILE') },
-        ]
+        `Tournament registration requires entry fee of ₹${tournament.entryFee}. Please top up your wallet in the Profile tab.`,
+        'error'
       );
       return;
     }
@@ -307,12 +315,12 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
 
       if (response.data.success) {
         setIsRegistered(true);
-        Alert.alert('Registration Successful', `Successfully registered for: ${tournament.title}!`);
+        showCustomAlert('Registration Successful', `Successfully registered for: ${tournament.title}!`, 'success');
         fetchWallet(currentUser._id);
         fetchActiveTournament();
       }
     } catch (err: any) {
-      Alert.alert('Registration Failed', err.response?.data?.error || err.message);
+      showCustomAlert('Registration Failed', err.response?.data?.error || err.message, 'error');
     } finally {
       setIsRegisteringTournament(false);
     }
@@ -776,6 +784,40 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           </Svg>
         ))}
       </View>
+
+      {/* Premium Custom Alert Modal */}
+      {customAlert.visible && (
+        <Modal visible={true} transparent animationType="fade">
+          <View style={styles.alertOverlay}>
+            <View style={styles.alertCard}>
+              <View style={[
+                styles.alertIconCircle,
+                customAlert.type === 'success' ? styles.alertIcon_success :
+                customAlert.type === 'error' ? styles.alertIcon_error :
+                styles.alertIcon_info
+              ]}>
+                <Text style={[styles.alertIconText, { color: customAlert.type === 'success' ? '#10B981' : customAlert.type === 'error' ? '#EF4444' : '#4F46E5' }]}>
+                  {customAlert.type === 'success' ? '✓' : customAlert.type === 'error' ? '✕' : 'ℹ'}
+                </Text>
+              </View>
+              <Text style={styles.alertTitle}>{customAlert.title}</Text>
+              <Text style={styles.alertMessage}>{customAlert.message}</Text>
+              <TouchableOpacity 
+                style={[
+                  styles.alertButton,
+                  customAlert.type === 'success' ? styles.alertBtn_success :
+                  customAlert.type === 'error' ? styles.alertBtn_error :
+                  styles.alertBtn_info
+                ]} 
+                onPress={() => setCustomAlert({ ...customAlert, visible: false })}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.alertButtonText}>Got It</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+      )}
     </View>
   );
 };
@@ -1273,5 +1315,84 @@ const styles = StyleSheet.create({
     color: '#0F172A',
     fontWeight: '600',
     padding: 0,
+  },
+  alertOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  alertCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 24,
+    alignItems: 'center',
+    width: '100%',
+    maxWidth: 320,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.12,
+    shadowRadius: 20,
+    elevation: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  alertIconCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  alertIcon_success: {
+    backgroundColor: '#D1FAE5',
+  },
+  alertIcon_error: {
+    backgroundColor: '#FEE2E2',
+  },
+  alertIcon_info: {
+    backgroundColor: '#E0E7FF',
+  },
+  alertIconText: {
+    fontSize: 22,
+    fontWeight: '800',
+  },
+  alertTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#0F172A',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  alertMessage: {
+    fontSize: 13,
+    color: '#475569',
+    lineHeight: 18,
+    textAlign: 'center',
+    marginBottom: 20,
+    fontWeight: '600',
+  },
+  alertButton: {
+    width: '100%',
+    height: 44,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  alertBtn_success: {
+    backgroundColor: '#10B981',
+  },
+  alertBtn_error: {
+    backgroundColor: '#EF4444',
+  },
+  alertBtn_info: {
+    backgroundColor: '#4F46E5',
+  },
+  alertButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
   },
 });
