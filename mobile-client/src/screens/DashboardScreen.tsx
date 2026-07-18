@@ -12,6 +12,8 @@ import {
   useWindowDimensions,
   TextInput,
   Modal,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import axios from 'axios';
 import Svg, { Circle, Path, Rect, Defs, RadialGradient, Stop, Polyline, LinearGradient } from 'react-native-svg';
@@ -439,7 +441,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
     <View style={styles.container}>
       {/* Sub-view switcher */}
       {currentView === 'HOME' && (
-        <View style={{ flex: 1 }}>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
           {/* Luxury Top Header */}
           <View style={styles.header}>
             <Text style={styles.logoText}>SEXUS</Text>
@@ -452,7 +454,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             </TouchableOpacity>
           </View>
 
-          <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
             {/* Carousel Toggle Selector */}
             <View style={styles.carouselContainer}>
               <Animated.View
@@ -844,7 +846,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
               </View>
             )}
           </ScrollView>
-        </View>
+        </KeyboardAvoidingView>
       )}
 
       {currentView === 'LIVE' && (
@@ -944,40 +946,45 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8FAFC', // Premium Canvas Backdrop (#F8FAFC canvas background)
   },
   header: {
-    height: 64,
+    height: 70,
     backgroundColor: '#FFFFFF',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
     borderBottomWidth: 1,
-    borderColor: '#E5E7EB',
-    marginTop: 20,
+    borderColor: '#E2E8F0',
+    shadowColor: '#334155',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 3,
+    marginTop: Platform.OS === 'android' ? 24 : 0,
   },
   logoText: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '900',
-    color: '#0F172A',
-    letterSpacing: 2,
+    color: '#4F46E5', // Premium indigo accent
+    letterSpacing: 3,
   },
   walletPill: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#EEF2FF', // Active glow light-lavender
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 24,
     borderWidth: 1,
     borderColor: '#E0E7FF',
   },
   walletBalance: {
-    fontSize: 12,
-    fontWeight: 'bold',
+    fontSize: 13,
+    fontWeight: '800',
     color: '#4F46E5', // Slate indigo accent
   },
   scrollContent: {
     padding: 20,
-    paddingBottom: 110, // Account for absolutely positioned bottom capsule bar
+    paddingBottom: 150, // Account for absolutely positioned bottom capsule bar
   },
   carouselContainer: {
     flexDirection: 'row',

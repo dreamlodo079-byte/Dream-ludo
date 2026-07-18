@@ -228,7 +228,7 @@ export const LiveArenaScreen: React.FC<LiveArenaScreenProps> = ({
               activeOpacity={0.7}
             >
               <Text style={styles.dropdownToggleText}>
-                {isExpanded ? 'Hide Prize Scale ?' : 'Show Prize Scale ?'}
+                {isExpanded ? 'Hide Prize Scale' : 'Show Prize Scale'}
               </Text>
             </TouchableOpacity>
           </View>
@@ -262,7 +262,7 @@ export const LiveArenaScreen: React.FC<LiveArenaScreenProps> = ({
               activeOpacity={0.8}
             >
               <Text style={styles.actionButtonText}>
-                {isThisSearching ? 'Cancel' : `?${item.tier}`}
+                {isThisSearching ? 'Cancel' : `Rs. ${item.tier}`}
               </Text>
             </TouchableOpacity>
           </Animated.View>
@@ -276,19 +276,19 @@ export const LiveArenaScreen: React.FC<LiveArenaScreenProps> = ({
             </View>
             <View style={styles.prizeRow}>
               <Text style={styles.prizeLabel}>Entry Fee:</Text>
-              <Text style={styles.prizeValue}>?{item.tier} per player</Text>
+              <Text style={styles.prizeValue}>Rs. {item.tier} per player</Text>
             </View>
             <View style={styles.prizeRow}>
               <Text style={styles.prizeLabel}>Match Total:</Text>
-              <Text style={styles.prizeValue}>?{item.tier * 2}</Text>
+              <Text style={styles.prizeValue}>Rs. {item.tier * 2}</Text>
             </View>
             <View style={[styles.prizeRow, styles.commissionRow]}>
               <Text style={styles.prizeLabel}>Platform Fee (10%):</Text>
-              <Text style={styles.prizeValue}>- ?{(item.tier * 2 * 0.1).toFixed(0)}</Text>
+              <Text style={styles.prizeValue}>- Rs. {(item.tier * 2 * 0.1).toFixed(0)}</Text>
             </View>
             <View style={[styles.prizeRow, styles.netWinningsRow]}>
               <Text style={styles.netWinningsLabel}>Winner Payout:</Text>
-              <Text style={styles.netWinningsValue}>WIN ?{item.prize}</Text>
+              <Text style={styles.netWinningsValue}>WIN Rs. {item.prize}</Text>
             </View>
           </View>
         )}
@@ -298,13 +298,20 @@ export const LiveArenaScreen: React.FC<LiveArenaScreenProps> = ({
 
   return (
     <View style={styles.container}>
-      {/* Header bar */}
+      {/* Luxury Header bar */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backBtn} onPress={onBack} activeOpacity={0.7}>
-          <Text style={styles.backBtnText}>? Back</Text>
+          <Text style={styles.backBtnText}>← Back</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>LIVE BATTLE ARENA</Text>
         <View style={{ width: 60 }} />
+      </View>
+
+      {/* Screen Explanatory Tagline */}
+      <View style={styles.taglineCard}>
+        <Text style={styles.taglineText}>
+          ⚡ Choose a cash tier entry fee to match and compete against real players. Winner takes 90% of the combined entry pool instantly!
+        </Text>
       </View>
 
       {/* Tiers List */}
@@ -322,7 +329,7 @@ export const LiveArenaScreen: React.FC<LiveArenaScreenProps> = ({
           <View style={styles.overlayCard}>
             <ActivityIndicator size="large" color="#4F46E5" />
             <Text style={styles.overlayTitle}>Finding Opponent...</Text>
-            <Text style={styles.overlaySubtitle}>Entry Tier: ?{searchingTier.tier}</Text>
+            <Text style={styles.overlaySubtitle}>Entry Tier: Rs. {searchingTier.tier}</Text>
             <Text style={styles.overlayTimer}>Estimated wait: {searchTimer}s</Text>
             <TouchableOpacity style={styles.overlayCancelBtn} onPress={handleCancelSearch} activeOpacity={0.85}>
               <Text style={styles.overlayCancelText}>Cancel Search</Text>
@@ -337,30 +344,36 @@ export const LiveArenaScreen: React.FC<LiveArenaScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F3F4F6', // Crisp Premium Light Theme background
+    backgroundColor: '#F8FAFC', // Crisp Premium Light Theme background (#F8FAFC)
   },
   header: {
-    height: 64,
+    height: 70,
     backgroundColor: '#FFFFFF',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderColor: '#E5E7EB',
-    ...Platform.select({
-      ios: { paddingTop: 10 },
-    }),
+    borderColor: '#E2E8F0',
+    shadowColor: '#334155',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 3,
+    marginTop: Platform.OS === 'android' ? 24 : 0,
   },
   backBtn: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    backgroundColor: '#EEF2FF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E0E7FF',
   },
   backBtnText: {
     color: '#4F46E5',
-    fontWeight: '700',
-    fontSize: 14,
+    fontWeight: '800',
+    fontSize: 13,
   },
   headerTitle: {
     fontSize: 16,
@@ -370,7 +383,7 @@ const styles = StyleSheet.create({
   },
   listContent: {
     padding: 16,
-    paddingBottom: 40,
+    paddingBottom: 130, // Make it scrollable all the way past floating capsule bar
   },
   cardContainer: {
     backgroundColor: '#FFFFFF',
@@ -597,5 +610,22 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '800',
     fontSize: 13,
+  },
+  taglineCard: {
+    backgroundColor: '#EEF2FF',
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 4,
+    padding: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E0E7FF',
+  },
+  taglineText: {
+    fontSize: 12,
+    color: '#4F46E5',
+    fontWeight: '600',
+    lineHeight: 16,
+    textAlign: 'center',
   },
 });
