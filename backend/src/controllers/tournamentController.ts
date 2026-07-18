@@ -114,6 +114,7 @@ tournamentRouter.post('/test-run', async (_req: Request, res: Response) => {
       entryFee: 10,
       maxEntries: 4,
       registeredCount: 4,
+      startsAt: new Date(),
       endsAt: new Date(),
       status: TournamentStatus.ACTIVE,
     });

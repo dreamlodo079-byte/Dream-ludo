@@ -31,6 +31,7 @@ export interface ITournament extends Document {
   maxEntries: number;
   registeredCount: number;
   registeredUsers: Types.ObjectId[];
+  startsAt: Date;
   endsAt: Date;
   status: TournamentStatus;
   currentRound: number;
@@ -69,6 +70,11 @@ const TournamentSchema = new Schema<ITournament>(
         ref: 'User',
       },
     ],
+    startsAt: {
+      type: Date,
+      required: true,
+      default: Date.now,
+    },
     endsAt: {
       type: Date,
       required: true,

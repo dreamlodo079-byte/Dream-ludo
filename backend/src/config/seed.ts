@@ -39,6 +39,7 @@ export const seedPlatformDatabase = async (): Promise<void> => {
         entryFee: 10,
         maxEntries: 10000,
         registeredCount: 169,
+        startsAt: new Date(),
         endsAt: tomorrow,
         status: TournamentStatus.UPCOMING,
       });

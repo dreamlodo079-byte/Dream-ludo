@@ -28,6 +28,24 @@ import { LiveArenaScreen } from './LiveArenaScreen';
 const API_SERVER_URL = process.env.EXPO_PUBLIC_SERVER_URL || 'http://localhost:5000';
 const ENTRY_FEES = [50, 100, 500, 1000];
 
+const formatDateTime = (dateStr: string) => {
+  if (!dateStr) return 'N/A';
+  try {
+    const d = new Date(dateStr);
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const month = months[d.getMonth()];
+    const date = d.getDate();
+    let hours = d.getHours();
+    const minutes = d.getMinutes().toString().padStart(2, '0');
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12;
+    hours = hours ? hours : 12;
+    return `${month} ${date}, ${hours}:${minutes} ${ampm}`;
+  } catch (err) {
+    return dateStr;
+  }
+};
+
 interface AnimatedPressableProps {
   onPress: () => void;
   disabled?: boolean;
@@ -520,6 +538,18 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   <Text style={styles.spotsLeftText}>
                     {(tournament.maxEntries - tournament.registeredCount).toLocaleString()} SPOTS LEFT
                   </Text>
+                </View>
+
+                {/* Tournament Timing Details */}
+                <View style={styles.timingRow}>
+                  <View style={[styles.timingCol, styles.timingColLeft]}>
+                    <Text style={styles.timingLabel}>REGISTRATION OPEN</Text>
+                    <Text style={styles.timingValue}>{formatDateTime(tournament.startsAt)}</Text>
+                  </View>
+                  <View style={styles.timingCol}>
+                    <Text style={styles.timingLabel}>MATCH COMMENCES</Text>
+                    <Text style={styles.timingValue}>{formatDateTime(tournament.endsAt)}</Text>
+                  </View>
                 </View>
 
                 <View style={styles.buyInRow}>
@@ -1297,6 +1327,36 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
     color: '#EF4444',
+  },
+  timingRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 16,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginBottom: 16,
+  },
+  timingCol: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  timingColLeft: {
+    borderRightWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  timingLabel: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#64748B',
+    marginBottom: 4,
+    letterSpacing: 0.5,
+  },
+  timingValue: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#0F172A',
   },
   buyInRow: {
     flexDirection: 'row',
