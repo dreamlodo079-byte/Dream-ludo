@@ -11,6 +11,8 @@ import {
   Clipboard,
   Linking,
   Modal,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import Svg, { Rect, Path, G, Defs, LinearGradient, Stop, Circle, Line, Polyline } from 'react-native-svg';
 import axios from 'axios';
@@ -426,193 +428,202 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
 
   if (!currentUser) {
     return (
-      <View style={styles.authContainer}>
-        <View style={styles.authCard}>
-          {/* Logo & Brand */}
-          <View style={styles.authLogoRow}>
-            <View style={styles.authLogoCircle}>
-              <Text style={styles.authLogoEmoji}>🎲</Text>
+      <KeyboardAvoidingView 
+        style={styles.authContainer} 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <ScrollView 
+          contentContainerStyle={styles.authScrollContent} 
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.authCard}>
+            {/* Logo & Brand */}
+            <View style={styles.authLogoRow}>
+              <View style={styles.authLogoCircle}>
+                <Text style={styles.authLogoEmoji}>🎲</Text>
+              </View>
             </View>
-          </View>
-          <Text style={styles.heading}>SEXUS</Text>
-          <Text style={styles.subheading}>Real-Money Mobile Portal</Text>
+            <Text style={styles.heading}>SEXUS</Text>
+            <Text style={styles.subheading}>Real-Money Mobile Portal</Text>
 
-          {/* Premium Pill Tab Switcher */}
-          {!otpSent && (
-            <View style={styles.authTabRow}>
-              <TouchableOpacity
-                style={[styles.authTab, isLoginMode && styles.authTabActive]}
-                onPress={() => { setIsLoginMode(true); setOtpCode(''); }}
-                activeOpacity={0.85}
-              >
-                <Text style={[styles.authTabText, isLoginMode && styles.authTabTextActive]}>LOG IN</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.authTab, !isLoginMode && styles.authTabActive]}
-                onPress={() => { setIsLoginMode(false); setOtpCode(''); }}
-                activeOpacity={0.85}
-              >
-                <Text style={[styles.authTabText, !isLoginMode && styles.authTabTextActive]}>SIGN UP</Text>
-              </TouchableOpacity>
-            </View>
-          )}
+            {/* Premium Pill Tab Switcher */}
+            {!otpSent && (
+              <View style={styles.authTabRow}>
+                <TouchableOpacity
+                  style={[styles.authTab, isLoginMode && styles.authTabActive]}
+                  onPress={() => { setIsLoginMode(true); setOtpCode(''); }}
+                  activeOpacity={0.85}
+                >
+                  <Text style={[styles.authTabText, isLoginMode && styles.authTabTextActive]}>LOG IN</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.authTab, !isLoginMode && styles.authTabActive]}
+                  onPress={() => { setIsLoginMode(false); setOtpCode(''); }}
+                  activeOpacity={0.85}
+                >
+                  <Text style={[styles.authTabText, !isLoginMode && styles.authTabTextActive]}>SIGN UP</Text>
+                </TouchableOpacity>
+              </View>
+            )}
 
-          {!otpSent ? (
-            <View style={{ width: '100%' }}>
-              {!isLoginMode && (
-                <View style={[styles.inputWrapper, isFocusedUsername && styles.inputWrapperFocused]}>
-                  <Text style={styles.inputIconEmoji}>👤</Text>
+            {!otpSent ? (
+              <View style={{ width: '100%' }}>
+                {!isLoginMode && (
+                  <View style={[styles.inputWrapper, isFocusedUsername && styles.inputWrapperFocused]}>
+                    <Text style={styles.inputIconEmoji}>👤</Text>
+                    <TextInput
+                      style={styles.inputInner}
+                      placeholder="Username / Full Name"
+                      placeholderTextColor="#94A3B8"
+                      value={username}
+                      onChangeText={setUsername}
+                      onFocus={() => setIsFocusedUsername(true)}
+                      onBlur={() => setIsFocusedUsername(false)}
+                      autoCapitalize="words"
+                      autoCorrect={false}
+                      autoComplete="off"
+                      textContentType="none"
+                      importantForAutofill="no"
+                    />
+                  </View>
+                )}
+
+                <View style={[styles.inputWrapper, isFocusedPhone && styles.inputWrapperFocused]}>
+                  <Text style={styles.inputIconEmoji}>📱</Text>
                   <TextInput
                     style={styles.inputInner}
-                    placeholder="Username / Full Name"
+                    placeholder="Phone Number (+91)"
                     placeholderTextColor="#94A3B8"
-                    value={username}
-                    onChangeText={setUsername}
-                    onFocus={() => setIsFocusedUsername(true)}
-                    onBlur={() => setIsFocusedUsername(false)}
-                    autoCapitalize="words"
+                    keyboardType="phone-pad"
+                    value={phone}
+                    onChangeText={setPhone}
+                    onFocus={() => setIsFocusedPhone(true)}
+                    onBlur={() => setIsFocusedPhone(false)}
                     autoCorrect={false}
                     autoComplete="off"
                     textContentType="none"
                     importantForAutofill="no"
                   />
                 </View>
-              )}
 
-              <View style={[styles.inputWrapper, isFocusedPhone && styles.inputWrapperFocused]}>
-                <Text style={styles.inputIconEmoji}>📱</Text>
-                <TextInput
-                  style={styles.inputInner}
-                  placeholder="Phone Number (+91)"
-                  placeholderTextColor="#94A3B8"
-                  keyboardType="phone-pad"
-                  value={phone}
-                  onChangeText={setPhone}
-                  onFocus={() => setIsFocusedPhone(true)}
-                  onBlur={() => setIsFocusedPhone(false)}
-                  autoCorrect={false}
-                  autoComplete="off"
-                  textContentType="none"
-                  importantForAutofill="no"
-                />
-              </View>
+                <View style={[styles.inputWrapper, isFocusedPassword && styles.inputWrapperFocused]}>
+                  <Text style={styles.inputIconEmoji}>🔒</Text>
+                  <TextInput
+                    style={styles.inputInner}
+                    placeholder="Password"
+                    placeholderTextColor="#94A3B8"
+                    secureTextEntry={!showPassword}
+                    value={password}
+                    onChangeText={setPassword}
+                    onFocus={() => setIsFocusedPassword(true)}
+                    onBlur={() => setIsFocusedPassword(false)}
+                    autoCorrect={false}
+                    autoComplete="off"
+                    textContentType="none"
+                    importantForAutofill="no"
+                  />
+                  <TouchableOpacity
+                    style={styles.eyeBtn}
+                    onPress={() => setShowPassword(!showPassword)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={{ fontSize: 16 }}>{showPassword ? '🙈' : '👁️'}</Text>
+                  </TouchableOpacity>
+                </View>
 
-              <View style={[styles.inputWrapper, isFocusedPassword && styles.inputWrapperFocused]}>
-                <Text style={styles.inputIconEmoji}>🔒</Text>
-                <TextInput
-                  style={styles.inputInner}
-                  placeholder="Password"
-                  placeholderTextColor="#94A3B8"
-                  secureTextEntry={!showPassword}
-                  value={password}
-                  onChangeText={setPassword}
-                  onFocus={() => setIsFocusedPassword(true)}
-                  onBlur={() => setIsFocusedPassword(false)}
-                  autoCorrect={false}
-                  autoComplete="off"
-                  textContentType="none"
-                  importantForAutofill="no"
-                />
                 <TouchableOpacity
-                  style={styles.eyeBtn}
-                  onPress={() => setShowPassword(!showPassword)}
-                  activeOpacity={0.7}
+                  style={styles.authButton}
+                  onPress={handleSendOtp}
+                  disabled={isLoggingIn}
+                  activeOpacity={0.85}
                 >
-                  <Text style={{ fontSize: 16 }}>{showPassword ? '🙈' : '👁️'}</Text>
+                  {isLoggingIn ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={styles.authButtonText}>
+                      {isLoginMode ? 'SEND OTP & LOGIN' : 'SEND OTP & REGISTER'}
+                    </Text>
+                  )}
                 </TouchableOpacity>
               </View>
+            ) : (
+              <View style={{ width: '100%', alignItems: 'center' }}>
+                <View style={styles.otpHeaderBox}>
+                  <Text style={styles.otpHeaderTitle}>Verify Your Phone</Text>
+                  <Text style={styles.otpHeaderSub}>OTP sent to</Text>
+                  <Text style={styles.otpHeaderPhone}>{phone}</Text>
+                </View>
 
-              <TouchableOpacity
-                style={styles.authButton}
-                onPress={handleSendOtp}
-                disabled={isLoggingIn}
-                activeOpacity={0.85}
-              >
-                {isLoggingIn ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={styles.authButtonText}>
-                    {isLoginMode ? 'SEND OTP & LOGIN' : 'SEND OTP & REGISTER'}
+                <View style={[styles.inputWrapper, isFocusedOtp && styles.inputWrapperFocused, { justifyContent: 'center' }]}>
+                  <TextInput
+                    style={[styles.inputInner, { textAlign: 'center', letterSpacing: 10, fontSize: 22, fontWeight: '900', color: '#4F46E5' }]}
+                    placeholder="— — — — — —"
+                    placeholderTextColor="#CBD5E1"
+                    keyboardType="number-pad"
+                    maxLength={6}
+                    value={otpCode}
+                    onChangeText={setOtpCode}
+                    onFocus={() => setIsFocusedOtp(true)}
+                    onBlur={() => setIsFocusedOtp(false)}
+                    autoCorrect={false}
+                    autoComplete="one-time-code"
+                    textContentType="oneTimeCode"
+                    importantForAutofill="no"
+                  />
+                </View>
+
+                <TouchableOpacity
+                  style={styles.authButton}
+                  onPress={handleVerifyOtp}
+                  disabled={isLoggingIn}
+                  activeOpacity={0.85}
+                >
+                  {isLoggingIn ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={styles.authButtonText}>VERIFY & ENTER PLATFORM</Text>
+                  )}
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.resendBtn}
+                  onPress={handleSendOtp}
+                  disabled={otpTimer > 0 || isLoggingIn}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.resendBtnText, otpTimer > 0 && { color: '#94A3B8' }]}>
+                    {otpTimer > 0 ? `⏱ Resend OTP in ${otpTimer}s` : '↺ Resend OTP'}
                   </Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <View style={{ width: '100%', alignItems: 'center' }}>
-              <View style={styles.otpHeaderBox}>
-                <Text style={styles.otpHeaderTitle}>Verify Your Phone</Text>
-                <Text style={styles.otpHeaderSub}>OTP sent to</Text>
-                <Text style={styles.otpHeaderPhone}>{phone}</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.backToAuthBtn}
+                  onPress={() => { setOtpSent(false); setOtpCode(''); }}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.backToAuthBtnText}>✎ Edit Phone / Details</Text>
+                </TouchableOpacity>
               </View>
+            )}
 
-              <View style={[styles.inputWrapper, isFocusedOtp && styles.inputWrapperFocused, { justifyContent: 'center' }]}>
-                <TextInput
-                  style={[styles.inputInner, { textAlign: 'center', letterSpacing: 10, fontSize: 22, fontWeight: '900', color: '#4F46E5' }]}
-                  placeholder="— — — — — —"
-                  placeholderTextColor="#CBD5E1"
-                  keyboardType="number-pad"
-                  maxLength={6}
-                  value={otpCode}
-                  onChangeText={setOtpCode}
-                  onFocus={() => setIsFocusedOtp(true)}
-                  onBlur={() => setIsFocusedOtp(false)}
-                  autoCorrect={false}
-                  autoComplete="one-time-code"
-                  textContentType="oneTimeCode"
-                  importantForAutofill="no"
-                />
-              </View>
-
-              <TouchableOpacity
-                style={styles.authButton}
-                onPress={handleVerifyOtp}
-                disabled={isLoggingIn}
-                activeOpacity={0.85}
-              >
-                {isLoggingIn ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={styles.authButtonText}>VERIFY & ENTER PLATFORM</Text>
-                )}
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.resendBtn}
-                onPress={handleSendOtp}
-                disabled={otpTimer > 0 || isLoggingIn}
-                activeOpacity={0.8}
-              >
-                <Text style={[styles.resendBtnText, otpTimer > 0 && { color: '#94A3B8' }]}>
-                  {otpTimer > 0 ? `⏱ Resend OTP in ${otpTimer}s` : '↺ Resend OTP'}
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.backToAuthBtn}
-                onPress={() => { setOtpSent(false); setOtpCode(''); }}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.backToAuthBtnText}>✎ Edit Phone / Details</Text>
-              </TouchableOpacity>
+            <View style={styles.authDivider}>
+              <View style={styles.authDividerLine} />
+              <Text style={styles.authDividerText}>or</Text>
+              <View style={styles.authDividerLine} />
             </View>
-          )}
 
-          <View style={styles.authDivider}>
-            <View style={styles.authDividerLine} />
-            <Text style={styles.authDividerText}>or</Text>
-            <View style={styles.authDividerLine} />
+            <TouchableOpacity
+              style={styles.devLoginBtn}
+              onPress={handleQuickDevLogin}
+              disabled={isLoggingIn}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.devLoginBtnText}>⚡ 1-TAP DEMO LOGIN (BYPASS OTP)</Text>
+            </TouchableOpacity>
           </View>
-
-          <TouchableOpacity
-            style={styles.devLoginBtn}
-            onPress={handleQuickDevLogin}
-            disabled={isLoggingIn}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.devLoginBtnText}>⚡ 1-TAP DEMO LOGIN (BYPASS OTP)</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     );
   }
 
@@ -1130,9 +1141,13 @@ const styles = StyleSheet.create({
   authContainer: {
     flex: 1,
     backgroundColor: '#1E1B4B',
+  },
+  authScrollContent: {
+    flexGrow: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 30,
   },
   authCard: {
     backgroundColor: 'rgba(255, 255, 255, 0.97)',
