@@ -66,6 +66,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   const [customTokens, setCustomTokens] = useState<number>(4);
   const [customTimer, setCustomTimer] = useState<number>(15);
   const [isJoiningLobby, setIsJoiningLobby] = useState(false);
+  const [customFeeText, setCustomFeeText] = useState('');
 
   // Active Tournament
   const [tournament, setTournament] = useState<any>(null);
@@ -383,12 +384,12 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             {activeSegment === 'QUICK' && (
               <View>
                 <Text style={styles.sectionHeader}>SELECT QUICK MATCH FEE</Text>
-                <View style={styles.tiersContainer}>
+                 <View style={styles.tiersContainer}>
                   {ENTRY_FEES.map((fee) => (
                     <TouchableOpacity
                       key={fee}
                       style={[styles.tierCard, selectedTier === fee && styles.selectedTierCard]}
-                      onPress={() => setSelectedTier(fee)}
+                      onPress={() => { setSelectedTier(fee); setCustomFeeText(''); }}
                       activeOpacity={0.7}
                       disabled={isSearching}
                     >
@@ -398,6 +399,30 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                       </View>
                     </TouchableOpacity>
                   ))}
+                </View>
+
+                <View style={styles.customFeeContainer}>
+                  <Text style={styles.customFeeLabel}>Or enter custom amount:</Text>
+                  <View style={styles.customFeeInputWrapper}>
+                    <Text style={styles.customFeeCurrency}>₹</Text>
+                    <TextInput
+                      style={styles.customFeeInput}
+                      placeholder="Enter custom amount"
+                      placeholderTextColor="#94A3B8"
+                      keyboardType="numeric"
+                      value={customFeeText}
+                      onChangeText={(val) => {
+                        const numeric = val.replace(/[^0-9]/g, '');
+                        setCustomFeeText(numeric);
+                        if (numeric) {
+                          setSelectedTier(Number(numeric));
+                        } else {
+                          setSelectedTier(50);
+                        }
+                      }}
+                      editable={!isSearching}
+                    />
+                  </View>
                 </View>
 
                 {isSearching ? (
@@ -504,7 +529,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                     <TouchableOpacity
                       key={fee}
                       style={[styles.tierCard, selectedTier === fee && styles.selectedTierCard]}
-                      onPress={() => setSelectedTier(fee)}
+                      onPress={() => { setSelectedTier(fee); setCustomFeeText(''); }}
                       activeOpacity={0.7}
                       disabled={isSearching}
                     >
@@ -514,6 +539,30 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                       </View>
                     </TouchableOpacity>
                   ))}
+                </View>
+
+                <View style={styles.customFeeContainer}>
+                  <Text style={styles.customFeeLabel}>Or enter custom amount:</Text>
+                  <View style={styles.customFeeInputWrapper}>
+                    <Text style={styles.customFeeCurrency}>₹</Text>
+                    <TextInput
+                      style={styles.customFeeInput}
+                      placeholder="Enter custom amount"
+                      placeholderTextColor="#94A3B8"
+                      keyboardType="numeric"
+                      value={customFeeText}
+                      onChangeText={(val) => {
+                        const numeric = val.replace(/[^0-9]/g, '');
+                        setCustomFeeText(numeric);
+                        if (numeric) {
+                          setSelectedTier(Number(numeric));
+                        } else {
+                          setSelectedTier(50);
+                        }
+                      }}
+                      editable={!isSearching}
+                    />
+                  </View>
                 </View>
 
                 {isSearching ? (
@@ -550,13 +599,37 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                       <TouchableOpacity
                         key={fee}
                         style={[styles.tierCard, selectedTier === fee && styles.selectedTierCard]}
-                        onPress={() => setSelectedTier(fee)}
+                        onPress={() => { setSelectedTier(fee); setCustomFeeText(''); }}
                         activeOpacity={0.7}
                         disabled={!!lobbyDetails}
                       >
                         <Text style={[styles.tierFeeText, selectedTier === fee && styles.selectedText]}>₹{fee}</Text>
                       </TouchableOpacity>
                     ))}
+                  </View>
+
+                  <View style={styles.customFeeContainer}>
+                    <Text style={styles.customFeeLabel}>Or enter custom amount:</Text>
+                    <View style={styles.customFeeInputWrapper}>
+                      <Text style={styles.customFeeCurrency}>₹</Text>
+                      <TextInput
+                        style={styles.customFeeInput}
+                        placeholder="Enter custom amount"
+                        placeholderTextColor="#94A3B8"
+                        keyboardType="numeric"
+                        value={customFeeText}
+                        onChangeText={(val) => {
+                          const numeric = val.replace(/[^0-9]/g, '');
+                          setCustomFeeText(numeric);
+                          if (numeric) {
+                            setSelectedTier(Number(numeric));
+                          } else {
+                            setSelectedTier(50);
+                          }
+                        }}
+                        editable={!lobbyDetails}
+                      />
+                    </View>
                   </View>
 
                   {/* Custom Rules Selector */}
@@ -1166,5 +1239,39 @@ const styles = StyleSheet.create({
   },
   toggleBtnTextActive: {
     color: '#4F46E5',
+  },
+  customFeeContainer: {
+    marginTop: 10,
+    marginBottom: 16,
+    paddingHorizontal: 4,
+  },
+  customFeeLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#475569',
+    marginBottom: 6,
+  },
+  customFeeInputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F3F4F6',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    paddingHorizontal: 12,
+  },
+  customFeeCurrency: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#4F46E5',
+    marginRight: 6,
+  },
+  customFeeInput: {
+    flex: 1,
+    height: 40,
+    fontSize: 14,
+    color: '#0F172A',
+    fontWeight: '600',
+    padding: 0,
   },
 });

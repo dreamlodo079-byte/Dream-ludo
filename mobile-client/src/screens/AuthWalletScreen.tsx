@@ -403,7 +403,8 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
       <Svg style={StyleSheet.absoluteFillObject} width="100%" height="100%">
         <Defs>
           <LinearGradient id="balanceGrad" x1="0" y1="0" x2="1" y2="1">
-            <Stop offset="0" stopColor="#312E81" />
+            <Stop offset="0" stopColor="#1E1B4B" />
+            <Stop offset="0.5" stopColor="#312E81" />
             <Stop offset="1" stopColor="#1E3A8A" />
           </LinearGradient>
         </Defs>
@@ -415,16 +416,403 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
         <Text style={styles.balanceAmount}>₹{balances.total.toFixed(2)}</Text>
 
         <View style={styles.splitBalances}>
-          <View style={styles.splitNode}>
+          <View style={styles.splitBox}>
             <Text style={styles.splitLabel}>Added Money</Text>
             <Text style={styles.splitVal}>₹{balances.deposits.toFixed(2)}</Text>
           </View>
-          <View style={[styles.splitNode, styles.borderLeft]}>
+          <View style={styles.splitBox}>
             <Text style={styles.splitLabel}>Winnings</Text>
             <Text style={[styles.splitVal, styles.greenText]}>₹{balances.winnings.toFixed(2)}</Text>
           </View>
         </View>
       </View>
+    </View>
+  );
+
+  const renderAddMoneyCard = () => (
+    <View style={styles.premiumAddCard}>
+      <Text style={styles.cardHeader}>ADD MONEY TO WALLET</Text>
+      <View style={styles.inputContainerWrapper}>
+        <Text style={styles.inputCurrencySymbol}>₹</Text>
+        <TextInput
+          style={[styles.premiumInput, isFocusedDeposit && styles.inputFocused]}
+          placeholder="Enter Amount"
+          placeholderTextColor="#94A3B8"
+          keyboardType="numeric"
+          value={depositAmount}
+          onChangeText={setDepositAmount}
+          onFocus={() => setIsFocusedDeposit(true)}
+          onBlur={() => setIsFocusedDeposit(false)}
+        />
+      </View>
+      <TouchableOpacity style={styles.premiumActionBtn} onPress={handleDeposit} disabled={loading} activeOpacity={0.8}>
+        <Text style={styles.actionBtnText}>ADD MONEY NOW</Text>
+      </TouchableOpacity>
+
+      {upiIntentLink && (
+        <View style={styles.intentContainer}>
+          <Text style={styles.intentText} numberOfLines={1}>{upiIntentLink}</Text>
+          <TouchableOpacity style={styles.verifyBtn} onPress={simulatePaymentWebhook} activeOpacity={0.8}>
+            <Text style={styles.actionBtnText}>SIMULATE WEBHOOK SUCCESS</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+    </View>
+  );
+
+  const renderKycCard = () => {
+    if (currentUser.isKycVerified) {
+      return (
+        <View style={[styles.actionCard, styles.verifiedKycCard]}>
+          <Text style={styles.cardHeader}>🔒 ACCOUNT VERIFIED</Text>
+          <Text style={styles.verifiedKycText}>✓ Your identity is verified successfully.</Text>
+          <View style={styles.kycDetailsRow}>
+            <Text style={styles.kycDetailLabel}>Verification Mode</Text>
+            <Text style={styles.kycDetailVal}>{currentUser.kycType === 'PAN' ? 'PAN Card' : 'Aadhaar Card'}</Text>
+          </View>
+          <View style={styles.kycDetailsRow}>
+            <Text style={styles.kycDetailLabel}>Document Number</Text>
+            <Text style={styles.kycDetailVal}>
+              {currentUser.kycType === 'PAN'
+                ? `${currentUser.kycDocumentNumber?.slice(0, 5)}XXXXX${currentUser.kycDocumentNumber?.slice(-1)}`
+                : `XXXX-XXXX-${currentUser.kycDocumentNumber?.slice(-4)}`}
+            </Text>
+          </View>
+          <View style={styles.kycDetailsRow}>
+            <Text style={styles.kycDetailLabel}>Full Legal Name</Text>
+            <Text style={styles.kycDetailVal}>{currentUser.kycName}</Text>
+          </View>
+        </View>
+      );
+    }
+
+    return (
+      <View style={[styles.actionCard, styles.pendingKycCard]}>
+        <Text style={styles.cardHeader}>🛡️ ID VERIFICATION REQUIRED</Text>
+        <Text style={styles.kycPromptText}>
+          Verify your PAN or Aadhaar card details to unlock instant cash withdrawals.
+        </Text>
+
+        <View style={styles.kycTabSelector}>
+          <TouchableOpacity
+            style={[styles.kycTabBtn, kycType === 'PAN' && styles.kycTabBtnActive]}
+            onPress={() => setKycType('PAN')}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.kycTabBtnText, kycType === 'PAN' && styles.kycTabBtnTextActive]}>PAN CARD</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.kycTabBtn, kycType === 'AADHAAR' && styles.kycTabBtnActive]}
+            onPress={() => setKycType('AADHAAR')}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.kycTabBtnText, kycType === 'AADHAAR' && styles.kycTabBtnTextActive]}>AADHAAR CARD</Text>
+          </TouchableOpacity>
+        </View>
+
+        <TextInput
+          style={[styles.input, isFocusedKycName && styles.inputFocused]}
+          placeholder="Full Legal Name"
+          placeholderTextColor="#94A3B8"
+          value={kycName}
+          onChangeText={setKycName}
+          autoCapitalize="characters"
+          onFocus={() => setIsFocusedKycName(true)}
+          onBlur={() => setIsFocusedKycName(false)}
+        />
+
+        <TextInput
+          style={[styles.input, isFocusedKycDoc && styles.inputFocused]}
+          placeholder={kycType === 'PAN' ? 'PAN Number (e.g., ABCDE1234F)' : 'Aadhaar Number (12 digits)'}
+          placeholderTextColor="#94A3B8"
+          value={kycDocNum}
+          onChangeText={setKycDocNum}
+          autoCapitalize={kycType === 'PAN' ? 'characters' : 'none'}
+          keyboardType={kycType === 'AADHAAR' ? 'numeric' : 'default'}
+          onFocus={() => setIsFocusedKycDoc(true)}
+          onBlur={() => setIsFocusedKycDoc(false)}
+        />
+
+        <TouchableOpacity style={styles.kycSubmitBtn} onPress={handleSubmitKyc} disabled={isSubmittingKyc} activeOpacity={0.8}>
+          {isSubmittingKyc ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.actionBtnText}>VERIFY ID NOW</Text>
+          )}
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
+  const renderWithdrawCard = () => {
+    const isLocked = !currentUser.isKycVerified;
+
+    return (
+      <View style={[styles.premiumWithdrawCard, isLocked && styles.withdrawCardLocked]}>
+        <View style={styles.withdrawHeaderRow}>
+          <Text style={[styles.cardHeader, { color: isLocked ? '#94A3B8' : '#0F172A' }]}>SEND WINNINGS TO BANK</Text>
+          {isLocked && (
+            <View style={styles.lockBadge}>
+              <Text style={styles.lockBadgeText}>🔒 VERIFY ID TO UNLOCK</Text>
+            </View>
+          )}
+        </View>
+
+        {isLocked ? (
+          <View style={styles.lockedContainer}>
+            <Text style={styles.lockedText}>
+              Winnings withdrawals are locked. Please complete your ID verification to link your bank account.
+            </Text>
+          </View>
+        ) : (
+          <View>
+            <View style={styles.inputContainerWrapper}>
+              <Text style={styles.inputCurrencySymbol}>₹</Text>
+              <TextInput
+                style={[styles.premiumInput, isFocusedWithdraw && styles.inputFocused]}
+                placeholder="Withdraw Amount (INR)"
+                placeholderTextColor="#94A3B8"
+                keyboardType="numeric"
+                value={withdrawAmount}
+                onChangeText={setWithdrawAmount}
+                onFocus={() => setIsFocusedWithdraw(true)}
+                onBlur={() => setIsFocusedWithdraw(false)}
+              />
+            </View>
+            <TextInput
+              style={[styles.input, isFocusedUpi && styles.inputFocused, { marginTop: 12 }]}
+              placeholder="Enter your UPI ID (e.g. name@upi)"
+              placeholderTextColor="#94A3B8"
+              value={upiId}
+              onChangeText={setUpiId}
+              autoCapitalize="none"
+              onFocus={() => setIsFocusedUpi(true)}
+              onBlur={() => setIsFocusedUpi(false)}
+            />
+            <TouchableOpacity style={styles.premiumWithdrawBtn} onPress={handleWithdrawal} disabled={loading} activeOpacity={0.8}>
+              <Text style={styles.actionBtnText}>WITHDRAW MONEY NOW</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
+    );
+  };
+
+  const renderReferCard = () => (
+    <View style={styles.actionCard}>
+      <Text style={styles.cardHeader}>🎁 SHARE & REFER TO EARN</Text>
+      
+      <View style={styles.referMetricsGrid}>
+        <View style={styles.referMetricCol}>
+          <Text style={styles.referMetricVal}>12</Text>
+          <Text style={styles.referMetricLabel}>Friends Joined</Text>
+        </View>
+        <View style={styles.metricDivider} />
+        <View style={styles.referMetricCol}>
+          <Text style={[styles.referMetricVal, styles.greenText]}>₹600</Text>
+          <Text style={styles.referMetricLabel}>Total Cash Earned</Text>
+        </View>
+      </View>
+
+      <TouchableOpacity style={styles.clipboardBox} onPress={handleCopyCode} activeOpacity={0.7}>
+        <View style={styles.clipboardLabelCol}>
+          <Text style={styles.clipboardLabel}>REFERRAL CODE</Text>
+          <Text style={styles.clipboardValue}>{referralCode}</Text>
+        </View>
+        <View style={styles.copyBadge}>
+          <Text style={styles.copyBadgeText}>Copy Code</Text>
+        </View>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.clipboardBox} onPress={handleCopyLink} activeOpacity={0.7}>
+        <View style={styles.clipboardLabelCol}>
+          <Text style={styles.clipboardLabel}>INVITE LINK</Text>
+          <Text style={styles.clipboardValue} numberOfLines={1}>{referralUrl}</Text>
+        </View>
+        <View style={styles.copyBadge}>
+          <Text style={styles.copyBadgeText}>Copy Link</Text>
+        </View>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.whatsappBtn} onPress={handleWhatsAppShare} activeOpacity={0.8}>
+        <Text style={styles.whatsappBtnText}>Share on WhatsApp</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
+  const renderHistoryCard = () => (
+    <View style={styles.historyCard}>
+      <TouchableOpacity 
+        style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 4 }}
+        onPress={() => setIsHistoryExpanded(!isHistoryExpanded)}
+        activeOpacity={0.7}
+      >
+        <Text style={styles.cardHeader}>TRANSACTION HISTORY</Text>
+        <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#4F46E5' }}>
+          {isHistoryExpanded ? '▲ Hide' : '▼ View History'}
+        </Text>
+      </TouchableOpacity>
+
+      {isHistoryExpanded && (
+        <View style={{ marginTop: 12 }}>
+          {history.length === 0 ? (
+            <View style={styles.emptyLedgerContainer}>
+              <Svg width={40} height={40} viewBox="0 0 24 24" fill="none" stroke="#94A3B8" strokeWidth={1.5}>
+                <Path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+                <Polyline points="14 2 14 8 20 8" />
+                <Line x1="16" y1="13" x2="8" y2="13" />
+                <Line x1="16" y1="17" x2="8" y2="17" />
+                <Line x1="10" y1="9" x2="8" y2="9" />
+              </Svg>
+              <Text style={styles.noHistory}>No transactions logged in this timeframe.</Text>
+            </View>
+          ) : (
+            history.map((txn) => {
+              let simpleType: string = txn.type;
+              if (txn.type === 'ENTRY_FEE') simpleType = 'Game Played';
+              else if (txn.type === 'PLATFORM_COMMISSION') simpleType = 'Platform Charge';
+              else if (txn.type === 'WINNINGS') simpleType = 'Game Won';
+              else if (txn.type === 'DEPOSIT') simpleType = 'Added Cash';
+              else if (txn.type === 'WITHDRAWAL') simpleType = 'Sent to Bank';
+
+              let simpleStatus: string = txn.status;
+              if (txn.status === 'SUCCESS') simpleStatus = 'Successful';
+              else if (txn.status === 'PENDING') simpleStatus = 'Pending';
+              else if (txn.status === 'FAILED') simpleStatus = 'Failed';
+
+              return (
+                <View key={txn._id} style={styles.txnRow}>
+                  <View>
+                    <Text style={styles.txnType}>{simpleType}</Text>
+                    <Text style={styles.txnDate}>{new Date(txn.createdAt).toLocaleDateString()}</Text>
+                    <Text style={styles.txnRef} numberOfLines={1}>Ref: {txn.referenceId}</Text>
+                  </View>
+                  <View style={styles.txnRight}>
+                    <Text style={[styles.txnAmount, txn.amount < 0 ? styles.redText : styles.greenText]}>
+                      {txn.amount > 0 ? `+${txn.amount}` : txn.amount}
+                    </Text>
+                    <Text style={[styles.txnStatus, styles[txn.status.toLowerCase() as keyof typeof styles || 'pending']]}>
+                      {simpleStatus}
+                    </Text>
+                  </View>
+                </View>
+              );
+            })
+          )}
+        </View>
+      )}
+    </View>
+  );
+
+  const renderComplianceCard = () => (
+    <View style={styles.complianceCard}>
+      <Text style={styles.cardHeader}>HELP & LEGAL POLICIES</Text>
+      
+      <TouchableOpacity 
+        style={styles.complianceRow} 
+        onPress={() => setActivePolicy(activePolicy === 'responsible' ? null : 'responsible')}
+        activeOpacity={0.7}
+      >
+        <View style={styles.complianceLabelRow}>
+          <ShieldIcon />
+          <Text style={styles.complianceText}>Responsible Gaming</Text>
+        </View>
+      </TouchableOpacity>
+      {activePolicy === 'responsible' && (
+        <View style={styles.policyDetailCard}>
+          <Text style={styles.policyDetailTitle}>Responsible Gaming Rules</Text>
+          <Text style={styles.policyDetailText}>🔞 Play in moderation: Set daily time and deposit limits to keep play fun.</Text>
+          <Text style={styles.policyDetailText}>🛑 This is a real-money game. Play responsibly and only with money you can afford to lose.</Text>
+          <Text style={styles.policyDetailText}>📞 Need help? Access our self-exclusion tools or support services instantly.</Text>
+        </View>
+      )}
+
+      <TouchableOpacity 
+        style={styles.complianceRow} 
+        onPress={() => setActivePolicy(activePolicy === 'support' ? null : 'support')}
+        activeOpacity={0.7}
+      >
+        <View style={styles.complianceLabelRow}>
+          <HelpIcon />
+          <Text style={styles.complianceText}>Help & Support</Text>
+        </View>
+      </TouchableOpacity>
+      {activePolicy === 'support' && (
+        <View style={styles.policyDetailCard}>
+          <Text style={styles.policyDetailTitle}>Customer Support</Text>
+          <Text style={styles.policyDetailText}>✉️ Email Support: support@sexusplatform.com</Text>
+          <Text style={styles.policyDetailText}>💬 Live Chat: Connect with our support team 24/7 on WhatsApp or in-app chat.</Text>
+          <Text style={styles.policyDetailText}>⏱️ Typical Response Time: Under 10 minutes.</Text>
+        </View>
+      )}
+
+      <TouchableOpacity 
+        style={styles.complianceRow} 
+        onPress={() => setActivePolicy(activePolicy === 'terms' ? null : 'terms')}
+        activeOpacity={0.7}
+      >
+        <View style={styles.complianceLabelRow}>
+          <BookTextIcon />
+          <Text style={styles.complianceText}>Terms of Service</Text>
+        </View>
+      </TouchableOpacity>
+      {activePolicy === 'terms' && (
+        <View style={styles.policyDetailCard}>
+          <Text style={styles.policyDetailTitle}>Terms of Service Summary</Text>
+          <Text style={styles.policyDetailText}>⚖️ Eligibility: Users must be 18 years or older to register and play cash games.</Text>
+          <Text style={styles.policyDetailText}>🚫 Fair Play Policy: Use of duplicate accounts, scripts, or cheating tools will result in permanent ban and forfeiture of funds.</Text>
+          <Text style={styles.policyDetailText}>🏦 Account Balance: All deposit and winning balances are held securely.</Text>
+        </View>
+      )}
+      
+      <TouchableOpacity 
+        style={styles.complianceRow} 
+        onPress={() => setActivePolicy(activePolicy === 'privacy' ? null : 'privacy')}
+        activeOpacity={0.7}
+      >
+        <View style={styles.complianceLabelRow}>
+          <ShieldCheckIcon />
+          <Text style={styles.complianceText}>Privacy Policy</Text>
+        </View>
+      </TouchableOpacity>
+      {activePolicy === 'privacy' && (
+        <View style={styles.policyDetailCard}>
+          <Text style={styles.policyDetailTitle}>Data & Privacy Control</Text>
+          <Text style={styles.policyDetailText}>🔒 Secure Encryption: All personal details, KYC document files, and transaction records are fully encrypted.</Text>
+          <Text style={styles.policyDetailText}>🚫 No Third-Party Sharing: Your data is confidential and never sold to third parties.</Text>
+          <Text style={styles.policyDetailText}>🛡️ Mapped Compliance Keys: Built to fully satisfy RBI guidelines and local data protection regulations.</Text>
+        </View>
+      )}
+
+      <TouchableOpacity 
+        style={styles.complianceRow} 
+        onPress={() => setActivePolicy(activePolicy === 'refund' ? null : 'refund')}
+        activeOpacity={0.7}
+      >
+        <View style={styles.complianceLabelRow}>
+          <FileTextIcon />
+          <Text style={styles.complianceText}>Refund Policies</Text>
+        </View>
+      </TouchableOpacity>
+      {activePolicy === 'refund' && (
+        <View style={styles.policyDetailCard}>
+          <Text style={styles.policyDetailTitle}>Refund & Settlement Terms</Text>
+          <Text style={styles.policyDetailText}>🎲 Game Cancellations: If a game gets canceled due to server or technical errors, your entry fee will be refunded to your wallet instantly.</Text>
+          <Text style={styles.policyDetailText}>🚫 Player Disconnections: If you leave the match or disconnect during gameplay, your entry fee is forfeited.</Text>
+          <Text style={styles.policyDetailText}>⏱️ Withdrawal Settlements: Approved cash withdrawals settle in your bank account in 2 to 24 hours.</Text>
+        </View>
+      )}
+
+      {onLogout && (
+        <TouchableOpacity style={[styles.complianceRow, styles.logoutRow]} onPress={handleLogout} activeOpacity={0.7}>
+          <View style={styles.complianceLabelRow}>
+            <PowerIcon />
+            <Text style={[styles.complianceText, styles.logoutText]}>Logout Account</Text>
+          </View>
+        </TouchableOpacity>
+      )}
+
+      <Text style={styles.versionTag}>VERSION 1.0.4 (BETA)</Text>
     </View>
   );
 
@@ -447,361 +835,29 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
         <Text style={styles.phoneSub}>{currentUser.phone}</Text>
       </View>
 
-      {/* 1. Wallet Balance Card (Shown on Top ONLY IF KYC is not verified) */}
-      {!currentUser.isKycVerified && renderBalanceCard()}
+      {/* 2. Wallet Balance Card (Always on Top) */}
+      {renderBalanceCard()}
 
-      {/* Deposit cash portal */}
-      <View style={styles.actionCard}>
-        <Text style={styles.cardHeader}>ADD MONEY TO WALLET</Text>
-        <TextInput
-          style={[styles.input, isFocusedDeposit && styles.inputFocused]}
-          placeholder="Enter Amount (INR)"
-          placeholderTextColor="#94A3B8"
-          keyboardType="numeric"
-          value={depositAmount}
-          onChangeText={setDepositAmount}
-          onFocus={() => setIsFocusedDeposit(true)}
-          onBlur={() => setIsFocusedDeposit(false)}
-        />
-        <TouchableOpacity style={styles.actionBtn} onPress={handleDeposit} disabled={loading}>
-          <Text style={styles.actionBtnText}>ADD MONEY NOW</Text>
-        </TouchableOpacity>
+      {/* 3. Add Money to Wallet Card */}
+      {renderAddMoneyCard()}
 
-        {upiIntentLink && (
-          <View style={styles.intentContainer}>
-            <Text style={styles.intentText} numberOfLines={1}>{upiIntentLink}</Text>
-            <TouchableOpacity style={styles.verifyBtn} onPress={simulatePaymentWebhook}>
-              <Text style={styles.actionBtnText}>SIMULATE WEBHOOK SUCCESS</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-      </View>
+      {/* 4. KYC Card (Shown here ONLY IF NOT verified) */}
+      {!currentUser.isKycVerified && renderKycCard()}
 
-      {/* Tabbed KYC Compliance Card */}
-      {currentUser.isKycVerified ? (
-        <View style={[styles.actionCard, styles.verifiedKycCard]}>
-          <Text style={styles.cardHeader}>🔒 ACCOUNT VERIFIED</Text>
-          <Text style={styles.verifiedKycText}>✓ Your identity is verified successfully.</Text>
-          <View style={styles.kycDetailsRow}>
-            <Text style={styles.kycDetailLabel}>Verification Mode</Text>
-            <Text style={styles.kycDetailVal}>{currentUser.kycType === 'PAN' ? 'PAN Card' : 'Aadhaar Card'}</Text>
-          </View>
-          <View style={styles.kycDetailsRow}>
-            <Text style={styles.kycDetailLabel}>Document Number</Text>
-            <Text style={styles.kycDetailVal}>
-              {currentUser.kycType === 'PAN'
-                ? `${currentUser.kycDocumentNumber?.slice(0, 5)}XXXXX${currentUser.kycDocumentNumber?.slice(-1)}`
-                : `XXXX-XXXX-${currentUser.kycDocumentNumber?.slice(-4)}`}
-            </Text>
-          </View>
-          <View style={styles.kycDetailsRow}>
-            <Text style={styles.kycDetailLabel}>Full Legal Name</Text>
-            <Text style={styles.kycDetailVal}>{currentUser.kycName}</Text>
-          </View>
-        </View>
-      ) : (
-        <View style={[styles.actionCard, styles.pendingKycCard]}>
-          <Text style={styles.cardHeader}>🛡️ ID VERIFICATION REQUIRED</Text>
-          <Text style={styles.kycPromptText}>
-            Verify your PAN or Aadhaar card details to unlock instant cash withdrawals.
-          </Text>
+      {/* 5. Send Winnings to Bank Card */}
+      {renderWithdrawCard()}
 
-          {/* Type Selector Tabs */}
-          <View style={styles.kycTabSelector}>
-            <TouchableOpacity
-              style={[styles.kycTabBtn, kycType === 'PAN' && styles.kycTabBtnActive]}
-              onPress={() => setKycType('PAN')}
-            >
-              <Text style={[styles.kycTabBtnText, kycType === 'PAN' && styles.kycTabBtnTextActive]}>PAN CARD</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.kycTabBtn, kycType === 'AADHAAR' && styles.kycTabBtnActive]}
-              onPress={() => setKycType('AADHAAR')}
-            >
-              <Text style={[styles.kycTabBtnText, kycType === 'AADHAAR' && styles.kycTabBtnTextActive]}>AADHAAR CARD</Text>
-            </TouchableOpacity>
-          </View>
+      {/* 6. KYC Card (Shown at the bottom ONLY IF verified) */}
+      {currentUser.isKycVerified && renderKycCard()}
 
-          <TextInput
-            style={[styles.input, isFocusedKycName && styles.inputFocused]}
-            placeholder="Full Legal Name"
-            placeholderTextColor="#94A3B8"
-            value={kycName}
-            onChangeText={setKycName}
-            autoCapitalize="characters"
-            onFocus={() => setIsFocusedKycName(true)}
-            onBlur={() => setIsFocusedKycName(false)}
-          />
+      {/* 7. Share & Refer Card */}
+      {renderReferCard()}
 
-          <TextInput
-            style={[styles.input, isFocusedKycDoc && styles.inputFocused]}
-            placeholder={kycType === 'PAN' ? 'PAN Number (e.g., ABCDE1234F)' : 'Aadhaar Number (12 digits)'}
-            placeholderTextColor="#94A3B8"
-            value={kycDocNum}
-            onChangeText={setKycDocNum}
-            autoCapitalize={kycType === 'PAN' ? 'characters' : 'none'}
-            keyboardType={kycType === 'AADHAAR' ? 'numeric' : 'default'}
-            onFocus={() => setIsFocusedKycDoc(true)}
-            onBlur={() => setIsFocusedKycDoc(false)}
-          />
+      {/* 8. Transaction History Card */}
+      {renderHistoryCard()}
 
-          <TouchableOpacity style={styles.kycSubmitBtn} onPress={handleSubmitKyc} disabled={isSubmittingKyc}>
-            {isSubmittingKyc ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.actionBtnText}>VERIFY ID NOW</Text>
-            )}
-          </TouchableOpacity>
-        </View>
-      )}
-
-      {/* Withdrawal Winnings Portal */}
-      {currentUser.isKycVerified && (
-        <View style={styles.actionCard}>
-          <Text style={styles.cardHeader}>SEND WINNINGS TO BANK</Text>
-          <TextInput
-            style={[styles.input, isFocusedWithdraw && styles.inputFocused]}
-            placeholder="Withdraw Amount (INR)"
-            placeholderTextColor="#94A3B8"
-            keyboardType="numeric"
-            value={withdrawAmount}
-            onChangeText={setWithdrawAmount}
-            onFocus={() => setIsFocusedWithdraw(true)}
-            onBlur={() => setIsFocusedWithdraw(false)}
-          />
-          <TextInput
-            style={[styles.input, isFocusedUpi && styles.inputFocused]}
-            placeholder="Enter your UPI ID (e.g. name@upi)"
-            placeholderTextColor="#94A3B8"
-            value={upiId}
-            onChangeText={setUpiId}
-            autoCapitalize="none"
-            onFocus={() => setIsFocusedUpi(true)}
-            onBlur={() => setIsFocusedUpi(false)}
-          />
-          <TouchableOpacity style={[styles.actionBtn, styles.withdrawBtn]} onPress={handleWithdrawal} disabled={loading}>
-            <Text style={styles.actionBtnText}>WITHDRAW MONEY NOW</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
-      {/* 2. Wallet Balance Card (Shown at the bottom ONLY IF KYC is completed) */}
-      {currentUser.isKycVerified && renderBalanceCard()}
-
-      {/* Refer & Share matrix */}
-      <View style={styles.actionCard}>
-        <Text style={styles.cardHeader}>🎁 SHARE & REFER TO EARN</Text>
-        
-        <View style={styles.referMetricsGrid}>
-          <View style={styles.referMetricCol}>
-            <Text style={styles.referMetricVal}>12</Text>
-            <Text style={styles.referMetricLabel}>Friends Joined</Text>
-          </View>
-          <View style={styles.metricDivider} />
-          <View style={styles.referMetricCol}>
-            <Text style={[styles.referMetricVal, styles.greenText]}>₹600</Text>
-            <Text style={styles.referMetricLabel}>Total Cash Earned</Text>
-          </View>
-        </View>
-
-        <TouchableOpacity style={styles.clipboardBox} onPress={handleCopyCode}>
-          <View style={styles.clipboardLabelCol}>
-            <Text style={styles.clipboardLabel}>REFERRAL CODE</Text>
-            <Text style={styles.clipboardValue}>{referralCode}</Text>
-          </View>
-          <View style={styles.copyBadge}>
-            <Text style={styles.copyBadgeText}>Copy Code</Text>
-          </View>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.clipboardBox} onPress={handleCopyLink}>
-          <View style={styles.clipboardLabelCol}>
-            <Text style={styles.clipboardLabel}>INVITE LINK</Text>
-            <Text style={styles.clipboardValue} numberOfLines={1}>{referralUrl}</Text>
-          </View>
-          <View style={styles.copyBadge}>
-            <Text style={styles.copyBadgeText}>Copy Link</Text>
-          </View>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.whatsappBtn} onPress={handleWhatsAppShare}>
-          <Text style={styles.whatsappBtnText}>Share on WhatsApp</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Expandable Transaction History List */}
-      <View style={styles.historyCard}>
-        <TouchableOpacity 
-          style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 4 }}
-          onPress={() => setIsHistoryExpanded(!isHistoryExpanded)}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.cardHeader}>TRANSACTION HISTORY</Text>
-          <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#4F46E5' }}>
-            {isHistoryExpanded ? '▲ Hide' : '▼ View History'}
-          </Text>
-        </TouchableOpacity>
-
-        {isHistoryExpanded && (
-          <View style={{ marginTop: 12 }}>
-            {history.length === 0 ? (
-              <View style={styles.emptyLedgerContainer}>
-                <Svg width={40} height={40} viewBox="0 0 24 24" fill="none" stroke="#94A3B8" strokeWidth={1.5}>
-                  <Path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
-                  <Polyline points="14 2 14 8 20 8" />
-                  <Line x1="16" y1="13" x2="8" y2="13" />
-                  <Line x1="16" y1="17" x2="8" y2="17" />
-                  <Line x1="10" y1="9" x2="8" y2="9" />
-                </Svg>
-                <Text style={styles.noHistory}>No transactions logged in this timeframe.</Text>
-              </View>
-            ) : (
-              history.map((txn) => {
-                let simpleType: string = txn.type;
-                if (txn.type === 'ENTRY_FEE') simpleType = 'Game Played';
-                else if (txn.type === 'PLATFORM_COMMISSION') simpleType = 'Platform Charge';
-                else if (txn.type === 'WINNINGS') simpleType = 'Game Won';
-                else if (txn.type === 'DEPOSIT') simpleType = 'Added Cash';
-                else if (txn.type === 'WITHDRAWAL') simpleType = 'Sent to Bank';
-
-                let simpleStatus: string = txn.status;
-                if (txn.status === 'SUCCESS') simpleStatus = 'Successful';
-                else if (txn.status === 'PENDING') simpleStatus = 'Pending';
-                else if (txn.status === 'FAILED') simpleStatus = 'Failed';
-
-                return (
-                  <View key={txn._id} style={styles.txnRow}>
-                    <View>
-                      <Text style={styles.txnType}>{simpleType}</Text>
-                      <Text style={styles.txnDate}>{new Date(txn.createdAt).toLocaleDateString()}</Text>
-                      <Text style={styles.txnRef} numberOfLines={1}>Ref: {txn.referenceId}</Text>
-                    </View>
-                    <View style={styles.txnRight}>
-                      <Text style={[styles.txnAmount, txn.amount < 0 ? styles.redText : styles.greenText]}>
-                        {txn.amount > 0 ? `+${txn.amount}` : txn.amount}
-                      </Text>
-                      <Text style={[styles.txnStatus, styles[txn.status.toLowerCase() as keyof typeof styles || 'pending']]}>
-                        {simpleStatus}
-                      </Text>
-                    </View>
-                  </View>
-                );
-              })
-            )}
-          </View>
-        )}
-      </View>
-
-      {/* Administrative Compliance rows stack */}
-      <View style={styles.complianceCard}>
-        <Text style={styles.cardHeader}>HELP & LEGAL POLICIES</Text>
-        
-        <TouchableOpacity 
-          style={styles.complianceRow} 
-          onPress={() => setActivePolicy(activePolicy === 'responsible' ? null : 'responsible')}
-          activeOpacity={0.7}
-        >
-          <View style={styles.complianceLabelRow}>
-            <ShieldIcon />
-            <Text style={styles.complianceText}>Responsible Gaming</Text>
-          </View>
-        </TouchableOpacity>
-        {activePolicy === 'responsible' && (
-          <View style={styles.policyDetailCard}>
-            <Text style={styles.policyDetailTitle}>Responsible Gaming Rules</Text>
-            <Text style={styles.policyDetailText}>🔞 Play in moderation: Set daily time and deposit limits to keep play fun.</Text>
-            <Text style={styles.policyDetailText}>🛑 This is a real-money game. Play responsibly and only with money you can afford to lose.</Text>
-            <Text style={styles.policyDetailText}>📞 Need help? Access our self-exclusion tools or support services instantly.</Text>
-          </View>
-        )}
-
-        <TouchableOpacity 
-          style={styles.complianceRow} 
-          onPress={() => setActivePolicy(activePolicy === 'support' ? null : 'support')}
-          activeOpacity={0.7}
-        >
-          <View style={styles.complianceLabelRow}>
-            <HelpIcon />
-            <Text style={styles.complianceText}>Help & Support</Text>
-          </View>
-        </TouchableOpacity>
-        {activePolicy === 'support' && (
-          <View style={styles.policyDetailCard}>
-            <Text style={styles.policyDetailTitle}>Customer Support</Text>
-            <Text style={styles.policyDetailText}>✉️ Email Support: support@sexusplatform.com</Text>
-            <Text style={styles.policyDetailText}>💬 Live Chat: Connect with our support team 24/7 on WhatsApp or in-app chat.</Text>
-            <Text style={styles.policyDetailText}>⏱️ Typical Response Time: Under 10 minutes.</Text>
-          </View>
-        )}
-
-        <TouchableOpacity 
-          style={styles.complianceRow} 
-          onPress={() => setActivePolicy(activePolicy === 'terms' ? null : 'terms')}
-          activeOpacity={0.7}
-        >
-          <View style={styles.complianceLabelRow}>
-            <BookTextIcon />
-            <Text style={styles.complianceText}>Terms of Service</Text>
-          </View>
-        </TouchableOpacity>
-        {activePolicy === 'terms' && (
-          <View style={styles.policyDetailCard}>
-            <Text style={styles.policyDetailTitle}>Terms of Service Summary</Text>
-            <Text style={styles.policyDetailText}>⚖️ Eligibility: Users must be 18 years or older to register and play cash games.</Text>
-            <Text style={styles.policyDetailText}>🚫 Fair Play Policy: Use of duplicate accounts, scripts, or cheating tools will result in permanent ban and forfeiture of funds.</Text>
-            <Text style={styles.policyDetailText}>🏦 Account Balance: All deposit and winning balances are held securely.</Text>
-          </View>
-        )}
-        
-        <TouchableOpacity 
-          style={styles.complianceRow} 
-          onPress={() => setActivePolicy(activePolicy === 'privacy' ? null : 'privacy')}
-          activeOpacity={0.7}
-        >
-          <View style={styles.complianceLabelRow}>
-            <ShieldCheckIcon />
-            <Text style={styles.complianceText}>Privacy Policy</Text>
-          </View>
-        </TouchableOpacity>
-        {activePolicy === 'privacy' && (
-          <View style={styles.policyDetailCard}>
-            <Text style={styles.policyDetailTitle}>Data & Privacy Control</Text>
-            <Text style={styles.policyDetailText}>🔒 Secure Encryption: All personal details, KYC document files, and transaction records are fully encrypted.</Text>
-            <Text style={styles.policyDetailText}>🚫 No Third-Party Sharing: Your data is confidential and never sold to third parties.</Text>
-            <Text style={styles.policyDetailText}>🛡️ Mapped Compliance Keys: Built to fully satisfy RBI guidelines and local data protection regulations.</Text>
-          </View>
-        )}
-
-        <TouchableOpacity 
-          style={styles.complianceRow} 
-          onPress={() => setActivePolicy(activePolicy === 'refund' ? null : 'refund')}
-          activeOpacity={0.7}
-        >
-          <View style={styles.complianceLabelRow}>
-            <FileTextIcon />
-            <Text style={styles.complianceText}>Refund Policies</Text>
-          </View>
-        </TouchableOpacity>
-        {activePolicy === 'refund' && (
-          <View style={styles.policyDetailCard}>
-            <Text style={styles.policyDetailTitle}>Refund & Settlement Terms</Text>
-            <Text style={styles.policyDetailText}>🎲 Game Cancellations: If a game gets canceled due to server or technical errors, your entry fee will be refunded to your wallet instantly.</Text>
-            <Text style={styles.policyDetailText}>🚫 Player Disconnections: If you leave the match or disconnect during gameplay, your entry fee is forfeited.</Text>
-            <Text style={styles.policyDetailText}>⏱️ Withdrawal Settlements: Approved cash withdrawals settle in your bank account in 2 to 24 hours.</Text>
-          </View>
-        )}
-
-        {onLogout && (
-          <TouchableOpacity style={[styles.complianceRow, styles.logoutRow]} onPress={handleLogout} activeOpacity={0.7}>
-            <View style={styles.complianceLabelRow}>
-              <PowerIcon />
-              <Text style={[styles.complianceText, styles.logoutText]}>Logout Account</Text>
-            </View>
-          </TouchableOpacity>
-        )}
-
-        <Text style={styles.versionTag}>VERSION 1.0.4 (BETA)</Text>
-      </View>
+      {/* 9. Help & Legal Policies Card */}
+      {renderComplianceCard()}
 
       {error && <Text style={styles.errorText}>Error: {error}</Text>}
     </ScrollView>
@@ -1353,6 +1409,121 @@ const styles = StyleSheet.create({
     color: '#EF4444',
     textAlign: 'center',
     marginTop: 10,
+  },
+  premiumAddCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 20,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 12,
+    elevation: 2,
+  },
+  premiumWithdrawCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 20,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#D1FAE5',
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 12,
+    elevation: 2,
+  },
+  withdrawCardLocked: {
+    borderColor: '#E2E8F0',
+    backgroundColor: '#F8FAFC',
+  },
+  withdrawHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  lockBadge: {
+    backgroundColor: '#FFE4E6',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  lockBadgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#E11D48',
+  },
+  lockedContainer: {
+    paddingVertical: 12,
+  },
+  lockedText: {
+    fontSize: 12,
+    color: '#64748B',
+    fontWeight: '600',
+    lineHeight: 18,
+  },
+  inputContainerWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    paddingHorizontal: 12,
+    marginBottom: 12,
+  },
+  inputCurrencySymbol: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#4F46E5',
+    marginRight: 6,
+  },
+  premiumInput: {
+    flex: 1,
+    height: 44,
+    fontSize: 14,
+    color: '#0F172A',
+    fontWeight: '700',
+    padding: 0,
+  },
+  premiumActionBtn: {
+    backgroundColor: '#4F46E5',
+    borderRadius: 12,
+    height: 46,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#4F46E5',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  premiumWithdrawBtn: {
+    backgroundColor: '#10B981',
+    borderRadius: 12,
+    height: 46,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 3,
+    marginTop: 12,
+  },
+  splitBox: {
+    flex: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 16,
+    paddingVertical: 10,
+    alignItems: 'center',
+    marginHorizontal: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
 });
 export default AuthWalletScreen;
