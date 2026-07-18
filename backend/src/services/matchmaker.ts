@@ -16,8 +16,7 @@ export interface QueueUser {
   gameMode?: 'QUICK' | 'REGULAR' | 'ROOMS';
 }
 
-const SUPPORTED_TIERS = [50, 100, 500, 1000];
-const PUBLIC_MODES = ['QUICK', 'REGULAR'] as const;
+const MIN_ENTRY_FEE = 10; // Minimum allowed entry fee in INR
 
 let checkQueueInterval: NodeJS.Timeout | null = null;
 
@@ -101,10 +100,23 @@ export const startMatchmakingLoop = (): void => {
   if (checkQueueInterval) return;
 
   checkQueueInterval = setInterval(async () => {
-    for (const tier of SUPPORTED_TIERS) {
-      for (const mode of PUBLIC_MODES) {
-        await processMatchmakingQueue(tier, mode);
+    const redis = getRedisClient();
+    if (!redis) return;
+
+    // Dynamically discover all active queue keys so custom fee tiers are processed
+    try {
+      const allKeys = await redis.keys('queue:tier_*_mode_*');
+      for (const key of allKeys) {
+        // Parse tier and mode from key pattern: queue:tier_<fee>_mode_<MODE>
+        const match = key.match(/^queue:tier_(\d+)_mode_(QUICK|REGULAR)$/);
+        if (match) {
+          const tier = parseInt(match[1], 10);
+          const mode = match[2] as 'QUICK' | 'REGULAR';
+          await processMatchmakingQueue(tier, mode);
+        }
       }
+    } catch (err) {
+      console.error('Matchmaking loop key scan error:', err);
     }
   }, TICK_INTERVAL);
 };
@@ -122,8 +134,9 @@ export const joinQueue = async (
   gameMode: 'QUICK' | 'REGULAR' | 'ROOMS' = 'REGULAR',
   customRules?: { turnTimer?: number; tokenCount?: number }
 ): Promise<{ success: boolean; message: string }> => {
-  if (!SUPPORTED_TIERS.includes(entryFee)) {
-    return { success: false, message: `Unsupported entry fee tier: ${entryFee}` };
+  // Validate entry fee: must be a whole number and at least MIN_ENTRY_FEE
+  if (!Number.isInteger(entryFee) || entryFee < MIN_ENTRY_FEE) {
+    return { success: false, message: `Entry fee must be a whole number of at least ₹${MIN_ENTRY_FEE}` };
   }
 
   // 1. Pre-verify balance
