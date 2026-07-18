@@ -18,6 +18,24 @@ import axios from 'axios';
 
 const API_SERVER_URL = process.env.EXPO_PUBLIC_SERVER_URL || 'http://localhost:5000';
 
+const formatDateTime = (dateStr: string) => {
+  if (!dateStr) return 'N/A';
+  try {
+    const d = new Date(dateStr);
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const month = months[d.getMonth()];
+    const date = d.getDate();
+    let hours = d.getHours();
+    const minutes = d.getMinutes().toString().padStart(2, '0');
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12;
+    hours = hours ? hours : 12;
+    return `${month} ${date}, ${hours}:${minutes} ${ampm}`;
+  } catch {
+    return dateStr;
+  }
+};
+
 interface AdminPanelScreenProps {
   onBack: () => void;
 }
@@ -106,6 +124,7 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({ onBack }) =>
   const [formPrizePool, setFormPrizePool] = useState('');
   const [formEntryFee, setFormEntryFee] = useState('');
   const [formMaxEntries, setFormMaxEntries] = useState('');
+  const [formStartsAt, setFormStartsAt] = useState('');
   const [formStatus, setFormStatus] = useState<'UPCOMING' | 'ACTIVE' | 'CONCLUDED'>('UPCOMING');
   const [isSavingTour, setIsSavingTour] = useState(false);
 
@@ -115,6 +134,7 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({ onBack }) =>
     setFormPrizePool('10000');
     setFormEntryFee('10');
     setFormMaxEntries('1000');
+    setFormStartsAt(new Date(Date.now() + 3600000).toISOString().slice(0, 16));
     setFormStatus('UPCOMING');
     setIsTourModalVisible(true);
   };
@@ -125,6 +145,7 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({ onBack }) =>
     setFormPrizePool(String(tour.totalPrizePool || 0));
     setFormEntryFee(String(tour.entryFee || 0));
     setFormMaxEntries(String(tour.maxEntries || 1000));
+    setFormStartsAt(tour.startsAt ? new Date(tour.startsAt).toISOString().slice(0, 16) : new Date().toISOString().slice(0, 16));
     setFormStatus(tour.status || 'UPCOMING');
     setIsTourModalVisible(true);
   };
@@ -144,6 +165,7 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({ onBack }) =>
         totalPrizePool: parseFloat(formPrizePool),
         entryFee: parseFloat(formEntryFee),
         maxEntries: parseInt(formMaxEntries, 10),
+        startsAt: formStartsAt ? new Date(formStartsAt).toISOString() : new Date().toISOString(),
         status: formStatus,
       };
 
@@ -707,6 +729,10 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({ onBack }) =>
                       </View>
 
                       <View style={styles.statRow}>
+                        <Text style={styles.statLabel}>Start Time:</Text>
+                        <Text style={styles.statValue}>📅 {formatDateTime(tour.startsAt)}</Text>
+                      </View>
+                      <View style={styles.statRow}>
                         <Text style={styles.statLabel}>Prize Pool:</Text>
                         <Text style={styles.statValue}>₹{tour.totalPrizePool}</Text>
                       </View>
@@ -829,6 +855,35 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({ onBack }) =>
                   value={formMaxEntries}
                   onChangeText={setFormMaxEntries}
                 />
+
+                <Text style={styles.modalLabel}>Start Date & Time (YYYY-MM-DDTHH:mm)</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  placeholder="e.g. 2026-07-19T20:00"
+                  placeholderTextColor="#94A3B8"
+                  value={formStartsAt}
+                  onChangeText={setFormStartsAt}
+                />
+                <View style={styles.timePresetRow}>
+                  <TouchableOpacity
+                    style={styles.timePresetBtn}
+                    onPress={() => setFormStartsAt(new Date().toISOString().slice(0, 16))}
+                  >
+                    <Text style={styles.timePresetText}>⚡ NOW</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.timePresetBtn}
+                    onPress={() => setFormStartsAt(new Date(Date.now() + 3600000).toISOString().slice(0, 16))}
+                  >
+                    <Text style={styles.timePresetText}>⏱️ +1 HR</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.timePresetBtn}
+                    onPress={() => setFormStartsAt(new Date(Date.now() + 86400000).toISOString().slice(0, 16))}
+                  >
+                    <Text style={styles.timePresetText}>📅 +1 DAY</Text>
+                  </TouchableOpacity>
+                </View>
 
                 <Text style={styles.modalLabel}>Tournament Status</Text>
                 <View style={styles.statusToggleRow}>
@@ -1544,6 +1599,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     marginTop: 6,
     marginBottom: 12,
+  },
+  timePresetRow: {
+    flexDirection: 'row',
+    marginTop: 6,
+    marginBottom: 4,
+  },
+  timePresetBtn: {
+    backgroundColor: '#EEF2FF',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    marginRight: 6,
+    borderWidth: 1,
+    borderColor: '#C7D2FE',
+  },
+  timePresetText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#4F46E5',
   },
   statusToggleBtn: {
     flex: 1,
