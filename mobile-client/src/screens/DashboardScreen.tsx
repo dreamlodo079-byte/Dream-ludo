@@ -100,7 +100,8 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   useEffect(() => {
     let targetX = 0;
     const paddingOffset = 40; // Horizontal margins
-    const segmentWidth = (width - paddingOffset) / 3;
+    const containerWidth = Math.min(width, 600);
+    const segmentWidth = (containerWidth - paddingOffset) / 3;
     if (activeSegment === 'REGULAR') targetX = segmentWidth;
     if (activeSegment === 'ROOMS') targetX = segmentWidth * 2;
 
@@ -418,8 +419,8 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                       activeOpacity={0.9}
                     >
                       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        <Svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FFF" strokeWidth="2.5" strokeLinecap="round" style={{ marginRight: 8 }}>
-                          <Path d="M20 4L4 20M4 4l16 16M12 12V4" />
+                        <Svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FFF" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 8 }}>
+                          <Path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
                         </Svg>
                         <Text style={styles.primaryActionText}>FIND QUICK MATCH</Text>
                       </View>
@@ -1051,14 +1052,13 @@ const styles = StyleSheet.create({
   },
   footerCapsule: {
     position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
+    bottom: 20,
+    alignSelf: 'center',
+    width: '92%',
+    maxWidth: 550,
     height: 70,
     backgroundColor: '#FFFFFF',
     borderRadius: 40,
-    marginHorizontal: 16,
-    marginBottom: 20,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',

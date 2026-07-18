@@ -124,39 +124,12 @@ function AppContent() {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#F3F4F6" />
       
-      {/* Navigation header for dashboard/wallet screens */}
-      {currentUser && view !== 'game' && view !== 'leaderboard' && view !== 'challenges' && (
-        <View style={styles.navBar}>
-          <TouchableOpacity 
-            onPress={() => setView(view === 'wallet' ? 'dashboard' : 'wallet')}
-            style={styles.navBtn}
-          >
-            <Text style={styles.navBtnText}>
-              {view === 'wallet' ? '◀ BACK TO ARENA' : '💳 WALLET DETAILS'}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity onPress={handleLogout} style={styles.logoutBtn}>
-            <Text style={styles.logoutBtnText}>LOGOUT</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
       {/* Screen Router */}
       <View style={styles.screenContainer}>
         {view === 'auth' && (
           <AuthWalletScreen
             currentUser={null}
             onLoginSuccess={handleLoginSuccess}
-          />
-        )}
-
-        {view === 'wallet' && currentUser && (
-          <AuthWalletScreen
-            currentUser={currentUser}
-            onLoginSuccess={() => {}}
-            onLogout={handleLogout}
-            onUserUpdate={(updatedUser) => setCurrentUser(updatedUser)}
           />
         )}
 
@@ -168,7 +141,7 @@ function AppContent() {
               setActiveRoomId(roomId);
               setView('game');
             }}
-            onGoToWallet={() => setView('wallet')}
+            onGoToWallet={() => {}}
             onGoToLeaderboard={() => setView('leaderboard')}
             onGoToChallenges={() => setView('challenges')}
             onLogout={handleLogout}
@@ -224,36 +197,9 @@ const styles = StyleSheet.create({
   },
   screenContainer: {
     flex: 1,
-  },
-  navBar: {
-    height: 56,
-    backgroundColor: '#FFFFFF', // Pure White header
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  navBtn: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    backgroundColor: '#EEF2FF', // Active glow tint
-    borderRadius: 8,
-  },
-  navBtnText: {
-    color: '#4F46E5', // Slate Indigo Accent
-    fontWeight: 'bold',
-    fontSize: 12,
-  },
-  logoutBtn: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-  },
-  logoutBtnText: {
-    color: '#EF4444',
-    fontWeight: 'bold',
-    fontSize: 12,
+    width: '100%',
+    maxWidth: 600,
+    alignSelf: 'center',
   },
   footer: {
     height: 24,
