@@ -471,6 +471,10 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
                     onFocus={() => setIsFocusedUsername(true)}
                     onBlur={() => setIsFocusedUsername(false)}
                     autoCapitalize="words"
+                    autoCorrect={false}
+                    autoComplete="off"
+                    textContentType="none"
+                    importantForAutofill="no"
                   />
                 </View>
               )}
@@ -486,6 +490,10 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
                   onChangeText={setPhone}
                   onFocus={() => setIsFocusedPhone(true)}
                   onBlur={() => setIsFocusedPhone(false)}
+                  autoCorrect={false}
+                  autoComplete="off"
+                  textContentType="none"
+                  importantForAutofill="no"
                 />
               </View>
 
@@ -500,6 +508,10 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
                   onChangeText={setPassword}
                   onFocus={() => setIsFocusedPassword(true)}
                   onBlur={() => setIsFocusedPassword(false)}
+                  autoCorrect={false}
+                  autoComplete="off"
+                  textContentType="none"
+                  importantForAutofill="no"
                 />
                 <TouchableOpacity
                   style={styles.eyeBtn}
@@ -544,6 +556,10 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
                   onChangeText={setOtpCode}
                   onFocus={() => setIsFocusedOtp(true)}
                   onBlur={() => setIsFocusedOtp(false)}
+                  autoCorrect={false}
+                  autoComplete="one-time-code"
+                  textContentType="oneTimeCode"
+                  importantForAutofill="no"
                 />
               </View>
 
@@ -1178,11 +1194,6 @@ const styles = StyleSheet.create({
   inputWrapperFocused: {
     borderColor: '#4F46E5',
     backgroundColor: '#FFFFFF',
-    shadowColor: '#4F46E5',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.12,
-    shadowRadius: 6,
-    elevation: 2,
   },
   inputIconEmoji: {
     fontSize: 16,
