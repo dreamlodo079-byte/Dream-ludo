@@ -24,6 +24,7 @@ import { LeaderboardScreen } from './LeaderboardScreen';
 import { ChallengeScreen } from './ChallengeScreen';
 import { AuthWalletScreen } from './AuthWalletScreen';
 import { LiveArenaScreen } from './LiveArenaScreen';
+import { AdminPanelScreen } from './AdminPanelScreen';
 
 const API_SERVER_URL = process.env.EXPO_PUBLIC_SERVER_URL || 'http://localhost:5000';
 const ENTRY_FEES = [50, 100, 500, 1000];
@@ -152,7 +153,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   const { width } = useWindowDimensions();
   const { balances, fetchWallet } = useWallet();
 
-  const [currentView, setCurrentView] = useState<'HOME' | 'LIVE' | 'LEADERBOARD' | 'PROFILE'>('HOME');
+  const [currentView, setCurrentView] = useState<'HOME' | 'LIVE' | 'LEADERBOARD' | 'PROFILE' | 'ADMIN'>('HOME');
 
   const [customAlert, setCustomAlert] = useState<{ visible: boolean; title: string; message: string; type: 'success' | 'error' | 'info' }>({
     visible: false,
@@ -186,10 +187,20 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   const [isJoiningLobby, setIsJoiningLobby] = useState(false);
   const [customFeeText, setCustomFeeText] = useState('');
 
-  // Active Tournament
-  const [tournament, setTournament] = useState<any>(null);
-  const [isRegisteringTournament, setIsRegisteringTournament] = useState(false);
-  const [isRegistered, setIsRegistered] = useState(false);
+  // Active Tournaments
+  const [tournamentsList, setTournamentsList] = useState<any[]>([]);
+  const [registeringTourId, setRegisteringTourId] = useState<string | null>(null);
+
+  const fetchActiveTournament = async () => {
+    try {
+      const response = await axios.get(`${API_SERVER_URL}/api/tournaments`);
+      if (response.data.success && Array.isArray(response.data.tournaments)) {
+        setTournamentsList(response.data.tournaments);
+      }
+    } catch (err) {
+      console.log('Error fetching tournament info:', err);
+    }
+  };
 
   // Animations
   const buttonScale = useRef(new Animated.Value(1)).current;
@@ -233,21 +244,6 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
       friction: 10,
     }).start();
   }, [width, activeSegment, segmentTranslateX]);
-
-  const fetchActiveTournament = async () => {
-    try {
-      const response = await axios.get(`${API_SERVER_URL}/api/tournaments`);
-      if (response.data.success && response.data.tournaments.length > 0) {
-        const tour = response.data.tournaments[0];
-        setTournament(tour);
-        if (tour.registeredUsers?.includes(currentUser._id)) {
-          setIsRegistered(true);
-        }
-      }
-    } catch (err) {
-      console.log('Error fetching tournament info:', err);
-    }
-  };
 
   const handleJoinMatchmaking = async () => {
     if (!socketId) {
@@ -397,39 +393,43 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
     }
   };
 
-  const handleJoinTournament = async () => {
-    if (!tournament) return;
-    if (isRegistered) {
+  const handleJoinTournament = async (targetTour: any) => {
+    if (!targetTour) return;
+    const isAlreadyRegistered = targetTour.registeredUsers?.includes(currentUser._id);
+    if (isAlreadyRegistered) {
       showCustomAlert('Tournament Registration', 'You are already registered! Check back when match starts.', 'info');
       return;
     }
 
-    if (balances.total < tournament.entryFee) {
+    if (balances.total < targetTour.entryFee) {
       showCustomAlert(
         'Insufficient Balance',
-        `Tournament registration requires entry fee of ₹${tournament.entryFee}. Please top up your wallet in the Profile tab.`,
+        `Tournament registration requires entry fee of ₹${targetTour.entryFee}. Please top up your wallet in the Profile tab.`,
         'error'
       );
       return;
     }
 
-    setIsRegisteringTournament(true);
+    setRegisteringTourId(targetTour._id);
     try {
       const response = await axios.post(`${API_SERVER_URL}/api/tournaments/register`, {
         userId: currentUser._id,
-        tournamentId: tournament._id,
+        tournamentId: targetTour._id,
       });
 
       if (response.data.success) {
-        setIsRegistered(true);
-        showCustomAlert('Registration Successful', `Successfully registered for: ${tournament.title}!`, 'success');
+        showCustomAlert(
+          'Registration Success!',
+          `You are registered for ${targetTour.title}! Deducted ₹${targetTour.entryFee} entry fee.`,
+          'success'
+        );
         fetchWallet(currentUser._id);
         fetchActiveTournament();
       }
     } catch (err: any) {
-      showCustomAlert('Registration Failed', err.response?.data?.error || err.message, 'error');
+      showCustomAlert('Registration Error', err.response?.data?.error || err.message, 'error');
     } finally {
-      setIsRegisteringTournament(false);
+      setRegisteringTourId(null);
     }
   };
 
@@ -495,88 +495,86 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
               </TouchableOpacity>
             </View>
 
-            {tournament && (
-              <View style={styles.tournamentCard}>
-                <Svg style={StyleSheet.absoluteFillObject} width="100%" height="100%" opacity={0.06}>
-                  <Defs>
-                    <LinearGradient id="isoGrad" x1="0" y1="0" x2="1" y2="1">
-                      <Stop offset="0" stopColor="#4F46E5" stopOpacity="0.8" />
-                      <Stop offset="1" stopColor="#10B981" stopOpacity="0.8" />
-                    </LinearGradient>
-                  </Defs>
-                  <Path d="M0,20 L150,90 L300,20 M0,80 L150,150 L300,80" fill="none" stroke="url(#isoGrad)" strokeWidth="2" />
-                  <Path d="M50,10 L120,45 L70,80 L0,45 Z" fill="url(#isoGrad)" opacity={0.2} />
-                  <Path d="M200,100 L270,135 L220,170 L150,135 Z" fill="url(#isoGrad)" opacity={0.2} />
-                  <Circle cx="280" cy="50" r="40" fill="url(#isoGrad)" opacity={0.15} />
-                </Svg>
-                <View style={styles.tournamentBanner}>
-                  <View>
-                    <Text style={styles.tournamentSub}>LIVE POOL TOURNAMENT</Text>
-                    <Text style={styles.tournamentTitle}>{tournament.title.toUpperCase()}</Text>
-                  </View>
-                  <View style={styles.prizeBadge}>
-                    <Text style={styles.prizeText}>Prize Pool</Text>
-                    <Text style={styles.prizePool}>₹{tournament.totalPrizePool.toLocaleString()}</Text>
-                  </View>
-                </View>
+            {tournamentsList.map((tournamentItem) => {
+              const isUserReg = tournamentItem.registeredUsers?.includes(currentUser._id);
+              const isRegBusy = registeringTourId === tournamentItem._id;
+              const fillPct = Math.min(100, Math.round(((tournamentItem.registeredCount || 0) / (tournamentItem.maxEntries || 1)) * 100));
+              const spotsLeft = Math.max(0, (tournamentItem.maxEntries || 0) - (tournamentItem.registeredCount || 0));
 
-                <View style={styles.trackerContainer}>
-                  <View style={styles.trackerTextRow}>
-                    <Text style={styles.trackerLabel}>Registration Density</Text>
-                    <Text style={styles.trackerDensity}>
-                      {tournament.registeredCount}/{tournament.maxEntries} Joined
-                    </Text>
+              return (
+                <View key={tournamentItem._id} style={styles.tournamentCard}>
+                  <Svg style={StyleSheet.absoluteFillObject} width="100%" height="100%" opacity={0.06}>
+                    <Defs>
+                      <LinearGradient id={`isoGrad_${tournamentItem._id}`} x1="0" y1="0" x2="1" y2="1">
+                        <Stop offset="0" stopColor="#4F46E5" stopOpacity="0.8" />
+                        <Stop offset="1" stopColor="#10B981" stopOpacity="0.8" />
+                      </LinearGradient>
+                    </Defs>
+                    <Path d="M0,20 L150,90 L300,20 M0,80 L150,150 L300,80" fill="none" stroke={`url(#isoGrad_${tournamentItem._id})`} strokeWidth="2" />
+                    <Circle cx="280" cy="50" r="40" fill={`url(#isoGrad_${tournamentItem._id})`} opacity={0.15} />
+                  </Svg>
+                  <View style={styles.tournamentBanner}>
+                    <View>
+                      <Text style={styles.tournamentSub}>LIVE POOL TOURNAMENT</Text>
+                      <Text style={styles.tournamentTitle}>{tournamentItem.title.toUpperCase()}</Text>
+                    </View>
+                    <View style={styles.prizeBadge}>
+                      <Text style={styles.prizeText}>Prize Pool</Text>
+                      <Text style={styles.prizePool}>₹{tournamentItem.totalPrizePool.toLocaleString()}</Text>
+                    </View>
                   </View>
-                  <View style={styles.progressBarBg}>
-                    <View
-                      style={[
-                        styles.progressBarFill,
-                        { width: `${(tournament.registeredCount / tournament.maxEntries) * 100}%` }
-                      ]}
-                    />
-                  </View>
-                  <Text style={styles.spotsLeftText}>
-                    {(tournament.maxEntries - tournament.registeredCount).toLocaleString()} SPOTS LEFT
-                  </Text>
-                </View>
 
-                {/* Tournament Timing Details */}
-                <View style={styles.timingRow}>
-                  <View style={[styles.timingCol, styles.timingColLeft]}>
-                    <Text style={styles.timingLabel}>REGISTRATION OPENS</Text>
-                    <Text style={styles.timingValue}>{formatDateTime(tournament.startsAt)}</Text>
-                  </View>
-                  <View style={styles.timingCol}>
-                    <Text style={styles.timingLabel}>GAME STARTS</Text>
-                    <Text style={styles.timingValue}>{formatDateTime(tournament.endsAt)}</Text>
-                  </View>
-                </View>
-
-                <View style={styles.buyInRow}>
-                  <View>
-                    <Text style={styles.buyInLabel}>Entry Fee</Text>
-                    <Text style={styles.buyInValue}>₹{tournament.entryFee}</Text>
-                  </View>
-                  <AnimatedPressable
-                    style={[
-                      styles.buyInBtn,
-                      isRegistered && styles.buyInBtnRegistered,
-                      isRegisteringTournament && styles.buyInBtnDisabled
-                    ]}
-                    onPress={handleJoinTournament}
-                    disabled={isRegisteringTournament}
-                  >
-                    {isRegisteringTournament ? (
-                      <ActivityIndicator color="#FFF" />
-                    ) : (
-                      <Text style={styles.buyInBtnText}>
-                        {isRegistered ? 'Registered • Awaiting Start' : 'Register Now'}
+                  <View style={styles.trackerContainer}>
+                    <View style={styles.trackerTextRow}>
+                      <Text style={styles.trackerLabel}>Registration Density</Text>
+                      <Text style={styles.trackerDensity}>
+                        {tournamentItem.registeredCount}/{tournamentItem.maxEntries} Joined ({fillPct}%)
                       </Text>
-                    )}
-                  </AnimatedPressable>
+                    </View>
+                    <View style={styles.progressBarBg}>
+                      <View style={[styles.progressBarFill, { width: `${fillPct}%` }]} />
+                    </View>
+                    <Text style={styles.spotsLeftText}>{spotsLeft.toLocaleString()} SPOTS LEFT</Text>
+                  </View>
+
+                  {/* Tournament Timing Details */}
+                  <View style={styles.timingRow}>
+                    <View style={[styles.timingCol, styles.timingColLeft]}>
+                      <Text style={styles.timingLabel}>REGISTRATION OPENS</Text>
+                      <Text style={styles.timingValue}>{formatDateTime(tournamentItem.startsAt)}</Text>
+                    </View>
+                    <View style={styles.timingCol}>
+                      <Text style={styles.timingLabel}>GAME STARTS</Text>
+                      <Text style={styles.timingValue}>{formatDateTime(tournamentItem.endsAt)}</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.buyInRow}>
+                    <View>
+                      <Text style={styles.buyInLabel}>Entry Fee</Text>
+                      <Text style={styles.buyInValue}>₹{tournamentItem.entryFee}</Text>
+                    </View>
+                    <AnimatedPressable
+                      style={[
+                        styles.buyInBtn,
+                        isUserReg && styles.buyInBtnRegistered,
+                        isRegBusy && styles.buyInBtnDisabled
+                      ]}
+                      onPress={() => handleJoinTournament(tournamentItem)}
+                      disabled={isRegBusy}
+                    >
+                      {isRegBusy ? (
+                        <ActivityIndicator color="#FFF" />
+                      ) : (
+                        <Text style={styles.buyInBtnText}>
+                          {isUserReg ? 'Registered • Awaiting Start' : 'Register Now'}
+                        </Text>
+                      )}
+                    </AnimatedPressable>
+                  </View>
                 </View>
-              </View>
-            )}
+              );
+            })}
 
             {/* QUICK Tab layout */}
             {activeSegment === 'QUICK' && (
@@ -899,7 +897,12 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           onLoginSuccess={() => {}}
           onLogout={onLogout}
           onUserUpdate={onUserUpdate}
+          onNavigateAdmin={() => setCurrentView('ADMIN')}
         />
+      )}
+
+      {currentView === 'ADMIN' && (
+        <AdminPanelScreen onBack={() => setCurrentView('PROFILE')} />
       )}
 
       {/* Floating capsule footer navigation */}
