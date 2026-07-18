@@ -37,41 +37,6 @@ interface AuthWalletScreenProps {
 }
 
 // Custom Premium Vector Icons
-const EyeIcon = ({ show }: { show: boolean }) => (
-  <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="#64748B" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-    {show ? (
-      <>
-        <Path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
-        <Line x1="1" y1="1" x2="23" y2="23" />
-      </>
-    ) : (
-      <>
-        <Path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-        <Circle cx="12" cy="12" r="3" />
-      </>
-    )}
-  </Svg>
-);
-
-const PhoneIcon = () => (
-  <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="#64748B" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-    <Path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.41 2 2 0 0 1 3.6 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.58a16 16 0 0 0 5.51 5.51l.96-.96a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z" />
-  </Svg>
-);
-
-const UserIcon = () => (
-  <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="#64748B" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-    <Path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-    <Circle cx="12" cy="7" r="4" />
-  </Svg>
-);
-
-const LockIcon = () => (
-  <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="#64748B" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-    <Path d="M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2z" />
-    <Path d="M7 11V7a5 5 0 0 1 10 0v4" />
-  </Svg>
-);
 
 const ShieldCheckIcon = () => (
   <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="#4F46E5" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
@@ -496,7 +461,7 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
             <View style={{ width: '100%' }}>
               {!isLoginMode && (
                 <View style={[styles.inputWrapper, isFocusedUsername && styles.inputWrapperFocused]}>
-                  <View style={styles.inputIcon}><UserIcon /></View>
+                  <Text style={styles.inputIconEmoji}>👤</Text>
                   <TextInput
                     style={styles.inputInner}
                     placeholder="Username / Full Name"
@@ -511,7 +476,7 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
               )}
 
               <View style={[styles.inputWrapper, isFocusedPhone && styles.inputWrapperFocused]}>
-                <View style={styles.inputIcon}><PhoneIcon /></View>
+                <Text style={styles.inputIconEmoji}>📱</Text>
                 <TextInput
                   style={styles.inputInner}
                   placeholder="Phone Number (+91)"
@@ -525,7 +490,7 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
               </View>
 
               <View style={[styles.inputWrapper, isFocusedPassword && styles.inputWrapperFocused]}>
-                <View style={styles.inputIcon}><LockIcon /></View>
+                <Text style={styles.inputIconEmoji}>🔒</Text>
                 <TextInput
                   style={styles.inputInner}
                   placeholder="Password"
@@ -541,7 +506,7 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
                   onPress={() => setShowPassword(!showPassword)}
                   activeOpacity={0.7}
                 >
-                  <EyeIcon show={showPassword} />
+                  <Text style={{ fontSize: 16 }}>{showPassword ? '🙈' : '👁️'}</Text>
                 </TouchableOpacity>
               </View>
 
@@ -1219,7 +1184,8 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 2,
   },
-  inputIcon: {
+  inputIconEmoji: {
+    fontSize: 16,
     marginRight: 10,
   },
   inputInner: {
@@ -1227,9 +1193,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#0F172A',
     fontWeight: '600',
+    padding: 0,
   },
   eyeBtn: {
-    padding: 4,
+    padding: 6,
     marginLeft: 6,
   },
   input: {
