@@ -211,14 +211,14 @@ paymentRouter.post('/admin/resolve-dispute', async (req: Request, res: Response)
  * Route to trigger matchmaking joining for clients
  */
 paymentRouter.post('/matchmaker/join', async (req: Request, res: Response) => {
-  const { userId, username, socketId, entryFee } = req.body;
+  const { userId, username, socketId, entryFee, roomCode, passcode } = req.body;
 
   if (!userId || !username || !socketId || !entryFee) {
     return res.status(400).json({ error: 'Missing parameters' });
   }
 
   try {
-    const result = await joinQueue(userId, username, socketId, Number(entryFee));
+    const result = await joinQueue(userId, username, socketId, Number(entryFee), roomCode, passcode);
     return res.json(result);
   } catch (error: any) {
     console.error('Matchmaking join request error:', error);

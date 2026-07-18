@@ -89,7 +89,7 @@ export const LeaderboardScreen: React.FC<LeaderboardScreenProps> = ({ onBack }) 
 
       {loading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#6366F1" />
+          <ActivityIndicator size="large" color="#4F46E5" />
           <Text style={styles.loadingText}>CALCULATING TOP CHAMPIONS...</Text>
         </View>
       ) : (
@@ -197,7 +197,7 @@ export const LeaderboardScreen: React.FC<LeaderboardScreenProps> = ({ onBack }) 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC', // Clean Ice White
+    backgroundColor: '#F3F4F6', // Premium Canvas Backdrop
   },
   header: {
     height: 64,
@@ -207,14 +207,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E5E7EB',
     marginTop: 20,
   },
   backBtn: {
     paddingVertical: 8,
     paddingHorizontal: 12,
-    backgroundColor: '#F1F5F9',
-    borderRadius: 8,
+    backgroundColor: '#F3F4F6',
+    borderRadius: 12,
   },
   backBtnText: {
     color: '#0F172A',
@@ -235,21 +235,21 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     padding: 8,
     borderBottomWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E5E7EB',
   },
   tab: {
     flex: 1,
     alignItems: 'center',
     paddingVertical: 8,
-    borderRadius: 20,
+    borderRadius: 24, // Global component radius
     marginHorizontal: 4,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F3F4F6',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E5E7EB',
   },
   activeTab: {
-    backgroundColor: '#EEF2FF',
-    borderColor: '#6366F1',
+    backgroundColor: '#EEF2FF', // Active glow tint
+    borderColor: '#4F46E5', // Slate Indigo Accent
   },
   tabText: {
     color: '#475569',
@@ -257,7 +257,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   activeTabText: {
-    color: '#6366F1',
+    color: '#4F46E5',
     fontWeight: '700',
   },
   loadingContainer: {
@@ -266,7 +266,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    color: '#6366F1',
+    color: '#4F46E5',
     marginTop: 15,
     fontWeight: 'bold',
     fontSize: 13,
@@ -275,20 +275,21 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 30,
+    paddingBottom: 110, // Account for Bottom Floating Capsule Footer bar spacing
   },
   podiumWrapper: {
     margin: 20,
-    backgroundColor: '#EEF2FF', // Visual light-indigo background section
-    borderRadius: 16,
+    backgroundColor: '#FFFFFF', // Pure White surface card
+    borderRadius: 24,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#E0E7FF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.03,
-    shadowRadius: 10,
-    elevation: 2,
+    borderColor: '#E5E7EB',
+    // Global micro-shadow profile
+    shadowColor: '#475569',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.05,
+    shadowRadius: 16,
+    elevation: 4,
   },
   podiumContainer: {
     flexDirection: 'row',
@@ -308,12 +309,12 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: '#F3F4F6',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 6,
     borderWidth: 1.5,
-    borderColor: '#CBD5E1',
+    borderColor: '#D1D5DB',
   },
   goldAvatar: {
     width: 50,
@@ -341,7 +342,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   podiumEarningsText: {
-    color: '#10B981', // Emerald green
+    color: '#10B981',
     fontSize: 10,
     fontWeight: '700',
     marginTop: 1,
@@ -364,9 +365,9 @@ const styles = StyleSheet.create({
   },
   silverBase: {
     height: 60,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F3F4F6',
     borderWidth: 1.5,
-    borderColor: '#94A3B8',
+    borderColor: '#9CA3AF',
   },
   bronzeBase: {
     height: 45,
@@ -384,11 +385,11 @@ const styles = StyleSheet.create({
   },
   emptyCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    borderRadius: 24,
     padding: 24,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E5E7EB',
   },
   emptyText: {
     color: '#64748B',
@@ -399,17 +400,17 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    borderRadius: 24, // Global component radius
     paddingVertical: 12,
     paddingHorizontal: 16,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: '#F1F5F9',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.02,
-    shadowRadius: 5,
-    elevation: 1,
+    borderColor: '#E5E7EB',
+    shadowColor: '#475569',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.05,
+    shadowRadius: 16,
+    elevation: 4,
   },
   rankLeft: {
     flexDirection: 'row',
@@ -419,7 +420,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F3F4F6',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,

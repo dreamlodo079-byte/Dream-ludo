@@ -86,7 +86,7 @@ export const ChallengeScreen: React.FC<ChallengeScreenProps> = ({ userId, onBack
 
       {loading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#6366F1" />
+          <ActivityIndicator size="large" color="#4F46E5" />
           <Text style={styles.loadingText}>FETCHING MILESTONES...</Text>
         </View>
       ) : (
@@ -163,7 +163,7 @@ export const ChallengeScreen: React.FC<ChallengeScreenProps> = ({ userId, onBack
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC', // Clean Ice White
+    backgroundColor: '#F3F4F6', // Premium Canvas Backdrop
   },
   header: {
     height: 64,
@@ -173,14 +173,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E5E7EB',
     marginTop: 20,
   },
   backBtn: {
     paddingVertical: 8,
     paddingHorizontal: 12,
-    backgroundColor: '#F1F5F9',
-    borderRadius: 8,
+    backgroundColor: '#F3F4F6',
+    borderRadius: 12,
   },
   backBtnText: {
     color: '#0F172A',
@@ -202,7 +202,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    color: '#6366F1',
+    color: '#4F46E5',
     marginTop: 15,
     fontWeight: 'bold',
     fontSize: 13,
@@ -212,24 +212,26 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 20,
+    paddingBottom: 110, // Avoid bottom capsule navigation bar overlap
   },
   promoCard: {
-    backgroundColor: '#EEF2FF',
+    backgroundColor: '#EEF2FF', // Active glow tint
     borderWidth: 1,
-    borderColor: '#E0E7FF',
-    borderRadius: 12,
+    borderColor: '#C7D2FE',
+    borderRadius: 24, // Global component radius
     padding: 16,
     marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.01,
-    shadowRadius: 5,
-    elevation: 1,
+    // Global micro-shadow profile
+    shadowColor: '#475569',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.05,
+    shadowRadius: 16,
+    elevation: 4,
   },
   promoTitle: {
     fontSize: 13,
     fontWeight: 'bold',
-    color: '#6366F1',
+    color: '#4F46E5',
     marginBottom: 6,
   },
   promoDesc: {
@@ -238,17 +240,17 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   taskCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFFFFF', // Pure White card surfaces
     borderWidth: 1,
-    borderColor: '#F1F5F9',
-    borderRadius: 16,
+    borderColor: '#E5E7EB',
+    borderRadius: 24, // Global component radius
     padding: 20,
     marginBottom: 24,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.04,
-    shadowRadius: 10,
-    elevation: 3,
+    shadowColor: '#475569',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.05,
+    shadowRadius: 16,
+    elevation: 4,
   },
   taskHeader: {
     flexDirection: 'row',
@@ -275,12 +277,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#EEF2FF',
     borderColor: '#C7D2FE',
     borderWidth: 1,
-    borderRadius: 8,
+    borderRadius: 12,
     paddingHorizontal: 10,
     paddingVertical: 6,
   },
   rewardText: {
-    color: '#6366F1',
+    color: '#4F46E5',
     fontWeight: '700',
     fontSize: 11,
   },
@@ -301,19 +303,19 @@ const styles = StyleSheet.create({
   },
   progressBarBg: {
     height: 8,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: '#E5E7EB',
     borderRadius: 4,
     overflow: 'hidden',
     marginBottom: 20,
   },
   progressBarFill: {
     height: '100%',
-    backgroundColor: '#10B981', // Emerald green progress line
+    backgroundColor: '#10B981', // Emerald green
     borderRadius: 4,
   },
   completedCard: {
     backgroundColor: '#D1FAE5',
-    borderRadius: 10,
+    borderRadius: 12,
     paddingVertical: 12,
     alignItems: 'center',
     borderWidth: 1,
@@ -326,8 +328,8 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   claimBtn: {
-    backgroundColor: '#10B981', // Emerald Green when active
-    borderRadius: 10,
+    backgroundColor: '#10B981', // Emerald Green active
+    borderRadius: 12,
     padding: 14,
     alignItems: 'center',
     justifyContent: 'center',
@@ -338,7 +340,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   claimBtnDisabled: {
-    backgroundColor: '#E2E8F0',
+    backgroundColor: '#E5E7EB',
     shadowOpacity: 0,
     elevation: 0,
   },
@@ -350,8 +352,8 @@ const styles = StyleSheet.create({
   refreshBtn: {
     backgroundColor: '#FFFFFF',
     borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    borderRadius: 10,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
     padding: 14,
     alignItems: 'center',
   },

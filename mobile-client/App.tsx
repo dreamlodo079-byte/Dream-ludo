@@ -8,6 +8,7 @@ import { DashboardScreen } from './src/screens/DashboardScreen';
 import { GameScreen } from './src/screens/GameScreen';
 import { LeaderboardScreen } from './src/screens/LeaderboardScreen';
 import { ChallengeScreen } from './src/screens/ChallengeScreen';
+import { WalletProvider, useWallet } from './src/hooks/useWallet';
 
 interface UserProfile {
   _id: string;
@@ -21,8 +22,18 @@ interface UserProfile {
 }
 
 export default function App() {
+  return (
+    <WalletProvider>
+      <AppContent />
+    </WalletProvider>
+  );
+}
+
+function AppContent() {
   // 1. Silent Background Over-The-Air Update Engine (OTA)
   useAppAutoUpdate();
+
+  const { fetchWallet } = useWallet();
 
   // 2. Authentication & Screen Views state
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
@@ -74,6 +85,13 @@ export default function App() {
     }
   }, [matchState]);
 
+  // 4. Refetch wallet balance when game ends
+  useEffect(() => {
+    if (winnerInfo && currentUser) {
+      fetchWallet(currentUser._id);
+    }
+  }, [winnerInfo, currentUser, fetchWallet]);
+
   const handleLoginSuccess = (user: UserProfile, token?: string) => {
     setCurrentUser(user);
     setView('dashboard');
@@ -104,7 +122,7 @@ export default function App() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#0F0F12" />
+      <StatusBar barStyle="dark-content" backgroundColor="#F3F4F6" />
       
       {/* Navigation header for dashboard/wallet screens */}
       {currentUser && view !== 'game' && view !== 'leaderboard' && view !== 'challenges' && (
@@ -202,29 +220,29 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0F0F12',
+    backgroundColor: '#F3F4F6', // Premium Light Theme Canvas
   },
   screenContainer: {
     flex: 1,
   },
   navBar: {
     height: 56,
-    backgroundColor: '#16161F',
+    backgroundColor: '#FFFFFF', // Pure White header
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderColor: '#252533',
+    borderColor: '#E5E7EB',
   },
   navBtn: {
     paddingVertical: 8,
     paddingHorizontal: 12,
-    backgroundColor: '#20202A',
-    borderRadius: 6,
+    backgroundColor: '#EEF2FF', // Active glow tint
+    borderRadius: 8,
   },
   navBtnText: {
-    color: '#00E676',
+    color: '#4F46E5', // Slate Indigo Accent
     fontWeight: 'bold',
     fontSize: 12,
   },
@@ -233,21 +251,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   logoutBtnText: {
-    color: '#FF5252',
+    color: '#EF4444',
     fontWeight: 'bold',
     fontSize: 12,
   },
   footer: {
     height: 24,
-    backgroundColor: '#16161F',
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
     borderTopWidth: 1,
-    borderColor: '#252533',
+    borderColor: '#E5E7EB',
   },
   footerText: {
     fontSize: 10,
-    color: '#8A8A9E',
+    color: '#64748B', // Slate gray
     fontWeight: 'bold',
   },
 });

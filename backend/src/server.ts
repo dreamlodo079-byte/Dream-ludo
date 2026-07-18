@@ -320,7 +320,7 @@ const startServer = async () => {
     await connectRedis();
 
     // Initialize Socket Server
-    initializeSocketIO(server);
+    await initializeSocketIO(server);
 
     server.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);

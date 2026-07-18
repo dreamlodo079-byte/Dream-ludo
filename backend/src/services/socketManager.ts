@@ -1,6 +1,6 @@
 import { Server, Socket } from 'socket.io';
-import { getRoomState, cacheRoomState, deleteRoomState, getRedisClient } from '../config/redis';
-import { initializeRedisAdapter } from '../config/redisAdapter';
+import { getRoomState, cacheRoomState, deleteRoomState, getRedisClient, createDuplicateRedisClient } from '../config/redis';
+import { createAdapter } from '@socket.io/redis-adapter';
 import {
   MatchState,
   executeRoll,
@@ -29,7 +29,7 @@ const userActiveRooms = new Map<string, string>();
 // Map of socketId -> userId
 const socketUserMap = new Map<string, string>();
 
-export const initializeSocketIO = (server: any): Server => {
+export const initializeSocketIO = async (server: any): Promise<Server> => {
   io = new Server(server, {
     cors: {
       origin: '*',
@@ -37,9 +37,15 @@ export const initializeSocketIO = (server: any): Server => {
     },
   });
 
-  initializeRedisAdapter(io).catch((err) => {
-    console.error('Failed to initialize Socket.io Redis adapter:', err);
-  });
+  try {
+    const pubClient = createDuplicateRedisClient();
+    const subClient = createDuplicateRedisClient();
+    await Promise.all([pubClient.connect(), subClient.connect()]);
+    io.adapter(createAdapter(pubClient, subClient));
+    console.log('Clustered Socket.io Redis adapter initialized successfully.');
+  } catch (err: any) {
+    console.log('Redis adapter offline or connection timeout: Running Socket.io in single-node local mode.');
+  }
 
   // Socket authentication middleware checking token blacklisting
   io.use(async (socket, next) => {

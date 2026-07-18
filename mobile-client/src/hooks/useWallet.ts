@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback } from 'react';
 import axios from 'axios';
 
 const API_SERVER_URL = process.env.EXPO_PUBLIC_SERVER_URL || 'http://localhost:5000';
@@ -18,7 +18,20 @@ export interface LedgerTransaction {
   createdAt: string;
 }
 
-export const useWallet = () => {
+interface WalletContextType {
+  balances: WalletBalances;
+  history: LedgerTransaction[];
+  loading: boolean;
+  error: string | null;
+  fetchWallet: (userId: string) => Promise<any>;
+  addCash: (userId: string, amount: number) => Promise<{ success: boolean; upiIntent?: string; transactionId?: string; error?: string }>;
+  withdrawWinnings: (userId: string, amount: number, upiId: string) => Promise<{ success: boolean; referenceId?: string; error?: string }>;
+  clearCommissions: (adminKey: string, adminUpiId: string) => Promise<{ success: boolean; clearedAmount?: number; error?: string }>;
+}
+
+const WalletContext = createContext<WalletContextType | undefined>(undefined);
+
+export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [balances, setBalances] = useState<WalletBalances>({ deposits: 0, winnings: 0, total: 0 });
   const [history, setHistory] = useState<LedgerTransaction[]>([]);
   const [loading, setLoading] = useState(false);
@@ -51,7 +64,6 @@ export const useWallet = () => {
         amount,
       });
       if (response.data.success) {
-        // Refetch wallet info to include the new pending transaction row
         await fetchWallet(userId);
         return {
           success: true,
@@ -124,14 +136,28 @@ export const useWallet = () => {
     }
   }, []);
 
-  return {
-    balances,
-    history,
-    loading,
-    error,
-    fetchWallet,
-    addCash,
-    withdrawWinnings,
-    clearCommissions,
-  };
+  return React.createElement(
+    WalletContext.Provider,
+    {
+      value: {
+        balances,
+        history,
+        loading,
+        error,
+        fetchWallet,
+        addCash,
+        withdrawWinnings,
+        clearCommissions,
+      }
+    },
+    children
+  );
+};
+
+export const useWallet = () => {
+  const context = useContext(WalletContext);
+  if (!context) {
+    throw new Error('useWallet must be used within a WalletProvider');
+  }
+  return context;
 };

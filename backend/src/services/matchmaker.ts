@@ -110,7 +110,9 @@ export const joinQueue = async (
   userId: string,
   username: string,
   socketId: string,
-  entryFee: number
+  entryFee: number,
+  roomCode?: string,
+  passcode?: string
 ): Promise<{ success: boolean; message: string }> => {
   if (!SUPPORTED_TIERS.includes(entryFee)) {
     return { success: false, message: `Unsupported entry fee tier: ${entryFee}` };
@@ -127,6 +129,46 @@ export const joinQueue = async (
     return { success: false, message: 'Redis not available' };
   }
 
+  const queueUser: QueueUser = {
+    userId,
+    username,
+    socketId,
+    joinedAt: Date.now(),
+  };
+
+  // If private room credentials are provided, match directly
+  if (roomCode && passcode) {
+    const lobbyKey = `private_lobby:${roomCode}:${passcode}`;
+    const waitingPlayerStr = await redis.get(lobbyKey);
+
+    if (waitingPlayerStr) {
+      const waitingPlayer: QueueUser = JSON.parse(waitingPlayerStr);
+
+      if (waitingPlayer.userId === userId) {
+        return { success: true, message: 'Already waiting in private room' };
+      }
+
+      // Check opponent balance
+      const oppBalances = await getUserBalances(waitingPlayer.userId);
+      if (oppBalances.total < entryFee) {
+        await redis.del(lobbyKey);
+        return { success: false, message: 'Opponent has insufficient balance to play' };
+      }
+
+      // Delete the waiting key
+      await redis.del(lobbyKey);
+
+      // Launch the match asynchronously
+      createLiveMatch(waitingPlayer, queueUser, entryFee);
+
+      return { success: true, message: 'Lobby joined! Match starting...' };
+    } else {
+      // Store current player as the waiting player (10 minutes TTL)
+      await redis.set(lobbyKey, JSON.stringify(queueUser), { PX: 600000 });
+      return { success: true, message: 'Waiting for friend to join room...' };
+    }
+  }
+
   const queueKey = `queue:tier_${entryFee}`;
 
   // Check if player is already in this or other queue to prevent duplicates
@@ -136,13 +178,6 @@ export const joinQueue = async (
   if (isAlreadyQueued) {
     return { success: true, message: 'Already in queue' };
   }
-
-  const queueUser: QueueUser = {
-    userId,
-    username,
-    socketId,
-    joinedAt: Date.now(),
-  };
 
   await redis.rPush(queueKey, JSON.stringify(queueUser));
   console.log(`User ${username} (${userId}) joined queue tier ${entryFee}`);

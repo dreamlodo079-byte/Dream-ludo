@@ -140,3 +140,45 @@ Refactored the game board in **[GameScreen.tsx](file:///g:/Ludo/mobile-client/sr
 Both the server and mobile client compile successfully:
 - **Backend**: `npm run build` outputs typescript bundles cleanly into `/dist` with zero errors.
 - **Mobile Client**: `npm run ts:check` returns zero TypeScript type errors.
+
+---
+
+## 🛠️ 8. Local Setup, Branch Architecture, & Troubleshooting
+
+During the local deployment session, we finalized the workspace environment and configured the branching structure:
+
+### A. Upstream Syncing & Personal Branching
+- **Upstream Remote**: Configured `upstream-ludo` pointing to `https://github.com/Jalaj-01/Ludo.git`.
+- **Branch Tracking**: Pulled the remote fixes from `aniket/fixes` and set up tracking.
+- **Workspace Branch**: Created and checked out a custom local branch named `jalaj` to store the workspace state and serve as the future target branch for all pushes.
+
+### B. Network & Client-Server Connectivity Resolution
+- **Problem**: Encountered a `"Quick Login Error: Network Error"` when initiating a quick login in the mobile app.
+- **Analysis**: The backend server is bound to all network interfaces on port `5000` (`0.0.0.0:5000`). However, the mobile app configuration was hardcoded to `192.168.1.3:5000`, while the computer's actual network IP address was `192.168.1.14`.
+- **Fix**: Updated `EXPO_PUBLIC_SERVER_URL` in [mobile-client/.env](file:///g:/Ludo/mobile-client/.env) to `http://192.168.1.14:5000`, successfully allowing local devices and emulators to communicate with the server.
+
+---
+
+## 🚀 9. Clustered Socket Integration & Premium Light-Theme Refactoring
+
+We completed the enterprise DevOps clustering deployment configurations and the premium Light Theme UI/UX system refactoring:
+
+### A. DevOps Socket.io Redis Adapter & PM2 Orchestration
+- **Clustered Sockets**: Integrated `@socket.io/redis-adapter` directly inside [socketManager.ts](file:///g:/Ludo/backend/src/services/socketManager.ts), connecting connected `pubClient`/`subClient` Redis duplicate instances to synchronize room states and events horizontally across nodes.
+- **Server Entry**: Refactored the backend boot sequence in [server.ts](file:///g:/Ludo/backend/src/server.ts) to await Socket.io configuration before launching port listeners.
+- **Removed Helper Redundancy**: Deleted `redisAdapter.ts` to consolidate and simplify logic.
+- **PM2 Orchestration**: Configured [ecosystem.config.js](file:///g:/Ludo/backend/ecosystem.config.js) to map the production entry point (`dist/server.js`), scale to `max` cpu instances using `cluster` mode, run under `production` mode, and auto-recycle if process memory leaks exceed 1GB.
+
+### B. Redis-Backed Private Room Matchmaking
+- **Redis Lobby Caching**: Refactored the matchmaking engine in [matchmaker.ts](file:///g:/Ludo/backend/src/services/matchmaker.ts) and the controller `/matchmaker/join` in [paymentController.ts](file:///g:/Ludo/backend/src/controllers/paymentController.ts) to support matching players by unique code and passcode, cached directly inside Redis (10 minutes TTL).
+
+### C. Shared Wallet Balance Context Sync
+- **Single Hook Context**: Refactored the client's `useWallet` hook in [useWallet.ts](file:///g:/Ludo/mobile-client/src/hooks/useWallet.ts) to implement a global `WalletProvider` context. All screens share a single state; any transaction (webhook simulation, withdrawal, tournament entry) updates balances across all screens instantly.
+- **Game End Trigger**: Programmed a listener in [App.tsx](file:///g:/Ludo/mobile-client/App.tsx) that fetches the latest wallet balances whenever a match terminates (`winnerInfo` is populated).
+
+### D. Bottom Floating Capsule Footer & Hub Layout
+- **Detached Capsule Footer**: Refactored [DashboardScreen.tsx](file:///g:/Ludo/mobile-client/src/screens/DashboardScreen.tsx) to mount a floating capsule-shaped footer navigation bar `[ HOME | LIVE | LEADERBOARD | PROFILE ]` with rounded borders, soft lavender active indicator badges (`#EEF2FF`), and responsive view switching.
+- **Home Hub Selector**: Built the luxury top header (with brand logo and wallet balance pill) and a sliding upper selector carousel `[ QUICK | REGULAR | ROOMS ]` with spring transitions and automated game option grids.
+- **Harden Premium Light Theme**: Re-styled all screens ([DashboardScreen.tsx](file:///g:/Ludo/mobile-client/src/screens/DashboardScreen.tsx), [LeaderboardScreen.tsx](file:///g:/Ludo/mobile-client/src/screens/LeaderboardScreen.tsx), [ChallengeScreen.tsx](file:///g:/Ludo/mobile-client/src/screens/ChallengeScreen.tsx), and [AuthWalletScreen.tsx](file:///g:/Ludo/mobile-client/src/screens/AuthWalletScreen.tsx)) with Light Theme colors (Backdrop `#F3F4F6`, card panels `#FFFFFF`, border-radius `24`, global soft elevation).
+
+

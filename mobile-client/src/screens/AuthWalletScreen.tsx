@@ -35,30 +35,39 @@ interface AuthWalletScreenProps {
   onUserUpdate?: (user: UserProfile) => void;
 }
 
-// Vector Icon Drawings using SVG paths to avoid bitmap dependency issues
-const UserIcon = () => (
-  <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="#6366F1" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-    <Path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-    <Circle cx="12" cy="7" r="4" />
+// Custom Premium Vector Icons
+const ShieldCheckIcon = () => (
+  <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="#4F46E5" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+    <Path d="m9 11 2 2 4-4" />
   </Svg>
 );
 
 const ShieldIcon = () => (
-  <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="#6366F1" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+  <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="#4F46E5" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
     <Path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
   </Svg>
 );
 
+const HelpIcon = () => (
+  <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="#4F46E5" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    <Circle cx="12" cy="12" r="10" />
+    <Path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01" />
+  </Svg>
+);
+
 const BookTextIcon = () => (
-  <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="#6366F1" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+  <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="#4F46E5" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
     <Path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
     <Path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
   </Svg>
 );
 
-const KeyIcon = () => (
-  <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="#6366F1" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-    <Path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4" />
+const FileTextIcon = () => (
+  <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="#4F46E5" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+    <Polyline points="14 2 14 8 20 8" />
+    <Path d="M16 13H8M16 17H8M10 9H8" />
   </Svg>
 );
 
@@ -82,7 +91,7 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
   const [username, setUsername] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
-  // Focus tracking for soft input rings
+  // Focus rings tracking
   const [isFocusedPhone, setIsFocusedPhone] = useState(false);
   const [isFocusedUsername, setIsFocusedUsername] = useState(false);
   const [isFocusedDeposit, setIsFocusedDeposit] = useState(false);
@@ -91,7 +100,7 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
   const [isFocusedKycName, setIsFocusedKycName] = useState(false);
   const [isFocusedKycDoc, setIsFocusedKycDoc] = useState(false);
 
-  // FinTech Action States
+  // Deposit/Withdrawal States
   const [depositAmount, setDepositAmount] = useState('');
   const [withdrawAmount, setWithdrawAmount] = useState('');
   const [upiId, setUpiId] = useState('');
@@ -166,7 +175,6 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
           axios.defaults.headers.common['x-auth-token'] = response.data.token;
         }
         
-        // Only top up test cash if current total balance is below ₹100
         try {
           const balRes = await axios.get(`${API_SERVER_URL}/api/payout/balance/${response.data.user._id}`);
           if (balRes.data.success && balRes.data.balances.total < 100) {
@@ -177,7 +185,6 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
             });
           }
         } catch (_) {
-          // Fallback initial credit
           await axios.post(`${API_SERVER_URL}/api/payments/simulate-success`, {
             userId: response.data.user._id,
             transactionId: `dev_init_${Date.now()}`,
@@ -238,7 +245,6 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
       return;
     }
 
-    // Explicit format character entry verification constraints
     const normalizedDoc = kycDocNum.trim();
     if (kycType === 'PAN') {
       const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
@@ -303,11 +309,7 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
       setWithdrawAmount('');
       setUpiId('');
     } else {
-      if (result.error === 'KYC_REQUIRED') {
-        Alert.alert('KYC Required', 'Your KYC is not verified. Please complete verification below.');
-      } else {
-        Alert.alert('Withdrawal Failed', result.error || 'Server rejected payout');
-      }
+      Alert.alert('Withdrawal Failed', result.error || 'Server rejected payout');
     }
   };
 
@@ -421,7 +423,7 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
               <Stop offset="1" stopColor="#2563EB" />
             </LinearGradient>
           </Defs>
-          <Rect width="100%" height="100%" fill="url(#balanceGrad)" rx={16} />
+          <Rect width="100%" height="100%" fill="url(#balanceGrad)" rx={24} />
         </Svg>
         
         <View style={styles.balanceCardContent}>
@@ -472,9 +474,7 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
       {currentUser.isKycVerified ? (
         <View style={[styles.actionCard, styles.verifiedKycCard]}>
           <Text style={styles.cardHeader}>🔒 KYC COMPLIANCE VERIFIED</Text>
-          <Text style={styles.verifiedKycText}>
-            ✓ Your identity profile is approved and active.
-          </Text>
+          <Text style={styles.verifiedKycText}>✓ Your identity profile is approved and active.</Text>
           <View style={styles.kycDetailsRow}>
             <Text style={styles.kycDetailLabel}>Verification Mode</Text>
             <Text style={styles.kycDetailVal}>{currentUser.kycType === 'PAN' ? 'PAN Card' : 'Aadhaar Card'}</Text>
@@ -582,7 +582,6 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
       <View style={styles.actionCard}>
         <Text style={styles.cardHeader}>🎁 REFER & SHARE TO EARN CASH</Text>
         
-        {/* Multi-Column Yield Metrics */}
         <View style={styles.referMetricsGrid}>
           <View style={styles.referMetricCol}>
             <Text style={styles.referMetricVal}>12</Text>
@@ -595,7 +594,6 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
           </View>
         </View>
 
-        {/* Alpha-numeric referral code inner container */}
         <TouchableOpacity style={styles.clipboardBox} onPress={handleCopyCode}>
           <View style={styles.clipboardLabelCol}>
             <Text style={styles.clipboardLabel}>REFERRAL CODE</Text>
@@ -606,7 +604,6 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
           </View>
         </TouchableOpacity>
 
-        {/* Link deep-link share */}
         <TouchableOpacity style={styles.clipboardBox} onPress={handleCopyLink}>
           <View style={styles.clipboardLabelCol}>
             <Text style={styles.clipboardLabel}>INVITE LINK</Text>
@@ -617,9 +614,8 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
           </View>
         </TouchableOpacity>
 
-        {/* WhatsApp Dispatcher button */}
         <TouchableOpacity style={styles.whatsappBtn} onPress={handleWhatsAppShare}>
-          <Text style={styles.whatsappBtnText}>🟢 Share on WhatsApp</Text>
+          <Text style={styles.whatsappBtnText}>Share on WhatsApp</Text>
         </TouchableOpacity>
       </View>
 
@@ -627,7 +623,6 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
       <View style={styles.historyCard}>
         <Text style={styles.cardHeader}>LEDGER JOURNAL LOGS</Text>
         {history.length === 0 ? (
-          /* Illustrative empty ledger placeholder state */
           <View style={styles.emptyLedgerContainer}>
             <Svg width={40} height={40} viewBox="0 0 24 24" fill="none" stroke="#94A3B8" strokeWidth={1.5}>
               <Path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
@@ -663,22 +658,6 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
       <View style={styles.complianceCard}>
         <Text style={styles.cardHeader}>ACCOUNT & COMPLIANCE</Text>
         
-        <TouchableOpacity style={styles.complianceRow} onPress={() => Alert.alert('Edit Profile', 'Edit user profile configuration parameters.')}>
-          <View style={styles.complianceLabelRow}>
-            <UserIcon />
-            <Text style={styles.complianceText}>Edit Profile</Text>
-          </View>
-          <Text style={styles.chevron}>▶</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.complianceRow} onPress={() => Alert.alert('Payout Settings', 'Configure IMPS payout settlements settings.')}>
-          <View style={styles.complianceLabelRow}>
-            <KeyIcon />
-            <Text style={styles.complianceText}>Payout Settings</Text>
-          </View>
-          <Text style={styles.chevron}>▶</Text>
-        </TouchableOpacity>
-        
         <TouchableOpacity style={styles.complianceRow} onPress={() => Alert.alert('Responsible Gaming', 'Set limits, play in moderation (18+ rules).')}>
           <View style={styles.complianceLabelRow}>
             <ShieldIcon />
@@ -687,10 +666,34 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
           <Text style={styles.chevron}>▶</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.complianceRow} onPress={() => Alert.alert('Privacy Policy', 'Data encrypted securely. Mapped compliance keys.')}>
+        <TouchableOpacity style={styles.complianceRow} onPress={() => Alert.alert('Help & Support', 'Reach out to support 24/7.')}>
+          <View style={styles.complianceLabelRow}>
+            <HelpIcon />
+            <Text style={styles.complianceText}>Help & Support</Text>
+          </View>
+          <Text style={styles.chevron}>▶</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.complianceRow} onPress={() => Alert.alert('Terms of Service', 'Review standard terms of use.')}>
           <View style={styles.complianceLabelRow}>
             <BookTextIcon />
+            <Text style={styles.complianceText}>Terms of Service</Text>
+          </View>
+          <Text style={styles.chevron}>▶</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity style={styles.complianceRow} onPress={() => Alert.alert('Privacy Policy', 'Data encryption and protection terms.')}>
+          <View style={styles.complianceLabelRow}>
+            <ShieldCheckIcon />
             <Text style={styles.complianceText}>Privacy Policy</Text>
+          </View>
+          <Text style={styles.chevron}>▶</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.complianceRow} onPress={() => Alert.alert('Refund Policies', 'View entry fees settlement details.')}>
+          <View style={styles.complianceLabelRow}>
+            <FileTextIcon />
+            <Text style={styles.complianceText}>Refund Policies</Text>
           </View>
           <Text style={styles.chevron}>▶</Text>
         </TouchableOpacity>
@@ -713,37 +716,35 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
   );
 };
 
-
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F3F4F6', // Premium Canvas Backdrop
   },
   contentContainer: {
     padding: 20,
-    paddingBottom: 40,
+    paddingBottom: 110, // Account for Bottom Floating Capsule Footer bar spacing
   },
   authContainer: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F3F4F6',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
   },
   authCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    borderRadius: 24, // Global component radius
     padding: 24,
     width: '100%',
     maxWidth: 380,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.04,
-    shadowRadius: 10,
-    elevation: 3,
+    borderColor: '#E5E7EB',
+    shadowColor: '#475569',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.05,
+    shadowRadius: 16,
+    elevation: 4,
     alignItems: 'center',
   },
   heading: {
@@ -760,27 +761,27 @@ const styles = StyleSheet.create({
   },
   input: {
     width: '100%',
-    backgroundColor: '#F8FAFC',
-    borderRadius: 10,
+    backgroundColor: '#F3F4F6',
+    borderRadius: 12,
     padding: 12,
     fontSize: 14,
     color: '#0F172A',
     borderWidth: 1.5,
-    borderColor: '#E2E8F0',
+    borderColor: '#E5E7EB',
     marginBottom: 16,
   },
   inputFocused: {
-    borderColor: '#6366F1', // Soft purple focus active state rings
+    borderColor: '#4F46E5', // Brand active focus active state rings
     backgroundColor: '#FFFFFF',
-    shadowColor: '#6366F1',
+    shadowColor: '#4F46E5',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
   },
   authButton: {
     width: '100%',
-    backgroundColor: '#6366F1',
-    borderRadius: 10,
+    backgroundColor: '#4F46E5', // Brand indigo active button
+    borderRadius: 24, // Global component radius
     padding: 14,
     alignItems: 'center',
     marginTop: 8,
@@ -806,8 +807,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#EEF2FF',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: '#6366F1',
+    borderWidth: 2.5,
+    borderColor: '#4F46E5',
   },
   avatarEmoji: {
     fontSize: 36,
@@ -823,7 +824,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,
-    borderColor: '#E2E8F0',
+    borderColor: '#E5E7EB',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -845,7 +846,7 @@ const styles = StyleSheet.create({
   },
   balanceCard: {
     position: 'relative',
-    borderRadius: 16,
+    borderRadius: 24, // Global component radius
     height: 154,
     marginBottom: 20,
     shadowColor: '#4F46E5',
@@ -873,7 +874,7 @@ const styles = StyleSheet.create({
   splitBalances: {
     flexDirection: 'row',
     borderTopWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.25)', // clean white divider line
+    borderColor: 'rgba(255, 255, 255, 0.25)',
     paddingTop: 16,
     marginTop: 16,
   },
@@ -901,16 +902,16 @@ const styles = StyleSheet.create({
   },
   actionCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    borderRadius: 24, // Global component radius
     padding: 16,
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: '#F1F5F9',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.04,
-    shadowRadius: 10,
-    elevation: 3,
+    borderColor: '#E5E7EB',
+    shadowColor: '#475569',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.05,
+    shadowRadius: 16,
+    elevation: 4,
   },
   cardHeader: {
     fontSize: 11,
@@ -921,11 +922,11 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   actionBtn: {
-    backgroundColor: '#2563EB', // vibrant deep brand color
-    borderRadius: 10,
+    backgroundColor: '#4F46E5', // Slate Indigo Accent
+    borderRadius: 24, // Global component radius
     padding: 14,
     alignItems: 'center',
-    shadowColor: '#2563EB',
+    shadowColor: '#4F46E5',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 5,
@@ -940,7 +941,7 @@ const styles = StyleSheet.create({
     marginTop: 14,
     paddingTop: 14,
     borderTopWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E5E7EB',
   },
   intentText: {
     color: '#64748B',
@@ -950,7 +951,7 @@ const styles = StyleSheet.create({
   },
   verifyBtn: {
     backgroundColor: '#10B981',
-    borderRadius: 10,
+    borderRadius: 24,
     padding: 12,
     alignItems: 'center',
   },
@@ -994,7 +995,7 @@ const styles = StyleSheet.create({
   kycTabSelector: {
     flexDirection: 'row',
     marginBottom: 16,
-    backgroundColor: '#F1F5F9', // sliding tab selectors
+    backgroundColor: '#E5E7EB',
     padding: 3,
     borderRadius: 8,
   },
@@ -1018,11 +1019,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   kycTabBtnTextActive: {
-    color: '#6366F1',
+    color: '#4F46E5',
   },
   kycSubmitBtn: {
-    backgroundColor: '#6366F1',
-    borderRadius: 10,
+    backgroundColor: '#4F46E5',
+    borderRadius: 24,
     padding: 14,
     alignItems: 'center',
   },
@@ -1031,11 +1032,11 @@ const styles = StyleSheet.create({
   },
   referMetricsGrid: {
     flexDirection: 'row',
-    backgroundColor: '#F8FAFC', // elevated soft lavender-like surfaces
-    borderRadius: 14,
+    backgroundColor: '#F3F4F6',
+    borderRadius: 24,
     paddingVertical: 16,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E5E7EB',
     marginBottom: 16,
     alignItems: 'center',
   },
@@ -1046,7 +1047,7 @@ const styles = StyleSheet.create({
   metricDivider: {
     width: 1,
     height: 30,
-    backgroundColor: '#CBD5E1', // thin gray vertical rule border
+    backgroundColor: '#D1D5DB',
   },
   referMetricVal: {
     fontSize: 22,
@@ -1063,11 +1064,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#EEF2FF', // inner background shade
-    borderRadius: 10,
+    backgroundColor: '#EEF2FF',
+    borderRadius: 12,
     borderWidth: 1.5,
     borderStyle: 'dashed',
-    borderColor: '#6366F1',
+    borderColor: '#4F46E5',
     padding: 12,
     marginBottom: 12,
   },
@@ -1077,7 +1078,7 @@ const styles = StyleSheet.create({
   },
   clipboardLabel: {
     fontSize: 9,
-    color: '#6366F1',
+    color: '#4F46E5',
     fontWeight: '700',
     letterSpacing: 0.5,
   },
@@ -1090,8 +1091,8 @@ const styles = StyleSheet.create({
   copyBadge: {
     paddingVertical: 6,
     paddingHorizontal: 12,
-    backgroundColor: '#6366F1',
-    borderRadius: 8,
+    backgroundColor: '#4F46E5',
+    borderRadius: 12,
   },
   copyBadgeText: {
     color: '#FFFFFF',
@@ -1100,7 +1101,7 @@ const styles = StyleSheet.create({
   },
   whatsappBtn: {
     backgroundColor: '#25D366',
-    borderRadius: 10,
+    borderRadius: 24,
     padding: 14,
     alignItems: 'center',
     marginTop: 6,
@@ -1112,11 +1113,16 @@ const styles = StyleSheet.create({
   },
   historyCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    borderRadius: 24,
     padding: 16,
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: '#F1F5F9',
+    borderColor: '#E5E7EB',
+    shadowColor: '#475569',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.05,
+    shadowRadius: 16,
+    elevation: 4,
   },
   emptyLedgerContainer: {
     alignItems: 'center',
@@ -1135,7 +1141,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     borderBottomWidth: 1,
-    borderColor: '#F1F5F9',
+    borderColor: '#E5E7EB',
     paddingVertical: 12,
   },
   txnType: {
@@ -1182,11 +1188,16 @@ const styles = StyleSheet.create({
   },
   complianceCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    borderRadius: 24,
     padding: 16,
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: '#F1F5F9',
+    borderColor: '#E5E7EB',
+    shadowColor: '#475569',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.05,
+    shadowRadius: 16,
+    elevation: 4,
   },
   complianceRow: {
     flexDirection: 'row',
@@ -1194,7 +1205,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderColor: '#F1F5F9',
+    borderColor: '#E5E7EB',
   },
   complianceLabelRow: {
     flexDirection: 'row',
