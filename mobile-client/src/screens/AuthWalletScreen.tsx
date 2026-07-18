@@ -462,18 +462,6 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
   if (!currentUser) {
     return (
       <View style={styles.authContainer}>
-        {/* Background gradient blobs */}
-        <Svg style={StyleSheet.absoluteFillObject} width="100%" height="100%">
-          <Defs>
-            <LinearGradient id="authBg" x1="0" y1="0" x2="0.6" y2="1">
-              <Stop offset="0" stopColor="#1E1B4B" />
-              <Stop offset="0.5" stopColor="#2D2A6E" />
-              <Stop offset="1" stopColor="#0F172A" />
-            </LinearGradient>
-          </Defs>
-          <Rect width="100%" height="100%" fill="url(#authBg)" />
-        </Svg>
-
         <View style={styles.authCard}>
           {/* Logo & Brand */}
           <View style={styles.authLogoRow}>
@@ -1160,6 +1148,7 @@ const styles = StyleSheet.create({
   },
   authContainer: {
     flex: 1,
+    backgroundColor: '#1E1B4B',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
