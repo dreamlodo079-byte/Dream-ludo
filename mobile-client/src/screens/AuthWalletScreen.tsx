@@ -90,11 +90,18 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
   // Auth States
   const [phone, setPhone] = useState('');
   const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [otpCode, setOtpCode] = useState('');
+  const [isLoginMode, setIsLoginMode] = useState(true);
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpTimer, setOtpTimer] = useState(0);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   // Focus rings tracking
   const [isFocusedPhone, setIsFocusedPhone] = useState(false);
   const [isFocusedUsername, setIsFocusedUsername] = useState(false);
+  const [isFocusedPassword, setIsFocusedPassword] = useState(false);
+  const [isFocusedOtp, setIsFocusedOtp] = useState(false);
   const [isFocusedDeposit, setIsFocusedDeposit] = useState(false);
   const [isFocusedWithdraw, setIsFocusedWithdraw] = useState(false);
   const [isFocusedUpi, setIsFocusedUpi] = useState(false);
@@ -132,6 +139,13 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
   };
 
   useEffect(() => {
+    if (otpTimer > 0) {
+      const timer = setTimeout(() => setOtpTimer(otpTimer - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [otpTimer]);
+
+  useEffect(() => {
     if (currentUser) {
       fetchWallet(currentUser._id).then((updatedUser) => {
         if (updatedUser && onUserUpdate) {
@@ -149,30 +163,75 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
     }
   }, [currentUser?._id, fetchWallet]);
 
-  const handleLogin = async () => {
-    if (!phone || !username) {
-      Alert.alert('Authentication Error', 'Please specify phone number and username.');
+  const handleSendOtp = async () => {
+    if (!phone) {
+      showCustomAlert('Authentication Error', 'Please enter your phone number.', 'error');
       return;
     }
 
     const phoneRegex = /^(?:\+91|91)?[6789]\d{9}$/;
     if (!phoneRegex.test(phone.trim())) {
-      Alert.alert('Authentication Error', 'Invalid Phone Number: Please enter a valid 10-digit Indian phone number.');
+      showCustomAlert('Authentication Error', 'Please enter a valid 10-digit Indian phone number.', 'error');
+      return;
+    }
+
+    if (!isLoginMode && !username) {
+      showCustomAlert('Authentication Error', 'Please enter a username for registration.', 'error');
+      return;
+    }
+
+    if (!password) {
+      showCustomAlert('Authentication Error', 'Please enter a password.', 'error');
       return;
     }
 
     setIsLoggingIn(true);
     try {
-      const response = await axios.post(`${API_SERVER_URL}/api/users/login`, {
+      const response = await axios.post(`${API_SERVER_URL}/api/users/send-otp`, {
         phone,
-        username,
+        username: isLoginMode ? undefined : username,
+        password,
+        isLogin: isLoginMode,
       });
+
+      if (response.data.success) {
+        setOtpSent(true);
+        setOtpTimer(30);
+        showCustomAlert(
+          'Verification Code Sent',
+          `OTP has been sent to your phone. (Sandbox Code: ${response.data.otp})`,
+          'success'
+        );
+      }
+    } catch (err: any) {
+      showCustomAlert('Authentication Error', err.response?.data?.error || err.message, 'error');
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    if (!otpCode || otpCode.length < 6) {
+      showCustomAlert('Verification Error', 'Please enter the 6-digit verification code.', 'error');
+      return;
+    }
+
+    setIsLoggingIn(true);
+    try {
+      const response = await axios.post(`${API_SERVER_URL}/api/users/verify-otp`, {
+        phone,
+        username: isLoginMode ? undefined : username,
+        password,
+        otp: otpCode,
+        isLogin: isLoginMode,
+      });
+
       if (response.data.success) {
         axios.defaults.headers.common['x-auth-token'] = response.data.token;
         onLoginSuccess(response.data.user, response.data.token);
       }
     } catch (err: any) {
-      Alert.alert('Authentication Error', err.response?.data?.error || err.message);
+      showCustomAlert('Verification Error', err.response?.data?.error || err.message, 'error');
     } finally {
       setIsLoggingIn(false);
     }
@@ -189,7 +248,7 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
         if (response.data.token) {
           axios.defaults.headers.common['x-auth-token'] = response.data.token;
         }
-        
+
         try {
           const balRes = await axios.get(`${API_SERVER_URL}/api/payout/balance/${response.data.user._id}`);
           if (balRes.data.success && balRes.data.balances.total < 100) {
@@ -210,7 +269,7 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
         onLoginSuccess(response.data.user, response.data.token);
       }
     } catch (err: any) {
-      Alert.alert('Quick Login Error', err.response?.data?.error || err.message);
+      showCustomAlert('Quick Login Error', err.response?.data?.error || err.message, 'error');
     } finally {
       setIsLoggingIn(false);
     }
@@ -370,40 +429,133 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
           <Text style={styles.heading}>SEXUS</Text>
           <Text style={styles.subheading}>Real-Money Mobile Portal</Text>
 
-          <TextInput
-            style={[styles.input, isFocusedUsername && styles.inputFocused]}
-            placeholder="Username"
-            placeholderTextColor="#94A3B8"
-            value={username}
-            onChangeText={setUsername}
-            onFocus={() => setIsFocusedUsername(true)}
-            onBlur={() => setIsFocusedUsername(false)}
-          />
-          <TextInput
-            style={[styles.input, isFocusedPhone && styles.inputFocused]}
-            placeholder="Phone Number"
-            placeholderTextColor="#94A3B8"
-            keyboardType="phone-pad"
-            value={phone}
-            onChangeText={setPhone}
-            onFocus={() => setIsFocusedPhone(true)}
-            onBlur={() => setIsFocusedPhone(false)}
-          />
+          {/* Premium Tab Switcher */}
+          {!otpSent && (
+            <View style={styles.authTabRow}>
+              <TouchableOpacity
+                style={[styles.authTab, isLoginMode && styles.authTabActive]}
+                onPress={() => {
+                  setIsLoginMode(true);
+                  setOtpCode('');
+                }}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.authTabText, isLoginMode && styles.authTabTextActive]}>LOG IN</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.authTab, !isLoginMode && styles.authTabActive]}
+                onPress={() => {
+                  setIsLoginMode(false);
+                  setOtpCode('');
+                }}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.authTabText, !isLoginMode && styles.authTabTextActive]}>SIGN UP</Text>
+              </TouchableOpacity>
+            </View>
+          )}
 
-          <TouchableOpacity style={styles.authButton} onPress={handleLogin} disabled={isLoggingIn}>
-            {isLoggingIn ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.authButtonText}>ENTER PLATFORM</Text>
-            )}
-          </TouchableOpacity>
+          {!otpSent ? (
+            <View style={{ width: '100%' }}>
+              {!isLoginMode && (
+                <TextInput
+                  style={[styles.input, isFocusedUsername && styles.inputFocused]}
+                  placeholder="Username / Name"
+                  placeholderTextColor="#94A3B8"
+                  value={username}
+                  onChangeText={setUsername}
+                  onFocus={() => setIsFocusedUsername(true)}
+                  onBlur={() => setIsFocusedUsername(false)}
+                  autoCapitalize="words"
+                />
+              )}
+
+              <TextInput
+                style={[styles.input, isFocusedPhone && styles.inputFocused]}
+                placeholder="Phone Number"
+                placeholderTextColor="#94A3B8"
+                keyboardType="phone-pad"
+                value={phone}
+                onChangeText={setPhone}
+                onFocus={() => setIsFocusedPhone(true)}
+                onBlur={() => setIsFocusedPhone(false)}
+              />
+
+              <TextInput
+                style={[styles.input, isFocusedPassword && styles.inputFocused]}
+                placeholder="Password"
+                placeholderTextColor="#94A3B8"
+                secureTextEntry
+                value={password}
+                onChangeText={setPassword}
+                onFocus={() => setIsFocusedPassword(true)}
+                onBlur={() => setIsFocusedPassword(false)}
+              />
+
+              <TouchableOpacity style={styles.authButton} onPress={handleSendOtp} disabled={isLoggingIn} activeOpacity={0.8}>
+                {isLoggingIn ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.authButtonText}>{isLoginMode ? 'LOGIN WITH OTP' : 'VERIFY & REGISTER'}</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={{ width: '100%', alignItems: 'center' }}>
+              <Text style={styles.otpSentSub}>Enter 6-digit OTP sent to phone</Text>
+              <Text style={[styles.otpSentSub, { fontWeight: 'bold', marginTop: 2, marginBottom: 15 }]}>{phone}</Text>
+
+              <TextInput
+                style={[styles.input, isFocusedOtp && styles.inputFocused, { textAlign: 'center', letterSpacing: 8, fontSize: 20, fontWeight: 'bold' }]}
+                placeholder="000000"
+                placeholderTextColor="#94A3B8"
+                keyboardType="number-pad"
+                maxLength={6}
+                value={otpCode}
+                onChangeText={setOtpCode}
+                onFocus={() => setIsFocusedOtp(true)}
+                onBlur={() => setIsFocusedOtp(false)}
+              />
+
+              <TouchableOpacity style={styles.authButton} onPress={handleVerifyOtp} disabled={isLoggingIn} activeOpacity={0.8}>
+                {isLoggingIn ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.authButtonText}>VERIFY & ENTER</Text>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={styles.resendBtn} 
+                onPress={handleSendOtp} 
+                disabled={otpTimer > 0 || isLoggingIn}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.resendBtnText, otpTimer > 0 && { color: '#94A3B8' }]}>
+                  {otpTimer > 0 ? `Resend OTP in ${otpTimer}s` : 'Resend OTP'}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={styles.backToAuthBtn} 
+                onPress={() => {
+                  setOtpSent(false);
+                  setOtpCode('');
+                }}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.backToAuthBtnText}>Edit Phone / Details</Text>
+              </TouchableOpacity>
+            </View>
+          )}
 
           <TouchableOpacity 
-            style={[styles.authButton, { backgroundColor: '#10B981', marginTop: 12 }]} 
+            style={[styles.authButton, { backgroundColor: '#10B981', marginTop: 16 }]} 
             onPress={handleQuickDevLogin} 
             disabled={isLoggingIn}
+            activeOpacity={0.8}
           >
-            <Text style={styles.authButtonText}>⚡ 1-TAP QUICK DEMO (AUTO LOGIN & FUND)</Text>
+            <Text style={styles.authButtonText}>⚡ 1-TAP QUICK DEMO (BYPASS OTP)</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -1651,6 +1803,63 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '700',
+  },
+  authTabRow: {
+    flexDirection: 'row',
+    backgroundColor: '#F1F5F9',
+    borderRadius: 12,
+    padding: 4,
+    marginBottom: 20,
+    width: '100%',
+  },
+  authTab: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: 'center',
+    borderRadius: 8,
+  },
+  authTabActive: {
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  authTabText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  authTabTextActive: {
+    color: '#4F46E5',
+  },
+  otpSentSub: {
+    fontSize: 14,
+    color: '#475569',
+    textAlign: 'center',
+    fontWeight: '600',
+  },
+  resendBtn: {
+    marginTop: 15,
+    paddingVertical: 8,
+  },
+  resendBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#4F46E5',
+    textAlign: 'center',
+  },
+  backToAuthBtn: {
+    marginTop: 8,
+    paddingVertical: 8,
+  },
+  backToAuthBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748B',
+    textAlign: 'center',
+    textDecorationLine: 'underline',
   },
 });
 export default AuthWalletScreen;

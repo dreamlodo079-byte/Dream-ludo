@@ -16,10 +16,11 @@ import { getDailyProgress, claimDailyReward } from './services/challengeTracker'
 import { generalRateLimiter, strictRateLimiter, sanitizeInputMiddleware } from './middleware/security';
 import { authenticateJWT, blacklistToken, JWT_SECRET, AuthenticatedRequest } from './middleware/auth';
 import { User } from './models/User';
-import { getRoomState, cacheRoomState } from './config/redis';
+import { getRoomState, cacheRoomState, getRedisClient } from './config/redis';
 import { getIO } from './services/socketManager';
 import { getValidMoves, rotateTurn } from './services/gameEngine';
 import { Transaction, TransactionType, TransactionStatus, getUserBalances } from './models/Transaction';
+import { hashPassword } from './utils/hash';
 import { Types } from 'mongoose';
 
 dotenv.config();
@@ -82,11 +83,12 @@ app.post('/api/challenges/claim', async (req, res) => {
   }
 });
 
-// Basic Auth/User Registration Route
-app.post('/api/users/login', async (req, res) => {
-  const { phone, username } = req.body;
-  if (!phone || !username) {
-    return res.status(400).json({ error: 'Phone and username are required' });
+// Send OTP Route
+app.post('/api/users/send-otp', async (req, res) => {
+  const { phone, username, password, isLogin } = req.body;
+
+  if (!phone) {
+    return res.status(400).json({ error: 'Phone number is required' });
   }
 
   // Indian phone validation (10 digits starting with 6-9, optional 91/+91 prefix)
@@ -95,13 +97,161 @@ app.post('/api/users/login', async (req, res) => {
     return res.status(400).json({ error: 'Invalid Indian phone number. Please enter a valid 10-digit number starting with 6, 7, 8, or 9 (with optional +91/91 prefix).' });
   }
 
+  const normalizedPhone = phone.trim().slice(-10);
+
   try {
-    let user = await User.findOne({ phone });
-    if (!user) {
-      user = new User({ phone, username });
+    const user = await User.findOne({ phone: normalizedPhone });
+
+    if (isLogin) {
+      if (!user) {
+        return res.status(400).json({ error: 'Phone number not registered. Please sign up.' });
+      }
+      if (!password) {
+        return res.status(400).json({ error: 'Password is required' });
+      }
+      const hashed = hashPassword(password);
+      // Verify password if user has password set
+      if (user.password && user.password !== hashed) {
+        return res.status(400).json({ error: 'Incorrect password.' });
+      }
+    } else {
+      // Signup mode
+      if (user) {
+        return res.status(400).json({ error: 'Phone number already registered. Please log in.' });
+      }
+      if (!username || !password) {
+        return res.status(400).json({ error: 'Username and password are required for signup.' });
+      }
+    }
+
+    // Support automatic bypass for testing phone
+    let otp = '123456';
+    if (normalizedPhone !== '9876543210') {
+      otp = Math.floor(100000 + Math.random() * 900000).toString();
+    }
+
+    const redis = getRedisClient();
+    if (redis) {
+      await redis.set(`otp:${normalizedPhone}`, otp, { EX: 300 }); // 5 minutes TTL
+    }
+
+    console.log(`[SMS GATEWAY SIMULATION] Sent OTP ${otp} to phone ${normalizedPhone}`);
+
+    return res.json({
+      success: true,
+      message: 'OTP sent successfully to your phone number.',
+      otp, // returned for testing/development simulation
+    });
+  } catch (error: any) {
+    console.error('Error sending OTP:', error);
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+// Verify OTP Route
+app.post('/api/users/verify-otp', async (req, res) => {
+  const { phone, username, password, otp, isLogin } = req.body;
+
+  if (!phone || !otp) {
+    return res.status(400).json({ error: 'Phone and OTP are required' });
+  }
+
+  const normalizedPhone = phone.trim().slice(-10);
+
+  // Test bypass
+  if (normalizedPhone === '9876543210' && otp === '123456') {
+    // bypass verification
+  } else {
+    const redis = getRedisClient();
+    if (!redis) {
+      return res.status(500).json({ error: 'Redis connection is not active' });
+    }
+    const cachedOtp = await redis.get(`otp:${normalizedPhone}`);
+    if (!cachedOtp || cachedOtp !== otp) {
+      return res.status(400).json({ error: 'Invalid or expired OTP. Please try again.' });
+    }
+    await redis.del(`otp:${normalizedPhone}`);
+  }
+
+  try {
+    let user = await User.findOne({ phone: normalizedPhone });
+
+    if (!isLogin) {
+      // Signup - create user
+      if (user) {
+        return res.status(400).json({ error: 'Phone already registered.' });
+      }
+      if (!username || !password) {
+        return res.status(400).json({ error: 'Username and password are required for signup.' });
+      }
+
+      user = new User({
+        phone: normalizedPhone,
+        username,
+        password: hashPassword(password),
+      });
       await user.save();
 
-      // Automatically grant ₹1,000 Welcome Test Credit to new signups
+      // Seed Welcome Diamond credits
+      const welcomeTxn = new Transaction({
+        userId: user._id,
+        amount: 1000,
+        type: TransactionType.DEPOSIT,
+        status: TransactionStatus.SUCCESS,
+        referenceId: `welcome_${user._id.toString()}`,
+      });
+      await welcomeTxn.save();
+    } else {
+      // Login
+      if (!user) {
+        return res.status(400).json({ error: 'User not registered. Please sign up.' });
+      }
+    }
+
+    const token = jwt.sign(
+      { userId: user._id.toString(), username: user.username },
+      JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    return res.json({ success: true, user, token });
+  } catch (error: any) {
+    console.error('Error verifying OTP:', error);
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+// Basic Auth/User Registration Route
+app.post('/api/users/login', async (req, res) => {
+  const { phone, username, password } = req.body;
+  if (!phone) {
+    return res.status(400).json({ error: 'Phone is required' });
+  }
+
+  const normalizedPhone = phone.trim().slice(-10);
+
+  try {
+    let user = await User.findOne({ phone: normalizedPhone });
+
+    if (user) {
+      if (password) {
+        const hashed = hashPassword(password);
+        if (user.password && user.password !== hashed) {
+          return res.status(400).json({ error: 'Incorrect password' });
+        }
+      }
+    } else {
+      // If user does not exist and username is provided, automatically create user (legacy welcome mode / Dev sandbox)
+      if (!username) {
+        return res.status(400).json({ error: 'User not found. Please register first.' });
+      }
+      user = new User({
+        phone: normalizedPhone,
+        username,
+        password: password ? hashPassword(password) : '',
+      });
+      await user.save();
+
       const welcomeTxn = new Transaction({
         userId: user._id,
         amount: 1000,
@@ -112,7 +262,6 @@ app.post('/api/users/login', async (req, res) => {
       await welcomeTxn.save();
     }
 
-    // Sign JWT access token on login
     const token = jwt.sign(
       { userId: user._id.toString(), username: user.username },
       JWT_SECRET,

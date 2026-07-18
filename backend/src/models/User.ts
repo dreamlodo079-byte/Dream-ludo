@@ -15,6 +15,7 @@ export interface IUser extends Document {
   depositBalance: number;
   winningsBalance: number;
   bonusBalance: number;
+  password?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -77,6 +78,10 @@ const UserSchema = new Schema<IUser, IUserModel>(
       type: String,
       default: null,
       trim: true,
+    },
+    password: {
+      type: String,
+      default: '',
     },
     depositBalance: {
       type: Number,
