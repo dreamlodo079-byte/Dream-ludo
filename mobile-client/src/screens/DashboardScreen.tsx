@@ -30,7 +30,6 @@ interface AnimatedPressableProps {
   onPress: () => void;
   disabled?: boolean;
   style?: any;
-  contentStyle?: any;
   children: React.ReactNode;
 }
 
@@ -38,7 +37,6 @@ const AnimatedPressable: React.FC<AnimatedPressableProps> = ({
   onPress,
   disabled,
   style,
-  contentStyle,
   children,
 }) => {
   const scale = useRef(new Animated.Value(1)).current;
@@ -63,15 +61,48 @@ const AnimatedPressable: React.FC<AnimatedPressableProps> = ({
     }).start();
   };
 
+  // Safely flatten and separate layout and position properties from button decorations
+  const flatStyle = style ? StyleSheet.flatten(style) : {};
+  
+  const layoutStyle: any = {
+    transform: [{ scale }],
+  };
+
+  const presentationStyle: any = {};
+
+  // Define layout keys that should remain on the outer Animated.View
+  const layoutKeys = new Set([
+    'width', 'height', 'flex', 'flexGrow', 'flexShrink',
+    'margin', 'marginTop', 'marginBottom', 'marginLeft', 'marginRight',
+    'marginHorizontal', 'marginVertical', 'position', 'top', 'bottom',
+    'left', 'right', 'zIndex', 'alignSelf'
+  ]);
+
+  Object.keys(flatStyle).forEach((key) => {
+    if (layoutKeys.has(key)) {
+      layoutStyle[key] = flatStyle[key];
+    } else {
+      presentationStyle[key] = flatStyle[key];
+    }
+  });
+
+  const innerStyle: any = {
+    width: '100%',
+    justifyContent: 'center',
+  };
+  if (flatStyle.height !== undefined) {
+    innerStyle.height = '100%';
+  }
+
   return (
-    <Animated.View style={[{ transform: [{ scale }] }, style]}>
+    <Animated.View style={layoutStyle}>
       <TouchableOpacity
         activeOpacity={0.9}
         onPressIn={onPressIn}
         onPressOut={onPressOut}
         onPress={onPress}
         disabled={disabled}
-        style={contentStyle}
+        style={[presentationStyle, innerStyle]}
       >
         {children}
       </TouchableOpacity>
@@ -498,10 +529,8 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                     style={[
                       styles.buyInBtn,
                       isRegistered && styles.buyInBtnRegistered,
-                      isRegisteringTournament && styles.buyInBtnDisabled,
-                      { paddingVertical: 0 }
+                      isRegisteringTournament && styles.buyInBtnDisabled
                     ]}
-                    contentStyle={{ width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center', paddingVertical: 12 }}
                     onPress={handleJoinTournament}
                     disabled={isRegisteringTournament}
                   >
@@ -527,10 +556,8 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                       key={fee}
                       style={[
                         styles.tierCard,
-                        selectedTier === fee && styles.selectedTierCard,
-                        { paddingVertical: 0 }
+                        selectedTier === fee && styles.selectedTierCard
                       ]}
-                      contentStyle={{ width: '100%', alignItems: 'center', justifyContent: 'center', paddingVertical: 16 }}
                       onPress={() => { setSelectedTier(fee); setCustomFeeText(''); }}
                       disabled={isSearching}
                     >
@@ -589,17 +616,15 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   </View>
                 ) : (
                   <AnimatedPressable
-                    style={[
-                      styles.primaryActionBtn,
-                      { padding: 0 }
-                    ]}
-                    contentStyle={{ width: '100%', padding: 16, alignItems: 'center', justifyContent: 'center', flexDirection: 'row' }}
+                    style={styles.primaryActionBtn}
                     onPress={handleJoinMatchmaking}
                   >
-                    <Svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FFF" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 8 }}>
-                      <Path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
-                    </Svg>
-                    <Text style={styles.primaryActionText}>FIND QUICK MATCH</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <Svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FFF" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 8 }}>
+                        <Path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+                      </Svg>
+                      <Text style={styles.primaryActionText}>FIND QUICK MATCH</Text>
+                    </View>
                   </AnimatedPressable>
                 )}
               </View>
@@ -615,10 +640,8 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                       key={fee}
                       style={[
                         styles.tierCard,
-                        selectedTier === fee && styles.selectedTierCard,
-                        { paddingVertical: 0 }
+                        selectedTier === fee && styles.selectedTierCard
                       ]}
-                      contentStyle={{ width: '100%', alignItems: 'center', justifyContent: 'center', paddingVertical: 16 }}
                       onPress={() => { setSelectedTier(fee); setCustomFeeText(''); }}
                       disabled={isSearching}
                     >
@@ -672,9 +695,8 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   <AnimatedPressable
                     style={[
                       styles.primaryActionBtn,
-                      { backgroundColor: '#2563EB', padding: 0 }
+                      { backgroundColor: '#2563EB' }
                     ]}
-                    contentStyle={{ width: '100%', padding: 16, alignItems: 'center', justifyContent: 'center' }}
                     onPress={handleJoinMatchmaking}
                   >
                     <Text style={styles.primaryActionText}>FIND REGULAR MATCH</Text>
