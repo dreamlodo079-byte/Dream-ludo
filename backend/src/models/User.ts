@@ -1,4 +1,4 @@
-import { Schema, model, Document } from 'mongoose';
+import { Schema, model, Document, Types, Model } from 'mongoose';
 
 export interface IUser extends Document {
   phone: string;
@@ -12,11 +12,18 @@ export interface IUser extends Document {
   kycType?: 'PAN' | 'AADHAAR' | null;
   kycDocumentNumber?: string | null;
   kycName?: string | null;
+  depositBalance: number;
+  winningsBalance: number;
+  bonusBalance: number;
   createdAt: Date;
   updatedAt: Date;
 }
 
-const UserSchema = new Schema<IUser>(
+export interface IUserModel extends Model<IUser> {
+  handleReferralSuccess(referrerId: string | Types.ObjectId, session?: any): Promise<void>;
+}
+
+const UserSchema = new Schema<IUser, IUserModel>(
   {
     phone: {
       type: String,
@@ -71,10 +78,42 @@ const UserSchema = new Schema<IUser>(
       default: null,
       trim: true,
     },
+    depositBalance: {
+      type: Number,
+      default: 0,
+    },
+    winningsBalance: {
+      type: Number,
+      default: 0,
+    },
+    bonusBalance: {
+      type: Number,
+      default: 0,
+    },
   },
   {
     timestamps: true,
   }
 );
 
-export const User = model<IUser>('User', UserSchema);
+// Pre-save hook: set bonusBalance to 10.00 for new registrations
+UserSchema.pre('save', function (next) {
+  if (this.isNew) {
+    this.bonusBalance = 10.00;
+  }
+  next();
+});
+
+// Static method: append 100.00 to referrer's bonusBalance
+UserSchema.statics.handleReferralSuccess = async function (
+  referrerId: string | Types.ObjectId,
+  session?: any
+): Promise<void> {
+  const user = await this.findById(referrerId).session(session);
+  if (user) {
+    user.bonusBalance = Math.round(((user.bonusBalance || 0) + 100.00) * 100) / 100;
+    await user.save({ session });
+  }
+};
+
+export const User = model<IUser, IUserModel>('User', UserSchema);

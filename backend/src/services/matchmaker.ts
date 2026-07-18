@@ -3,6 +3,7 @@ import { createInitialState } from './gameEngine';
 import { startRoomTimer, registerUserToRoom, getIO } from './socketManager';
 import { runInTransaction } from '../config/db';
 import { Transaction, TransactionType, TransactionStatus, getUserBalances } from '../models/Transaction';
+import { User } from '../models/User';
 import { Types } from 'mongoose';
 
 const TICK_INTERVAL = 1000; // 1 second matchmaking tick
@@ -238,25 +239,11 @@ const createLiveMatch = async (
     // 1. Process entry fees inside a database transaction
     await runInTransaction(async (session) => {
       // Human 1 entry fee
-      const p1Txn = new Transaction({
-        userId: new Types.ObjectId(p1.userId),
-        amount: -entryFee,
-        type: TransactionType.ENTRY_FEE,
-        status: TransactionStatus.SUCCESS,
-        referenceId: `entry_${roomId}_${p1.userId}`,
-      });
-      await p1Txn.save({ session });
+      await deductEntryFee(p1.userId, entryFee, roomId, session);
 
       // Human 2 or bot entry fee
       if (!hasBot) {
-        const p2Txn = new Transaction({
-          userId: new Types.ObjectId(p2.userId),
-          amount: -entryFee,
-          type: TransactionType.ENTRY_FEE,
-          status: TransactionStatus.SUCCESS,
-          referenceId: `entry_${roomId}_${p2.userId}`,
-        });
-        await p2Txn.save({ session });
+        await deductEntryFee(p2.userId, entryFee, roomId, session);
       }
     });
 
@@ -315,3 +302,82 @@ const createLiveMatch = async (
     }
   }
 };
+
+/**
+ * Deducts entry fee using sequentially prioritized wallet balances:
+ * 1. Up to 10% of entryFee from bonusBalance
+ * 2. Next remaining fraction from depositBalance
+ * 3. Next remaining remainder from winningsBalance
+ * 
+ * Creates separate Transaction ledger records of type ENTRY_FEE_DEBIT for each deduction.
+ */
+async function deductEntryFee(
+  userId: string,
+  entryFee: number,
+  roomId: string,
+  session: any
+): Promise<void> {
+  const user = await User.findById(userId).session(session);
+  if (!user) {
+    throw new Error(`User not found: ${userId}`);
+  }
+
+  // 1. Calculate maximum 10% allowed from bonusBalance
+  const maxBonusDeduction = Math.round(entryFee * 0.10 * 100) / 100;
+  const actualBonusDeduction = Math.round(Math.min(user.bonusBalance || 0, maxBonusDeduction) * 100) / 100;
+
+  // Remaining fee after bonus deduction
+  let remainingFee = Math.round((entryFee - actualBonusDeduction) * 100) / 100;
+
+  // 2. Deduct from depositBalance
+  const actualDepositDeduction = Math.round(Math.min(user.depositBalance || 0, remainingFee) * 100) / 100;
+  remainingFee = Math.round((remainingFee - actualDepositDeduction) * 100) / 100;
+
+  // 3. Deduct from winningsBalance
+  const actualWinningsDeduction = remainingFee;
+
+  // 4. Verify total balances are sufficient
+  if (user.winningsBalance < actualWinningsDeduction) {
+    throw new Error(`Insufficient aggregate balance for user ${userId} to join match (Required: ₹${entryFee})`);
+  }
+
+  // 5. Update user balance fields
+  user.bonusBalance = Math.max(0, Math.round(((user.bonusBalance || 0) - actualBonusDeduction) * 100) / 100);
+  user.depositBalance = Math.max(0, Math.round(((user.depositBalance || 0) - actualDepositDeduction) * 100) / 100);
+  user.winningsBalance = Math.max(0, Math.round(((user.winningsBalance || 0) - actualWinningsDeduction) * 100) / 100);
+  await user.save({ session });
+
+  // 6. Append immutable transaction rows (ENTRY_FEE_DEBIT) for every non-zero deduction
+  if (actualBonusDeduction > 0) {
+    const bonusTxn = new Transaction({
+      userId: new Types.ObjectId(userId),
+      amount: -actualBonusDeduction,
+      type: TransactionType.ENTRY_FEE_DEBIT,
+      status: TransactionStatus.SUCCESS,
+      referenceId: `entry_bonus_${roomId}_${userId}`,
+    });
+    await bonusTxn.save({ session });
+  }
+
+  if (actualDepositDeduction > 0) {
+    const depositTxn = new Transaction({
+      userId: new Types.ObjectId(userId),
+      amount: -actualDepositDeduction,
+      type: TransactionType.ENTRY_FEE_DEBIT,
+      status: TransactionStatus.SUCCESS,
+      referenceId: `entry_deposit_${roomId}_${userId}`,
+    });
+    await depositTxn.save({ session });
+  }
+
+  if (actualWinningsDeduction > 0) {
+    const winningsTxn = new Transaction({
+      userId: new Types.ObjectId(userId),
+      amount: -actualWinningsDeduction,
+      type: TransactionType.ENTRY_FEE_DEBIT,
+      status: TransactionStatus.SUCCESS,
+      referenceId: `entry_winnings_${roomId}_${userId}`,
+    });
+    await winningsTxn.save({ session });
+  }
+}

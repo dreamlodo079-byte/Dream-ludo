@@ -12,7 +12,7 @@ export interface WalletBalances {
 export interface LedgerTransaction {
   _id: string;
   amount: number;
-  type: 'DEPOSIT' | 'WITHDRAWAL' | 'ENTRY_FEE' | 'WINNINGS' | 'PLATFORM_COMMISSION';
+  type: 'DEPOSIT' | 'WITHDRAWAL' | 'ENTRY_FEE' | 'ENTRY_FEE_DEBIT' | 'WINNINGS' | 'PLATFORM_COMMISSION';
   status: 'PENDING' | 'SUCCESS' | 'FAILED';
   referenceId: string;
   createdAt: string;

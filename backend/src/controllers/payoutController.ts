@@ -45,12 +45,6 @@ payoutRouter.post('/withdraw', async (req: Request, res: Response) => {
 
     // 1. Double-Entry ledger validation and locking funds
     const lockedTxnIds = await runInTransaction(async (session) => {
-      // Fetch user balances from ledger
-      const balances = await getUserBalances(userId);
-      if (balances.winnings < withdrawAmount) {
-        throw new Error('Insufficient winnings balance to perform withdrawal');
-      }
-
       const user = await User.findById(userId).session(session);
       if (!user) {
         throw new Error('User not found');
@@ -59,6 +53,15 @@ payoutRouter.post('/withdraw', async (req: Request, res: Response) => {
       if (!user.isKycVerified) {
         throw new Error('KYC verification is required before initiating withdrawals');
       }
+
+      // Restrict withdrawal requests strictly to winningsBalance pool only
+      if ((user.winningsBalance || 0) < withdrawAmount) {
+        throw new Error('Insufficient winnings balance to perform withdrawal');
+      }
+
+      // Deduct immediately inside session to prevent double spend
+      user.winningsBalance = Math.round((user.winningsBalance - withdrawAmount) * 100) / 100;
+      await user.save({ session });
 
       // Compute 30% TDS Tax (Section 194BA)
       const tdsTax = Math.round(withdrawAmount * 0.3 * 100) / 100;
@@ -110,14 +113,39 @@ payoutRouter.post('/withdraw', async (req: Request, res: Response) => {
     // 3. Update ledger status based on payout response
     const finalStatus = payoutResponse.success ? TransactionStatus.SUCCESS : TransactionStatus.FAILED;
 
-    await Transaction.findByIdAndUpdate(lockedTxnIds.payoutTxnId, {
-      status: finalStatus,
-    });
+    if (finalStatus === TransactionStatus.SUCCESS) {
+      const netTxn = await Transaction.findById(lockedTxnIds.payoutTxnId);
+      if (netTxn) {
+        netTxn.status = TransactionStatus.SUCCESS;
+        await netTxn.save();
+      }
+    } else {
+      // Revert the tax debit, government credit, and refund winningsBalance if the payout fails
+      await runInTransaction(async (session) => {
+        const user = await User.findById(userId).session(session);
+        if (user) {
+          user.winningsBalance = Math.round((user.winningsBalance + withdrawAmount) * 100) / 100;
+          await user.save({ session });
+        }
 
-    if (finalStatus === TransactionStatus.FAILED) {
-      // Revert the tax debit and government credit if the payout fails
-      await Transaction.findOneAndUpdate({ referenceId: `tds_${referenceId}` }, { status: TransactionStatus.FAILED });
-      await Transaction.findOneAndUpdate({ referenceId: `govt_tax_${referenceId}` }, { status: TransactionStatus.FAILED });
+        const netTxn = await Transaction.findById(lockedTxnIds.payoutTxnId).session(session);
+        if (netTxn) {
+          netTxn.status = TransactionStatus.FAILED;
+          await netTxn.save({ session });
+        }
+
+        const tdsTxn = await Transaction.findOne({ referenceId: `tds_${referenceId}` }).session(session);
+        if (tdsTxn) {
+          tdsTxn.status = TransactionStatus.FAILED;
+          await tdsTxn.save({ session });
+        }
+
+        const govtTxn = await Transaction.findOne({ referenceId: `govt_tax_${referenceId}` }).session(session);
+        if (govtTxn) {
+          govtTxn.status = TransactionStatus.FAILED;
+          await govtTxn.save({ session });
+        }
+      });
 
       return res.status(500).json({
         success: false,
@@ -157,13 +185,20 @@ payoutRouter.post('/clear-commissions', async (req: Request, res: Response) => {
 
   try {
     const lockedTxnId = await runInTransaction(async (session) => {
-      // Calculate total platform commissions in ledger
-      const balanceDetails = await getUserBalances(PLATFORM_USER_ID);
-      const totalCommission = balanceDetails.total; // Sum of platform commissions minus withdrawals
+      // Fetch platform user account and winnings balance
+      const platformUser = await User.findById(PLATFORM_USER_ID).session(session);
+      if (!platformUser) {
+        throw new Error('Platform account not found');
+      }
+      const totalCommission = platformUser.winningsBalance || 0;
 
       if (totalCommission <= 0) {
         throw new Error('No accumulated platform commissions to withdraw');
       }
+
+      // Deduct immediately inside the session
+      platformUser.winningsBalance = 0;
+      await platformUser.save({ session });
 
       // Record a PENDING DEBIT row for the Platform User
       const adminDebitTxn = new Transaction({
@@ -188,11 +223,27 @@ payoutRouter.post('/clear-commissions', async (req: Request, res: Response) => {
 
     const finalStatus = payoutResponse.success ? TransactionStatus.SUCCESS : TransactionStatus.FAILED;
 
-    await Transaction.findByIdAndUpdate(lockedTxnId.txnId, {
-      status: finalStatus,
-    });
+    if (finalStatus === TransactionStatus.SUCCESS) {
+      const netTxn = await Transaction.findById(lockedTxnId.txnId);
+      if (netTxn) {
+        netTxn.status = TransactionStatus.SUCCESS;
+        await netTxn.save();
+      }
+    } else {
+      // Revert/refund platform user commission balance on failure
+      await runInTransaction(async (session) => {
+        const platformUser = await User.findById(PLATFORM_USER_ID).session(session);
+        if (platformUser) {
+          platformUser.winningsBalance = Math.round((platformUser.winningsBalance + lockedTxnId.amount) * 100) / 100;
+          await platformUser.save({ session });
+        }
+        const netTxn = await Transaction.findById(lockedTxnId.txnId).session(session);
+        if (netTxn) {
+          netTxn.status = TransactionStatus.FAILED;
+          await netTxn.save({ session });
+        }
+      });
 
-    if (finalStatus === TransactionStatus.FAILED) {
       return res.status(500).json({
         success: false,
         error: 'Commission settlement failed.',

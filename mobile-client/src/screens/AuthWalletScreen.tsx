@@ -681,7 +681,7 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
           ) : (
             history.map((txn) => {
               let simpleType: string = txn.type;
-              if (txn.type === 'ENTRY_FEE') simpleType = 'Game Played';
+              if (txn.type === 'ENTRY_FEE' || txn.type === 'ENTRY_FEE_DEBIT') simpleType = 'Game Played';
               else if (txn.type === 'PLATFORM_COMMISSION') simpleType = 'Platform Charge';
               else if (txn.type === 'WINNINGS') simpleType = 'Game Won';
               else if (txn.type === 'DEPOSIT') simpleType = 'Added Cash';

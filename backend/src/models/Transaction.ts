@@ -4,6 +4,7 @@ export enum TransactionType {
   DEPOSIT = 'DEPOSIT',
   WITHDRAWAL = 'WITHDRAWAL',
   ENTRY_FEE = 'ENTRY_FEE',
+  ENTRY_FEE_DEBIT = 'ENTRY_FEE_DEBIT',
   WINNINGS = 'WINNINGS',
   PLATFORM_COMMISSION = 'PLATFORM_COMMISSION',
 }
@@ -61,49 +62,67 @@ const TransactionSchema = new Schema<ITransaction>(
 
 TransactionSchema.index({ userId: 1, referenceId: 1, status: 1 });
 
+// Post-save hook to automatically synchronize User document running balances
+TransactionSchema.post('save', async function (doc) {
+  try {
+    if (doc.status === TransactionStatus.SUCCESS) {
+      const User = model('User');
+      const session = doc.$session();
+      let update = {};
+
+      if (doc.type === TransactionType.DEPOSIT) {
+        update = { $inc: { depositBalance: doc.amount } };
+      } else if (doc.type === TransactionType.WINNINGS) {
+        update = { $inc: { winningsBalance: doc.amount } };
+      } else if (doc.type === TransactionType.PLATFORM_COMMISSION) {
+        update = { $inc: { winningsBalance: doc.amount } };
+      } else if (doc.type === TransactionType.ENTRY_FEE) {
+        // Fallback deduction priority for general/legacy ENTRY_FEE (e.g. re-rolls, tournaments)
+        const fee = Math.abs(doc.amount);
+        const user = await User.findById(doc.userId).session(session);
+        if (user) {
+          const depositDec = Math.min(user.depositBalance || 0, fee);
+          const remaining = fee - depositDec;
+          user.depositBalance = Math.round((user.depositBalance - depositDec) * 100) / 100;
+          user.winningsBalance = Math.round((user.winningsBalance - remaining) * 100) / 100;
+          await user.save({ session });
+        }
+      }
+
+      if (Object.keys(update).length > 0) {
+        await User.updateOne({ _id: doc.userId }, update, { session: session || undefined });
+      }
+    }
+  } catch (err) {
+    console.error('Error in Transaction post-save balance sync hook:', err);
+  }
+});
+
 export const Transaction = model<ITransaction>('Transaction', TransactionSchema);
 
 /**
- * Aggregates user transactions and computes current balance details:
- * - deposits: Remaining deposits balance (DEPOSIT - spent ENTRY_FEEs)
- * - winnings: Remaining winnings balance (WINNINGS - spent WITHDRAWALs - excess ENTRY_FEEs)
- * - total: Total net withdrawable / usable balance
+ * Retrieves current balance details directly from the User document:
+ * - deposits: Remaining deposit balance
+ * - winnings: Remaining winnings balance
+ * - bonus: Remaining bonus balance
+ * - total: Total aggregate balance (deposits + winnings + bonus)
  */
 export const getUserBalances = async (
   userId: Types.ObjectId | string
-): Promise<{ deposits: number; winnings: number; total: number }> => {
-  const transactions = await Transaction.find({
-    userId: new Types.ObjectId(userId),
-    status: TransactionStatus.SUCCESS,
-  }).sort({ createdAt: 1 });
-
-  let deposits = 0;
-  let winnings = 0;
-
-  for (const txn of transactions) {
-    if (txn.type === TransactionType.DEPOSIT) {
-      deposits += txn.amount; // Positive
-    } else if (txn.type === TransactionType.WINNINGS) {
-      winnings += txn.amount; // Positive
-    } else if (txn.type === TransactionType.WITHDRAWAL) {
-      winnings += txn.amount; // Negative amount
-    } else if (txn.type === TransactionType.ENTRY_FEE) {
-      // Deduct entry fee: deposits first, then winnings
-      const fee = Math.abs(txn.amount);
-      if (deposits >= fee) {
-        deposits -= fee;
-      } else {
-        const remainingFee = fee - deposits;
-        deposits = 0;
-        winnings -= remainingFee;
-      }
-    }
+): Promise<{ deposits: number; winnings: number; bonus: number; total: number }> => {
+  const User = model('User');
+  const user = await User.findById(userId);
+  if (!user) {
+    return { deposits: 0, winnings: 0, bonus: 0, total: 0 };
   }
+  const deposits = user.depositBalance || 0;
+  const winnings = user.winningsBalance || 0;
+  const bonus = user.bonusBalance || 0;
 
-  // Ensure precision to 2 decimal places to avoid floating point bugs
   return {
     deposits: Math.max(0, Math.round(deposits * 100) / 100),
-    winnings: Math.round(winnings * 100) / 100, // Winnings can be negative only if over-withdrawn, but math ensures boundaries
-    total: Math.max(0, Math.round((deposits + winnings) * 100) / 100),
+    winnings: Math.max(0, Math.round(winnings * 100) / 100),
+    bonus: Math.max(0, Math.round(bonus * 100) / 100),
+    total: Math.max(0, Math.round((deposits + winnings + bonus) * 100) / 100),
   };
 };
