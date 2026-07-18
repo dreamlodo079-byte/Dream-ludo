@@ -198,10 +198,16 @@ We polished the user-facing text across all screens to improve readability for n
 - **Give Up/Exit Match**: Replaced `Forfeit Match` with `Give Up Match` inside [GameScreen.tsx](file:///g:/Ludo/mobile-client/src/screens/GameScreen.tsx) modals.
 - **Transaction Logs**: Changed type labels (`ENTRY_FEE` -> `Game Played`, `PLATFORM_COMMISSION` -> `Platform Charge`, `WINNINGS` -> `Game Won`, `DEPOSIT` -> `Added Cash`, `WITHDRAWAL` -> `Sent to Bank`).
 
-### B. Conditional Wallet Card Placement
-- Programmed [AuthWalletScreen.tsx](file:///g:/Ludo/mobile-client/src/screens/AuthWalletScreen.tsx) to check verification:
-  - If the player's account is **not verified** (KYC pending/none), the "My Wallet Balance" card is shown at the very top (its original default place).
-  - If the player's account is **verified**, the "My Wallet Balance" card shifts dynamically to the bottom of the actions lists (positioned right below the "Withdraw Winnings" section).
+### B. Ordered Wallet Dashboard Card Stack
+- Restructured [AuthWalletScreen.tsx](file:///g:/Ludo/mobile-client/src/screens/AuthWalletScreen.tsx) to enforce a clean layout hierarchy:
+  1. Profile Section.
+  2. **My Wallet Balance Card** (Always locked to the top of action cards, with enhanced royal indigo linear gradients and glassmorphism split boxes).
+  3. **Add Money to Wallet Card** (With custom input currency symbols, focus indicator borders, and vibrant CTA actions).
+  4. **ID Verification/KYC Card** (Shifts dynamically: appears right below "Add Money" if not verified; shifts below "Send Winnings to Bank" if verified).
+  5. **Send Winnings to Bank Card** (Styled with a clean emerald green border indicating payouts. Locks input options under a secure lock badge if identity verification is incomplete).
+  6. **Share & Refer Card**.
+  7. **Transaction History Card**.
+  8. **Help & Legal Policies Card**.
 
 ### C. Expandable Transaction History
 - Wrapped the transaction list under an expandable header. Users can toggle the view (`isHistoryExpanded`) to expand/collapse details.
@@ -210,3 +216,8 @@ We polished the user-facing text across all screens to improve readability for n
 - Removed separate alert popups and page redirects for help and compliance rows.
 - Removed the right arrow/chevron indicators (`▶`) from the lists in [AuthWalletScreen.tsx](file:///g:/Ludo/mobile-client/src/screens/AuthWalletScreen.tsx).
 - Added an inline detail card (`policyDetailCard`) that displays complete, beautifully formatted guidelines (Responsible Gaming rules, customer support contacts, Terms of Service conditions, Refund processes, and Privacy keys) directly below a row when a user taps it.
+
+### E. Custom Match Play Entry Fees
+- Implemented a custom entry amount TextInput below the static selector grids in [DashboardScreen.tsx](file:///g:/Ludo/mobile-client/src/screens/DashboardScreen.tsx).
+- Available across all three gameplay tabs (**QUICK**, **REGULAR**, and **ROOMS**).
+- Tapping a static fee pill clears the custom text box automatically; typing a custom amount updates the active selected matchmaking tier.
