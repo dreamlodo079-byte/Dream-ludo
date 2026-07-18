@@ -9,18 +9,7 @@ import { Types } from 'mongoose';
 const TICK_INTERVAL = 1000; // 1 second matchmaking tick
 
 export const getMatchmakingTimeoutMs = (tier: number): number => {
-  const timeouts: Record<number, number> = {
-    3: 60,
-    5: 60,
-    10: 90,
-    25: 90,
-    50: 120,
-    100: 120,
-    250: 180,
-    500: 180
-  };
-  const seconds = timeouts[tier] || 60;
-  return seconds * 1000;
+  return 13000; // Strictly 13 seconds matchmaking wait time on all matching tiers
 };
 
 export interface QueueUser {

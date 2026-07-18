@@ -30,14 +30,14 @@ interface TierInfo {
 }
 
 const TIER_CONFIGS: TierInfo[] = [
-  { tier: 3, timeout: 60, prize: 5 },
-  { tier: 5, timeout: 60, prize: 9 },
-  { tier: 10, timeout: 90, prize: 18 },
-  { tier: 25, timeout: 90, prize: 45 },
-  { tier: 50, timeout: 120, prize: 90 },
-  { tier: 100, timeout: 120, prize: 180 },
-  { tier: 250, timeout: 180, prize: 450 },
-  { tier: 500, timeout: 180, prize: 900 },
+  { tier: 3, timeout: 13, prize: 5 },
+  { tier: 5, timeout: 13, prize: 9 },
+  { tier: 10, timeout: 13, prize: 18 },
+  { tier: 25, timeout: 13, prize: 45 },
+  { tier: 50, timeout: 13, prize: 90 },
+  { tier: 100, timeout: 13, prize: 180 },
+  { tier: 250, timeout: 13, prize: 450 },
+  { tier: 500, timeout: 13, prize: 900 },
 ];
 
 export const LiveArenaScreen: React.FC<LiveArenaScreenProps> = ({
@@ -54,6 +54,13 @@ export const LiveArenaScreen: React.FC<LiveArenaScreenProps> = ({
   const [searchingTier, setSearchingTier] = useState<TierInfo | null>(null);
   const [searchTimer, setSearchTimer] = useState(0);
   const [expandedTier, setExpandedTier] = useState<number | null>(null);
+
+  // Inline dropdown alert state
+  const [dropdownMsg, setDropdownMsg] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+  const showDropdownAlert = (text: string, type: 'success' | 'error') => {
+    setDropdownMsg({ text, type });
+    setTimeout(() => setDropdownMsg(null), 4000);
+  };
 
   // Animations
   const searchCountdownRef = useRef<NodeJS.Timeout | null>(null);
@@ -148,11 +155,29 @@ export const LiveArenaScreen: React.FC<LiveArenaScreenProps> = ({
 
   const handleRegisterTier = async (item: TierInfo) => {
     if (!socketId) {
-      alert('Establishing server sync, please try again in a second.');
+      showDropdownAlert('Connection error, socket is reconnecting. Please wait.', 'error');
       return;
     }
+    
+    // Check local balance
+    try {
+      const response = await axios.get(`${API_SERVER_URL}/api/payments/wallet/${currentUser._id}`);
+      if (response.data.success) {
+        const total = response.data.balances.total;
+        if (total < item.tier) {
+          showDropdownAlert(`Insufficient Balance! Rs. ${item.tier} required. Top up wallet in Profile.`, 'error');
+          return;
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to verify wallet balance before entering matchmaking queue:', err);
+    }
 
-    // Button press scale feedback
+    setSearchingTier(item);
+    setIsSearching(true);
+    setSearchTimer(item.timeout);
+    
+    // Scale button down feedback
     Animated.sequence([
       Animated.timing(buttonScales[item.tier], { toValue: 0.9, duration: 100, useNativeDriver: true }),
       Animated.timing(buttonScales[item.tier], { toValue: 1, duration: 150, useNativeDriver: true }),
@@ -164,41 +189,44 @@ export const LiveArenaScreen: React.FC<LiveArenaScreenProps> = ({
         username: currentUser.username,
         socketId,
         entryFee: item.tier,
-        mode: 'REGULAR',
+        gameMode: 'REGULAR', // Standard Live Classic Matches
       });
 
       if (response.data.success) {
-        setSearchingTier(item);
-        setIsSearching(true);
-        setSearchTimer(item.timeout);
         startLocalCountdown(item.timeout);
       } else {
-        alert(response.data.message || 'Failed to register for matchmaking.');
+        showDropdownAlert(response.data.message || 'Failed to enter queue.', 'error');
+        setIsSearching(false);
+        setSearchingTier(null);
       }
     } catch (err: any) {
-      alert(err.response?.data?.error || err.message);
+      showDropdownAlert(err.response?.data?.error || err.message, 'error');
+      setIsSearching(false);
+      setSearchingTier(null);
     }
   };
 
   const handleCancelSearch = async () => {
-    if (searchCountdownRef.current) clearInterval(searchCountdownRef.current);
-    
+    if (!searchingTier) return;
     try {
       const response = await axios.post(`${API_SERVER_URL}/api/payments/matchmaker/leave`, {
         userId: currentUser._id,
+        entryFee: searchingTier.tier,
       });
 
       if (response.data.success) {
         setIsSearching(false);
         setSearchingTier(null);
-        setSearchTimer(0);
+        if (searchCountdownRef.current) clearInterval(searchCountdownRef.current);
       } else {
-        alert(response.data.message || 'Failed to cancel search.');
+        showDropdownAlert('Failed to leave matchmaking queue.', 'error');
       }
     } catch (err: any) {
-      alert(err.response?.data?.error || err.message);
+      showDropdownAlert(err.response?.data?.error || err.message, 'error');
     }
   };
+
+
 
   const renderTierCard = ({ item }: { item: TierInfo }) => {
     const isThisSearching = isSearching && searchingTier?.tier === item.tier;
@@ -235,16 +263,12 @@ export const LiveArenaScreen: React.FC<LiveArenaScreenProps> = ({
 
           {/* Middle: Waiting / Pulsing status capsule */}
           <View style={styles.middleCapsuleBlock}>
-            {isThisSearching ? (
+            {isThisSearching && (
               <View style={styles.statusCapsuleWaiting}>
                 <Animated.View style={[styles.pulsingDot, { transform: [{ scale: pulseAnim }] }]} />
                 <Text style={styles.statusCapsuleText}>
                   {searchTimer}s Left
                 </Text>
-              </View>
-            ) : (
-              <View style={styles.statusCapsuleIdle}>
-                <Text style={styles.statusCapsuleTextIdle}>Active Tiers</Text>
               </View>
             )}
           </View>
@@ -300,12 +324,14 @@ export const LiveArenaScreen: React.FC<LiveArenaScreenProps> = ({
     <View style={styles.container}>
       {/* Luxury Header bar */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={onBack} activeOpacity={0.7}>
-          <Text style={styles.backBtnText}>← Back</Text>
-        </TouchableOpacity>
         <Text style={styles.headerTitle}>LIVE BATTLE ARENA</Text>
-        <View style={{ width: 60 }} />
       </View>
+
+      {dropdownMsg && (
+        <View style={[styles.dropdownAlert, dropdownMsg.type === 'error' ? styles.dropdownAlertError : styles.dropdownAlertSuccess]}>
+          <Text style={styles.dropdownAlertText}>{dropdownMsg.text}</Text>
+        </View>
+      )}
 
       {/* Screen Explanatory Tagline */}
       <View style={styles.taglineCard}>
@@ -351,7 +377,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     paddingHorizontal: 16,
     borderBottomWidth: 1,
     borderColor: '#E2E8F0',
@@ -361,19 +387,6 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 3,
     marginTop: Platform.OS === 'android' ? 24 : 0,
-  },
-  backBtn: {
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    backgroundColor: '#EEF2FF',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E0E7FF',
-  },
-  backBtnText: {
-    color: '#4F46E5',
-    fontWeight: '800',
-    fontSize: 13,
   },
   headerTitle: {
     fontSize: 16,
@@ -626,6 +639,29 @@ const styles = StyleSheet.create({
     color: '#4F46E5',
     fontWeight: '600',
     lineHeight: 16,
+    textAlign: 'center',
+  },
+  dropdownAlert: {
+    marginHorizontal: 16,
+    marginTop: 12,
+    padding: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
+  dropdownAlertSuccess: {
+    backgroundColor: '#ECFDF5',
+    borderColor: '#A7F3D0',
+  },
+  dropdownAlertError: {
+    backgroundColor: '#FEF2F2',
+    borderColor: '#FEE2E2',
+  },
+  dropdownAlertText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#374151',
     textAlign: 'center',
   },
 });
