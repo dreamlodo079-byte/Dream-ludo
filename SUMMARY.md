@@ -205,3 +205,8 @@ We polished the user-facing text across all screens to improve readability for n
 
 ### C. Expandable Transaction History
 - Wrapped the transaction list under an expandable header. Users can toggle the view (`isHistoryExpanded`) to expand/collapse details.
+
+### D. Inline Compliance Policy Expander Cards
+- Removed separate alert popups and page redirects for help and compliance rows.
+- Removed the right arrow/chevron indicators (`▶`) from the lists in [AuthWalletScreen.tsx](file:///g:/Ludo/mobile-client/src/screens/AuthWalletScreen.tsx).
+- Added an inline detail card (`policyDetailCard`) that displays complete, beautifully formatted guidelines (Responsible Gaming rules, customer support contacts, Terms of Service conditions, Refund processes, and Privacy keys) directly below a row when a user taps it.
