@@ -291,6 +291,8 @@ interface PlayerCardProps {
   totalTime: number;
   tokensHome: number;
   align: 'left' | 'right';
+  totalTokens: number;
+  score?: number;
 }
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
@@ -304,6 +306,8 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
   totalTime,
   tokensHome,
   align,
+  totalTokens,
+  score,
 }) => {
   const c = COLORS[color];
   const animatedRatio = useRef(new Animated.Value(turnTimer / totalTime)).current;
@@ -322,8 +326,8 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
   }, [turnTimer, isActive, totalTime]);
 
   // Circle timer SVG calculations
-  const ringSize = 48;
-  const strokeWidth = 3.5;
+  const ringSize = 36;
+  const strokeWidth = 2.5;
   const radius = (ringSize - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   
@@ -387,10 +391,15 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
           {username}
           {isCurrentUser && <Text style={{ color: c.primary }}> (You)</Text>}
         </Text>
-        <View style={styles.playerStats}>
-          <View style={[styles.tokenBadge, { backgroundColor: c.bg, borderColor: c.primary }]}>
-            <Text style={[styles.tokenBadgeText, { color: c.dark }]}>🏠 {tokensHome}/4</Text>
+        <View style={[styles.playerStats, { flexDirection: align === 'right' ? 'row-reverse' : 'row', flexWrap: 'wrap', gap: 4, justifyContent: align === 'right' ? 'flex-end' : 'flex-start' }]}>
+          <View style={[styles.tokenBadge, { backgroundColor: c.bg, borderColor: c.primary, paddingHorizontal: 5, paddingVertical: 1.5, borderRadius: 6 }]}>
+            <Text style={[styles.tokenBadgeText, { color: c.dark, fontSize: 8.5 }]}>🏠 {tokensHome}/{totalTokens}</Text>
           </View>
+          {score !== undefined && (
+            <View style={{ backgroundColor: '#FEF3C7', borderColor: '#F59E0B', borderWidth: 1, borderRadius: 6, paddingHorizontal: 5, paddingVertical: 1.5 }}>
+              <Text style={{ fontSize: 8.5, fontWeight: '800', color: '#B45309' }}>🏆 {score} pts</Text>
+            </View>
+          )}
         </View>
         {isActive && (
           <Text style={[styles.turnLabel, { color: c.primary }]}>● PLAYING</Text>
@@ -424,38 +433,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [previousTimer, setPreviousTimer] = useState<number>(15);
 
-  // Re-roll 2-second countdown state
-  const [reRollTimeLeft, setReRollTimeLeft] = useState(0);
-  const reRollTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Start countdown timer for re-roll when dice is rolled on player's active turn
-  useEffect(() => {
-    if (!matchState) return;
-    const activePl = matchState.players[matchState.activePlayerIndex];
-    const isMe = activePl.id === currentUser._id;
-
-    if (isMe && matchState.hasRolled && matchState.diceRoll !== null) {
-      setReRollTimeLeft(2000);
-      if (reRollTimerRef.current) clearInterval(reRollTimerRef.current);
-      
-      reRollTimerRef.current = setInterval(() => {
-        setReRollTimeLeft((prev) => {
-          if (prev <= 100) {
-            if (reRollTimerRef.current) clearInterval(reRollTimerRef.current);
-            return 0;
-          }
-          return prev - 100;
-        });
-      }, 100);
-    } else {
-      setReRollTimeLeft(0);
-      if (reRollTimerRef.current) clearInterval(reRollTimerRef.current);
-    }
-
-    return () => {
-      if (reRollTimerRef.current) clearInterval(reRollTimerRef.current);
-    };
-  }, [matchState?.diceRoll, matchState?.activePlayerIndex, matchState?.hasRolled]);
 
   const diceScale = useRef(new Animated.Value(1)).current;
   const diceRotZ = useRef(new Animated.Value(0)).current;
@@ -482,11 +460,32 @@ export const GameScreen: React.FC<GameScreenProps> = ({
 
   const isTokenAnimating = useRef([false, false, false, false, false, false, false, false]);
 
+  const toastAnim = useRef(new Animated.Value(-100)).current;
+
   useEffect(() => {
     if (alertMessage) {
-      Alert.alert('Match Update', alertMessage, [{ text: 'OK', onPress: clearAlert }]);
+      // Slide down
+      Animated.spring(toastAnim, {
+        toValue: 0,
+        useNativeDriver: true,
+        tension: 40,
+        friction: 8,
+      }).start();
+
+      // Auto dismiss after 3 seconds
+      const timer = setTimeout(() => {
+        Animated.timing(toastAnim, {
+          toValue: -100,
+          duration: 300,
+          useNativeDriver: true,
+        }).start(() => {
+          clearAlert();
+        });
+      }, 3000);
+
+      return () => clearTimeout(timer);
     }
-  }, [alertMessage, clearAlert]);
+  }, [alertMessage, clearAlert, toastAnim]);
 
   // Pulse animation for playable tokens
   useEffect(() => {
@@ -896,18 +895,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
     requestRoll(roomId);
   };
 
-  const handleReRoll = async () => {
-    setReRollTimeLeft(0);
-    if (reRollTimerRef.current) clearInterval(reRollTimerRef.current);
-    try {
-      const response = await axios.post(`${API_SERVER_URL}/api/payments/re-roll`, { roomId });
-      if (response.data.success) {
-        // State updates are broadcast over sockets
-      }
-    } catch (err: any) {
-      Alert.alert('Re-roll Failed', err.response?.data?.error || err.message);
-    }
-  };
+
 
   const handleTokenPress = (tokenIndex: number) => {
     if (!isMyTurn || !matchState.hasRolled) return;
@@ -917,7 +905,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
 
     if (roll === null) return;
     if (pos === 56) return;
-    if (pos === -1 && roll !== 6) return;
+    if (pos === -1 && matchState.gameMode !== 'QUICK' && roll !== 6) return;
     if (pos + roll > 56) return;
 
     requestMove(roomId, tokenIndex);
@@ -946,6 +934,19 @@ export const GameScreen: React.FC<GameScreenProps> = ({
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#F1F5F9" />
 
+      {alertMessage && (
+        <Animated.View
+          style={[
+            styles.toastContainer,
+            {
+              transform: [{ translateY: toastAnim }],
+            },
+          ]}
+        >
+          <Text style={styles.toastText}>📢 {alertMessage}</Text>
+        </Animated.View>
+      )}
+
       {/* ========== TOP BAR ========== */}
       <View style={styles.topBar}>
         <TouchableOpacity style={styles.topExitBtn} onPress={handleExitPress} activeOpacity={0.7}>
@@ -955,6 +956,11 @@ export const GameScreen: React.FC<GameScreenProps> = ({
         <View style={styles.prizePoolContainer}>
           <Text style={styles.prizePoolLabel}>PRIZE POOL</Text>
           <Text style={styles.prizePoolValue}>₹{prizePool.toFixed(0)}</Text>
+          {matchState.gameMode === 'QUICK' && matchState.matchTimer !== undefined && (
+            <Text style={styles.topMatchTimer}>
+              ⏱️ {Math.floor(matchState.matchTimer / 60)}:{String(matchState.matchTimer % 60).padStart(2, '0')}
+            </Text>
+          )}
         </View>
 
         <View style={styles.connectionStatus}>
@@ -973,6 +979,8 @@ export const GameScreen: React.FC<GameScreenProps> = ({
           turnTimer={matchState.turnTimer}
           totalTime={15}
           tokensHome={p1TokensHome}
+          totalTokens={matchState.players[0].tokens.length}
+          score={matchState.gameMode === 'QUICK' ? (matchState.scores ? matchState.scores[0] : 0) : undefined}
           align="left"
         />
         <View style={styles.vsContainer}>
@@ -986,6 +994,8 @@ export const GameScreen: React.FC<GameScreenProps> = ({
           turnTimer={matchState.turnTimer}
           totalTime={15}
           tokensHome={p2TokensHome}
+          totalTokens={matchState.players[1].tokens.length}
+          score={matchState.gameMode === 'QUICK' ? (matchState.scores ? matchState.scores[1] : 0) : undefined}
           align="right"
         />
       </View>
@@ -1373,7 +1383,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
               const roll = matchState.diceRoll;
               if (roll === null) return false;
               if (currentPos === 56) return false;
-              if (currentPos === -1 && roll !== 6) return false;
+              if (currentPos === -1 && matchState.gameMode !== 'QUICK' && roll !== 6) return false;
               if (currentPos + roll > 56) return false;
               return true;
             });
@@ -1463,111 +1473,55 @@ export const GameScreen: React.FC<GameScreenProps> = ({
         })}
       </View>
 
-      {/* ============ REROLL FLOATING CARD ============ */}
-      {reRollTimeLeft > 0 && (
-        <View style={styles.reRollFloatingCard}>
-          <View style={styles.reRollCardHeader}>
-            <Text style={styles.reRollTitle}>💎 RE-ROLL ACTIVE?</Text>
-            <TouchableOpacity style={styles.reRollCTA} onPress={handleReRoll}>
-              <Text style={styles.reRollCTAText}>RE-ROLL (₹5)</Text>
-            </TouchableOpacity>
-          </View>
-          <View style={styles.progressBarBg}>
-            <View style={[styles.progressBarFill, { width: `${(reRollTimeLeft / 2000) * 100}%` }]} />
-          </View>
-        </View>
-      )}
+
 
       {/* ============ BOTTOM CONTROL PANEL ============ */}
       <View style={styles.bottomPanel}>
-        {isMyTurn ? (
-          <Animated.View style={[styles.turnBanner, { opacity: yourTurnAnim }]}>
-            <Text style={styles.turnBannerIcon}>🎯</Text>
-            <Text style={styles.turnBannerText}>YOUR TURN</Text>
-          </Animated.View>
-        ) : (
-          <View style={styles.waitingBanner}>
-            <ActivityIndicator size="small" color="#64748B" />
-            <Text style={styles.waitingText}>{activePlayer.username}'s turn...</Text>
-          </View>
-        )}
+        <View style={{ width: '100%', alignItems: 'center', justifyContent: 'center' }}>
+          {isMyTurn ? (
+            <Animated.View style={[styles.turnBanner, { opacity: yourTurnAnim }]}>
+              <Text style={styles.turnBannerIcon}>🎯</Text>
+              <Text style={styles.turnBannerText}>YOUR TURN</Text>
+            </Animated.View>
+          ) : (
+            <View style={styles.waitingBanner}>
+              <ActivityIndicator size="small" color="#64748B" />
+              <Text style={styles.waitingText}>{activePlayer.username}'s turn...</Text>
+            </View>
+          )}
 
-        <View style={styles.diceRow}>
-          {/* Dice status */}
-          <View style={styles.diceStatusCard}>
-            <View style={styles.diceStatusRow}>
-              <Text style={styles.diceStatusLabel}>Status</Text>
-              <View
+          <View style={styles.diceRow}>
+            {/* DICE */}
+            <TouchableOpacity
+              onPress={handleRollDice}
+              disabled={!isMyTurn || matchState.hasRolled || isDiceAnimating}
+              activeOpacity={0.8}
+            >
+              <Animated.View
                 style={[
-                  styles.diceStatusBadge,
-                  { backgroundColor: matchState.hasRolled ? '#DCFCE7' : '#DBEAFE' },
+                  styles.diceContainer,
+                  isMyTurn && !matchState.hasRolled && styles.diceContainerActive,
+                  {
+                    transform: [
+                      { scale: diceScale },
+                      { rotate: rotZInterpolate },
+                    ],
+                  },
                 ]}
               >
-                <View
-                  style={[
-                    styles.statusDot,
-                    { backgroundColor: matchState.hasRolled ? '#16A34A' : '#2563EB' },
-                  ]}
-                />
-                <Text
-                  style={[
-                    styles.diceStatusText,
-                    { color: matchState.hasRolled ? '#15803D' : '#1D4ED8' },
-                  ]}
-                >
-                  {matchState.hasRolled ? 'Move Token' : 'Ready to Roll'}
-                </Text>
-              </View>
-            </View>
-            <View style={styles.sixesContainer}>
-              <Text style={styles.diceStatusLabel}>Sixes</Text>
-              <View style={styles.sixesDots}>
-                {[0, 1, 2].map((i) => (
-                  <View
-                    key={i}
-                    style={[
-                      styles.sixDot,
-                      {
-                        backgroundColor:
-                          i < matchState.consecutiveSixes ? '#F59E0B' : '#E2E8F0',
-                      },
-                    ]}
-                  />
-                ))}
-              </View>
-            </View>
+                {isDiceAnimating ? (
+                  <ActivityIndicator color="#6366F1" size="large" />
+                ) : (
+                  <Dice value={diceDisplayVal} size={70} />
+                )}
+                {isMyTurn && !matchState.hasRolled && !isDiceAnimating && (
+                  <View style={styles.tapHint}>
+                    <Text style={styles.tapHintText}>TAP!</Text>
+                  </View>
+                )}
+              </Animated.View>
+            </TouchableOpacity>
           </View>
-
-          {/* DICE */}
-          <TouchableOpacity
-            onPress={handleRollDice}
-            disabled={!isMyTurn || matchState.hasRolled || isDiceAnimating}
-            activeOpacity={0.8}
-          >
-            <Animated.View
-              style={[
-                styles.diceContainer,
-                isMyTurn && !matchState.hasRolled && styles.diceContainerActive,
-                {
-                  transform: [
-                    { scale: diceScale },
-                    { rotate: rotZInterpolate },
-                  ],
-                },
-              ]}
-            >
-              {isDiceAnimating ? (
-                <ActivityIndicator color="#6366F1" size="large" />
-              ) : (
-                <Dice value={diceDisplayVal} size={70} />
-              )}
-              {isMyTurn && !matchState.hasRolled && !isDiceAnimating && (
-                <View style={styles.tapHint}>
-                  <Text style={styles.tapHintText}>TAP!</Text>
-                </View>
-              )}
-            </Animated.View>
-          </TouchableOpacity>
         </View>
       </View>
 
@@ -1650,6 +1604,32 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F1F5F9',
     alignItems: 'center',
+    position: 'relative',
+  },
+  toastContainer: {
+    position: 'absolute',
+    top: 50,
+    left: 20,
+    right: 20,
+    backgroundColor: 'rgba(15, 23, 42, 0.95)',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 10,
+    zIndex: 9999,
+  },
+  toastText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 13,
+    textAlign: 'center',
   },
   loadingContainer: {
     flex: 1,
@@ -1747,14 +1727,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 10,
-    paddingVertical: 10,
+    paddingTop: 16,
+    paddingBottom: 8,
   },
   playerCard: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    padding: 10,
+    padding: 6,
     borderRadius: 14,
     borderWidth: 2,
     shadowOffset: { width: 0, height: 3 },
@@ -1770,28 +1751,28 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   avatarWrapper: {
-    width: 48,
-    height: 48,
+    width: 38,
+    height: 38,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 10,
+    marginRight: 8,
     position: 'relative',
   },
   timerRing: {
     position: 'absolute',
   },
   avatar: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderColor: '#FFF',
   },
   avatarText: {
     color: '#FFF',
-    fontSize: 18,
+    fontSize: 14,
     fontWeight: '900',
   },
   timerBadge: {
@@ -1904,10 +1885,12 @@ const styles = StyleSheet.create({
     width: '100%',
     flex: 1,
     backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     padding: 14,
     marginTop: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.08,
@@ -1957,7 +1940,7 @@ const styles = StyleSheet.create({
   diceRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     paddingHorizontal: 8,
   },
   diceStatusCard: {
@@ -2267,6 +2250,20 @@ const styles = StyleSheet.create({
     height: '100%',
     backgroundColor: '#D97706',
     borderRadius: 2,
+  },
+  topMatchTimer: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#EF4444',
+    marginTop: 4,
+    backgroundColor: '#FEE2E2',
+    paddingHorizontal: 8,
+    paddingVertical: 2.5,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#FCA5A5',
+    overflow: 'hidden',
+    textAlign: 'center',
   },
 });
 

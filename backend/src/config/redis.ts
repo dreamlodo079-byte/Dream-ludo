@@ -20,9 +20,44 @@ class InMemRedisStore {
     if (opts?.PX) {
       setTimeout(() => this.store.delete(key), opts.PX);
     }
+    if (opts?.EX) {
+      setTimeout(() => this.store.delete(key), opts.EX * 1000);
+    }
     return 'OK';
   }
-  async del(key: string) { return this.store.delete(key) ? 1 : 0; }
+  async del(key: string) { 
+    const deletedStore = this.store.delete(key);
+    const deletedList = this.lists.delete(key);
+    return (deletedStore || deletedList) ? 1 : 0; 
+  }
+  async keys(pattern: string) {
+    const regexPattern = new RegExp('^' + pattern.replace(/\*/g, '.*') + '$');
+    const matchedKeys: string[] = [];
+    for (const key of this.store.keys()) {
+      if (regexPattern.test(key)) matchedKeys.push(key);
+    }
+    for (const key of this.lists.keys()) {
+      if (regexPattern.test(key) && !matchedKeys.includes(key)) {
+        matchedKeys.push(key);
+      }
+    }
+    return matchedKeys;
+  }
+  async incr(key: string) {
+    const rawVal = this.store.get(key);
+    let val = rawVal ? parseInt(rawVal, 10) : 0;
+    if (isNaN(val)) val = 0;
+    val += 1;
+    this.store.set(key, val.toString());
+    return val;
+  }
+  async expire(key: string, seconds: number) {
+    setTimeout(() => {
+      this.store.delete(key);
+      this.lists.delete(key);
+    }, seconds * 1000);
+    return 1;
+  }
   async rPush(key: string, val: string) {
     if (!this.lists.has(key)) this.lists.set(key, []);
     this.lists.get(key)!.push(val);

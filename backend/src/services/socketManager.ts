@@ -38,9 +38,16 @@ export const initializeSocketIO = async (server: any): Promise<Server> => {
   });
 
   try {
+    const redis = getRedisClient();
+    if (redis && redis.constructor.name === 'InMemRedisStore') {
+      throw new Error('Main Redis client is offline (InMemRedisStore active)');
+    }
     const pubClient = createDuplicateRedisClient();
     const subClient = createDuplicateRedisClient();
-    await Promise.all([pubClient.connect(), subClient.connect()]);
+    await Promise.all([
+      Promise.race([pubClient.connect(), new Promise((_, reject) => setTimeout(() => reject(new Error('PubClient timeout')), 1500))]),
+      Promise.race([subClient.connect(), new Promise((_, reject) => setTimeout(() => reject(new Error('SubClient timeout')), 1500))]),
+    ]);
     io.adapter(createAdapter(pubClient, subClient));
     console.log('Clustered Socket.io Redis adapter initialized successfully.');
   } catch (err: any) {
@@ -118,6 +125,12 @@ export const initializeSocketIO = async (server: any): Promise<Server> => {
 
       try {
         const { roll, shouldPassTurn, consecutiveReset } = executeRoll(state);
+        
+        // Reset turn timer on successful roll so player has a fresh 15s to choose their token
+        if (!shouldPassTurn) {
+          state.turnTimer = state.customRules?.turnTimer || (state.gameMode === 'ROOMS' && state.customRules?.turnTimer) || 15;
+        }
+
         await cacheRoomState(roomId, state);
 
         io.to(roomId).emit('DICE_ROLLED', {
@@ -135,16 +148,11 @@ export const initializeSocketIO = async (server: any): Promise<Server> => {
             io.to(roomId).emit('SYSTEM_ALERT', { message: `${playerName} rolled ${roll} (No valid moves). Passing turn.` });
           }
 
-          setTimeout(async () => {
-            const currentState = await getRoomState(roomId);
-            if (currentState && !currentState.isTerminated) {
-              const { rotateTurn } = require('./gameEngine');
-              rotateTurn(currentState);
-              await cacheRoomState(roomId, currentState);
-              io.to(roomId).emit('MATCH_STATE_UPDATE', currentState);
-              checkAndTriggerBot(roomId, currentState);
-            }
-          }, 1200);
+          const { rotateTurn } = require('./gameEngine');
+          rotateTurn(state);
+          await cacheRoomState(roomId, state);
+          io.to(roomId).emit('MATCH_STATE_UPDATE', state);
+          checkAndTriggerBot(roomId, state);
         } else {
           // If player has moves, wait for them to choose.
           const nextActivePlayer = state.players[state.activePlayerIndex];
