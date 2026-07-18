@@ -29,12 +29,12 @@ export const seedPlatformDatabase = async (): Promise<void> => {
     }
     const activeTournament = await Tournament.findOne({ status: TournamentStatus.UPCOMING });
     if (!activeTournament) {
-      console.log('No active tournaments found. Seeding Nexus Blast tournament...');
+      console.log('No active tournaments found. Seeding Sexus Blast tournament...');
       const tomorrow = new Date();
       tomorrow.setDate(tomorrow.getDate() + 1);
 
       const newTournament = new Tournament({
-        title: 'Nexus Blast',
+        title: 'Sexus Blast',
         totalPrizePool: 70000,
         entryFee: 10,
         maxEntries: 10000,
@@ -43,7 +43,7 @@ export const seedPlatformDatabase = async (): Promise<void> => {
         status: TournamentStatus.UPCOMING,
       });
       await newTournament.save();
-      console.log('Seeded Nexus Blast tournament successfully.');
+      console.log('Seeded Sexus Blast tournament successfully.');
     }
   } catch (error) {
     console.error('Failed to seed platform configuration accounts:', error);

@@ -125,7 +125,7 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
   const [kycDocNum, setKycDocNum] = useState('');
   const [isSubmittingKyc, setIsSubmittingKyc] = useState(false);
 
-  const referralCode = 'NEXUS50SEXUS';
+  const referralCode = 'SEXUS50SEXUS';
   const referralUrl = `https://sexus.platform/signup?ref=${referralCode}`;
 
   const [isHistoryExpanded, setIsHistoryExpanded] = useState(false);
