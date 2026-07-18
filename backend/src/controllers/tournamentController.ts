@@ -101,3 +101,55 @@ tournamentRouter.post('/register', async (req: Request, res: Response) => {
     return res.status(500).json({ error: error.message });
   }
 });
+
+/**
+ * POST /api/tournaments/test-run
+ * Manual trigger route to seed and run a 4-player test bracket tournament.
+ */
+tournamentRouter.post('/test-run', async (_req: Request, res: Response) => {
+  try {
+    const testTour = new Tournament({
+      title: 'Grand Tournament Test',
+      totalPrizePool: 1000,
+      entryFee: 10,
+      maxEntries: 4,
+      registeredCount: 4,
+      endsAt: new Date(),
+      status: TournamentStatus.ACTIVE,
+    });
+
+    // Create 4 mock users
+    const mockUsers = [];
+    for (let i = 0; i < 4; i++) {
+      const phone = `900000000${i}`;
+      let user = await User.findOne({ phone });
+      if (!user) {
+        user = new User({
+          phone,
+          username: `TestUser_${i}`,
+          depositBalance: 100,
+          winningsBalance: 0,
+          bonusBalance: 0,
+        });
+        await user.save();
+      }
+      mockUsers.push(user._id);
+    }
+
+    testTour.registeredUsers = mockUsers;
+    await testTour.save();
+
+    // Start round 1 bracket matches
+    const { initializeTournamentRound } = require('../services/tournamentEngine');
+    await initializeTournamentRound(testTour, 1);
+
+    return res.json({
+      success: true,
+      message: 'Grand Tournament Test Bracket Initialized!',
+      tournament: testTour,
+    });
+  } catch (error: any) {
+    console.error('Test run setup error:', error);
+    return res.status(500).json({ error: error.message });
+  }
+});

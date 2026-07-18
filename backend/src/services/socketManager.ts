@@ -398,6 +398,14 @@ const handleMatchTermination = async (roomId: string, state: MatchState): Promis
       winnings: winningsAmount,
     });
 
+    // If this is a tournament match, update tournament bracket progress
+    try {
+      const { handleTournamentMatchCompletion } = require('./tournamentEngine');
+      await handleTournamentMatchCompletion(roomId, state.winnerId);
+    } catch (err) {
+      console.error('Failed to update tournament bracket on match completion:', err);
+    }
+
     // Track daily challenge progress for humans
     for (const p of state.players) {
       if (!p.isBot) {

@@ -7,6 +7,7 @@ export enum TransactionType {
   ENTRY_FEE_DEBIT = 'ENTRY_FEE_DEBIT',
   ENTRY_FEE_REFUND = 'ENTRY_FEE_REFUND',
   WINNINGS = 'WINNINGS',
+  TOURNAMENT_WIN_CREDIT = 'TOURNAMENT_WIN_CREDIT',
   PLATFORM_COMMISSION = 'PLATFORM_COMMISSION',
 }
 
@@ -73,8 +74,12 @@ TransactionSchema.post('save', async function (doc) {
 
       if (doc.type === TransactionType.DEPOSIT) {
         update = { $inc: { depositBalance: doc.amount } };
-      } else if (doc.type === TransactionType.WINNINGS) {
+      } else if (doc.type === TransactionType.WINNINGS || doc.type === TransactionType.TOURNAMENT_WIN_CREDIT) {
         update = { $inc: { winningsBalance: doc.amount } };
+      } else if (doc.type === TransactionType.ENTRY_FEE_REFUND) {
+        // Safe refunding is manually handled inside transactions, but as a fallback,
+        // let's prevent auto-increments if handled elsewhere, or keep it clean.
+        // We do manual updates in refundEntryFee, so we don't do automatic increments here to prevent double-increment.
       } else if (doc.type === TransactionType.PLATFORM_COMMISSION) {
         update = { $inc: { winningsBalance: doc.amount } };
       } else if (doc.type === TransactionType.ENTRY_FEE) {

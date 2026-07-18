@@ -6,6 +6,24 @@ export enum TournamentStatus {
   CONCLUDED = 'CONCLUDED',
 }
 
+export interface ITournamentMatch {
+  matchId: string;
+  playerIds: Types.ObjectId[];
+  winnerId?: Types.ObjectId | null;
+  status: 'PENDING' | 'ACTIVE' | 'CONCLUDED';
+}
+
+export interface ITournamentRound {
+  roundNumber: number;
+  playerIds: Types.ObjectId[];
+  matches: ITournamentMatch[];
+}
+
+export interface ITournamentRanking {
+  userId: Types.ObjectId;
+  rank: number;
+}
+
 export interface ITournament extends Document {
   title: string;
   totalPrizePool: number;
@@ -15,6 +33,9 @@ export interface ITournament extends Document {
   registeredUsers: Types.ObjectId[];
   endsAt: Date;
   status: TournamentStatus;
+  currentRound: number;
+  rounds: ITournamentRound[];
+  rankings: ITournamentRanking[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -58,6 +79,34 @@ const TournamentSchema = new Schema<ITournament>(
       default: TournamentStatus.UPCOMING,
       index: true,
     },
+    currentRound: {
+      type: Number,
+      default: 0,
+    },
+    rounds: [
+      {
+        roundNumber: Number,
+        playerIds: [{ type: Schema.Types.ObjectId, ref: 'User' }],
+        matches: [
+          {
+            matchId: String,
+            playerIds: [{ type: Schema.Types.ObjectId, ref: 'User' }],
+            winnerId: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+            status: {
+              type: String,
+              enum: ['PENDING', 'ACTIVE', 'CONCLUDED'],
+              default: 'PENDING',
+            },
+          },
+        ],
+      },
+    ],
+    rankings: [
+      {
+        userId: { type: Schema.Types.ObjectId, ref: 'User' },
+        rank: Number,
+      },
+    ],
   },
   {
     timestamps: true,

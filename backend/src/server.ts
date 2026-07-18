@@ -8,6 +8,7 @@ import { connectDB } from './config/db';
 import { connectRedis } from './config/redis';
 import { seedPlatformDatabase } from './config/seed';
 import { initializeSocketIO } from './services/socketManager';
+import { startTournamentScheduler } from './services/tournamentEngine';
 import { paymentRouter } from './controllers/paymentController';
 import { payoutRouter } from './controllers/payoutController';
 import { tournamentRouter } from './controllers/tournamentController';
@@ -470,6 +471,9 @@ const startServer = async () => {
 
     // Initialize Socket Server
     await initializeSocketIO(server);
+
+    // Start automated grand tournament bracket scheduler
+    startTournamentScheduler();
 
     server.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
