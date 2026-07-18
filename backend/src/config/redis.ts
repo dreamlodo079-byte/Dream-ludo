@@ -46,6 +46,45 @@ class InMemRedisStore {
     if (stop === -1) return list.slice(start);
     return list.slice(start, stop + 1);
   }
+  async lRem(key: string, _count: number, val: string) {
+    const list = this.lists.get(key);
+    if (!list) return 0;
+    let removed = 0;
+    const newList = list.filter((item) => {
+      if (item === val) {
+        removed++;
+        return false;
+      }
+      return true;
+    });
+    this.lists.set(key, newList);
+    return removed;
+  }
+  async keys(pattern: string) {
+    const regex = new RegExp('^' + pattern.replace(/\*/g, '.*') + '$');
+    const matched: string[] = [];
+    for (const k of this.store.keys()) {
+      if (regex.test(k)) matched.push(k);
+    }
+    for (const k of this.lists.keys()) {
+      if (regex.test(k)) matched.push(k);
+    }
+    return matched;
+  }
+  async incr(key: string) {
+    return this.incrBy(key, 1);
+  }
+  async incrBy(key: string, increment: number) {
+    const val = Number(this.store.get(key) || 0) + increment;
+    this.store.set(key, String(val));
+    return val;
+  }
+  async decr(key: string) {
+    return this.incrBy(key, -1);
+  }
+  async decrBy(key: string, decrement: number) {
+    return this.incrBy(key, -decrement);
+  }
 }
 
 let activeRedisClient: any = createClient({

@@ -21,6 +21,7 @@ import { useWallet } from '../hooks/useWallet';
 import { LeaderboardScreen } from './LeaderboardScreen';
 import { ChallengeScreen } from './ChallengeScreen';
 import { AuthWalletScreen } from './AuthWalletScreen';
+import { LiveArenaScreen } from './LiveArenaScreen';
 
 const API_SERVER_URL = process.env.EXPO_PUBLIC_SERVER_URL || 'http://localhost:5000';
 const ENTRY_FEES = [50, 100, 500, 1000];
@@ -34,6 +35,7 @@ interface DashboardScreenProps {
   onGoToChallenges: () => void;
   onLogout?: () => void;
   onUserUpdate?: (user: any) => void;
+  socket: any;
 }
 
 export const DashboardScreen: React.FC<DashboardScreenProps> = ({
@@ -41,6 +43,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   socketId,
   onLogout,
   onUserUpdate,
+  socket,
 }) => {
   const { width } = useWindowDimensions();
   const { balances, fetchWallet } = useWallet();
@@ -738,7 +741,13 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
       )}
 
       {currentView === 'LIVE' && (
-        <ChallengeScreen userId={currentUser._id} onBack={() => setCurrentView('HOME')} />
+        <LiveArenaScreen
+          currentUser={currentUser}
+          socketId={socketId}
+          socket={socket}
+          onBack={() => setCurrentView('HOME')}
+          onUserUpdate={onUserUpdate}
+        />
       )}
 
       {currentView === 'LEADERBOARD' && (

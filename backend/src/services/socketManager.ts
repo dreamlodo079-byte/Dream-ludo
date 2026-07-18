@@ -248,6 +248,14 @@ export const initializeSocketIO = async (server: any): Promise<Server> => {
     });
   });
 
+  // Start lobby state socket broadcaster ticks
+  try {
+    const { startLobbyBroadcaster } = require('./lobbyService');
+    startLobbyBroadcaster();
+  } catch (err) {
+    console.error('Failed to start lobby state socket broadcaster:', err);
+  }
+
   return io;
 };
 
@@ -395,6 +403,15 @@ const handleMatchTermination = async (roomId: string, state: MatchState): Promis
       if (!p.isBot) {
         await trackDailyMatch(p.id);
       }
+    }
+
+    // Decrement playing count in LobbyStateService
+    try {
+      const { decrementPlayingCount } = require('./lobbyService');
+      const hasBot = state.players.some((p) => p.isBot);
+      await decrementPlayingCount(state.entryFee, hasBot ? 1 : 2);
+    } catch (err) {
+      console.error('Failed to decrement playing count on match end:', err);
     }
 
     // Cleanup room cache in Redis

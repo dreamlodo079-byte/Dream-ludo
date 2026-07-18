@@ -4,7 +4,7 @@ import { runInTransaction } from '../config/db';
 import { Transaction, TransactionType, TransactionStatus } from '../models/Transaction';
 import { User } from '../models/User';
 import { Types } from 'mongoose';
-import { joinQueue } from '../services/matchmaker';
+import { joinQueue, leaveQueue } from '../services/matchmaker';
 
 export const paymentRouter = Router();
 
@@ -231,6 +231,62 @@ paymentRouter.post('/matchmaker/join', async (req: Request, res: Response) => {
     return res.json(result);
   } catch (error: any) {
     console.error('Matchmaking join request error:', error);
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Route to cancel matchmaking queue and refund entry fee
+ */
+paymentRouter.post('/matchmaker/leave', async (req: Request, res: Response) => {
+  const { userId } = req.body;
+  if (!userId) {
+    return res.status(400).json({ error: 'UserId is required' });
+  }
+
+  try {
+    const result = await leaveQueue(userId);
+    return res.json(result);
+  } catch (error: any) {
+    console.error('Matchmaking leave request error:', error);
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Route to check a user's current matchmaking status
+ */
+paymentRouter.get('/matchmaker/status/:userId', async (req: Request, res: Response) => {
+  const { userId } = req.params;
+  const { getRedisClient } = require('../config/redis');
+  const redis = getRedisClient();
+  if (!redis) {
+    return res.status(500).json({ error: 'Redis not available' });
+  }
+
+  try {
+    const allKeys = await redis.keys('queue:tier_*_mode_*');
+    for (const key of allKeys) {
+      const queue = await redis.lRange(key, 0, -1);
+      for (const item of queue) {
+        const player = JSON.parse(item);
+        if (player.userId === userId) {
+          const match = key.match(/^queue:tier_(\d+)_mode_(QUICK|REGULAR)$/);
+          const tier = match ? parseInt(match[1], 10) : 10;
+          const mode = match ? match[2] : 'REGULAR';
+          return res.json({
+            success: true,
+            status: 'WAITING',
+            tier,
+            mode,
+            joinedAt: player.joinedAt
+          });
+        }
+      }
+    }
+    return res.json({ success: true, status: 'IDLE' });
+  } catch (error: any) {
+    console.error('Matchmaking status query error:', error);
     return res.status(500).json({ error: error.message });
   }
 });

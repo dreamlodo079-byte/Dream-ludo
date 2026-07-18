@@ -7,7 +7,21 @@ import { User } from '../models/User';
 import { Types } from 'mongoose';
 
 const TICK_INTERVAL = 1000; // 1 second matchmaking tick
-const MATCHMAKING_TIMEOUT_MS = 13000; // 13 seconds timeout for bot injection
+
+export const getMatchmakingTimeoutMs = (tier: number): number => {
+  const timeouts: Record<number, number> = {
+    3: 60,
+    5: 60,
+    10: 90,
+    25: 90,
+    50: 120,
+    100: 120,
+    250: 180,
+    500: 180
+  };
+  const seconds = timeouts[tier] || 60;
+  return seconds * 1000;
+};
 
 export interface QueueUser {
   userId: string;
@@ -17,7 +31,7 @@ export interface QueueUser {
   gameMode?: 'QUICK' | 'REGULAR' | 'ROOMS';
 }
 
-const MIN_ENTRY_FEE = 10; // Minimum allowed entry fee in INR
+const MIN_ENTRY_FEE = 3; // Minimum allowed entry fee in INR
 
 let checkQueueInterval: NodeJS.Timeout | null = null;
 
@@ -71,7 +85,8 @@ export const processMatchmakingQueue = async (tier: number, mode: 'QUICK' | 'REG
         const player: QueueUser = JSON.parse(playerStr);
         const elapsed = Date.now() - player.joinedAt;
 
-        if (elapsed >= MATCHMAKING_TIMEOUT_MS) {
+        const timeoutMs = getMatchmakingTimeoutMs(tier);
+        if (elapsed >= timeoutMs) {
           await redis.lPop(queueKey);
 
           // Spawn server bot
@@ -212,6 +227,17 @@ export const joinQueue = async (
     return { success: true, message: 'Already in queue' };
   }
 
+  // Debit fee immediately inside Mongoose transaction for queue protection
+  const queueId = `queue_${userId}_${entryFee}`;
+  try {
+    await runInTransaction(async (session) => {
+      await deductEntryFee(userId, entryFee, queueId, session);
+    });
+  } catch (err: any) {
+    console.error(`Immediate joinQueue debit failed for user ${userId}:`, err);
+    return { success: false, message: err.message || 'Failed to debit entry fee from wallet' };
+  }
+
   await redis.rPush(queueKey, JSON.stringify(queueUser));
   console.log(`User ${username} (${userId}) joined queue tier ${entryFee} mode ${gameMode}`);
 
@@ -219,6 +245,129 @@ export const joinQueue = async (
   startMatchmakingLoop();
 
   return { success: true, message: 'Successfully joined matchmaking queue' };
+};
+
+/**
+ * Refunds entry fee to user's wallet slots based on ENTRY_FEE_DEBIT transaction records.
+ */
+export const refundEntryFee = async (
+  userId: string,
+  _entryFee: number,
+  queueId: string,
+  session: any
+): Promise<void> => {
+  const user = await User.findById(userId).session(session);
+  if (!user) {
+    throw new Error(`User not found: ${userId}`);
+  }
+
+  // Query transaction ledger for successful entry fee debits for this queue join
+  const transactions = await Transaction.find({
+    userId: new Types.ObjectId(userId),
+    referenceId: { $in: [
+      `entry_bonus_${queueId}_${userId}`,
+      `entry_deposit_${queueId}_${userId}`,
+      `entry_winnings_${queueId}_${userId}`
+    ]},
+    status: TransactionStatus.SUCCESS
+  }).session(session);
+
+  let bonusRefund = 0;
+  let depositRefund = 0;
+  let winningsRefund = 0;
+
+  for (const txn of transactions) {
+    const amount = Math.abs(txn.amount);
+    if (txn.referenceId.startsWith(`entry_bonus_${queueId}`)) {
+      bonusRefund = amount;
+    } else if (txn.referenceId.startsWith(`entry_deposit_${queueId}`)) {
+      depositRefund = amount;
+    } else if (txn.referenceId.startsWith(`entry_winnings_${queueId}`)) {
+      winningsRefund = amount;
+    }
+  }
+
+  // Refund precise amounts back
+  user.bonusBalance = Math.round(((user.bonusBalance || 0) + bonusRefund) * 100) / 100;
+  user.depositBalance = Math.round(((user.depositBalance || 0) + depositRefund) * 100) / 100;
+  user.winningsBalance = Math.round(((user.winningsBalance || 0) + winningsRefund) * 100) / 100;
+  await user.save({ session });
+
+  // Record refund transaction entries
+  if (bonusRefund > 0) {
+    const bonusTxn = new Transaction({
+      userId: new Types.ObjectId(userId),
+      amount: bonusRefund,
+      type: TransactionType.ENTRY_FEE_REFUND,
+      status: TransactionStatus.SUCCESS,
+      referenceId: `refund_bonus_${queueId}_${userId}`,
+    });
+    await bonusTxn.save({ session });
+  }
+
+  if (depositRefund > 0) {
+    const depositTxn = new Transaction({
+      userId: new Types.ObjectId(userId),
+      amount: depositRefund,
+      type: TransactionType.ENTRY_FEE_REFUND,
+      status: TransactionStatus.SUCCESS,
+      referenceId: `refund_deposit_${queueId}_${userId}`,
+    });
+    await depositTxn.save({ session });
+  }
+
+  if (winningsRefund > 0) {
+    const winningsTxn = new Transaction({
+      userId: new Types.ObjectId(userId),
+      amount: winningsRefund,
+      type: TransactionType.ENTRY_FEE_REFUND,
+      status: TransactionStatus.SUCCESS,
+      referenceId: `refund_winnings_${queueId}_${userId}`,
+    });
+    await winningsTxn.save({ session });
+  }
+};
+
+/**
+ * Removes a player from the queue and performs transaction refund.
+ */
+export const leaveQueue = async (userId: string): Promise<{ success: boolean; message: string }> => {
+  const redis = getRedisClient();
+  if (!redis) {
+    return { success: false, message: 'Redis not available' };
+  }
+
+  try {
+    const allKeys = await redis.keys('queue:tier_*_mode_*');
+    for (const key of allKeys) {
+      const queue = await redis.lRange(key, 0, -1);
+      for (const item of queue) {
+        const player = JSON.parse(item) as QueueUser;
+        if (player.userId === userId) {
+          // Remove from Redis queue
+          await redis.lRem(key, 0, item);
+          
+          // Parse tier (entryFee) from the key name
+          const match = key.match(/^queue:tier_(\d+)_mode_(QUICK|REGULAR)$/);
+          if (match) {
+            const entryFee = parseInt(match[1], 10);
+            const queueId = `queue_${userId}_${entryFee}`;
+            
+            // Refund inside transaction
+            await runInTransaction(async (session) => {
+              await refundEntryFee(userId, entryFee, queueId, session);
+            });
+            console.log(`User ${userId} left queue tier ${entryFee} and was refunded.`);
+            return { success: true, message: 'Successfully left queue and refunded entry fee' };
+          }
+        }
+      }
+    }
+    return { success: true, message: 'Not active in any queue' };
+  } catch (error: any) {
+    console.error('Error leaving matchmaking queue:', error);
+    return { success: false, message: error.message || 'Failed to leave queue' };
+  }
 };
 
 /**
@@ -236,16 +385,24 @@ const createLiveMatch = async (
   const io = getIO();
 
   try {
-    // 1. Process entry fees inside a database transaction
-    await runInTransaction(async (session) => {
-      // Human 1 entry fee
-      await deductEntryFee(p1.userId, entryFee, roomId, session);
+    // 1. Process entry fees inside a database transaction (only for private lobbies)
+    if (gameMode === 'ROOMS') {
+      await runInTransaction(async (session) => {
+        // Human 1 entry fee
+        await deductEntryFee(p1.userId, entryFee, roomId, session);
 
-      // Human 2 or bot entry fee
-      if (!hasBot) {
+        // Human 2 entry fee
         await deductEntryFee(p2.userId, entryFee, roomId, session);
-      }
-    });
+      });
+    }
+
+    // Increment playing count in LobbyStateService
+    try {
+      const { incrementPlayingCount } = require('./lobbyService');
+      await incrementPlayingCount(entryFee, hasBot ? 1 : 2);
+    } catch (err) {
+      console.error('Failed to increment playing count on match start:', err);
+    }
 
     // 2. Initialize Match State
     const matchState = createInitialState(

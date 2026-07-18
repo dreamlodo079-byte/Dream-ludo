@@ -144,6 +144,7 @@ function AppContent() {
           <DashboardScreen
             currentUser={currentUser}
             socketId={socket?.id || null}
+            socket={socket}
             onMatchFound={(roomId) => {
               setActiveRoomId(roomId);
               setView('game');
