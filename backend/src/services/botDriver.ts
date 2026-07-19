@@ -6,6 +6,8 @@ import { Transaction, TransactionType, TransactionStatus } from '../models/Trans
 import { Types } from 'mongoose';
 import { trackDailyMatch } from './challengeTracker';
 
+import { User } from '../models/User';
+
 // Safe zone common indices (aligned with gameEngine.ts stars)
 const SAFE_COMMON_INDICES = [1, 9, 14, 22, 27, 35, 40, 48];
 
@@ -145,7 +147,110 @@ const selectBotTokenWeighted = (state: MatchState, validMoves: number[]): number
   const opponent = state.players[opponentIndex];
   const roll = state.diceRoll!;
 
-  // Map each valid move to a weight
+  // 1. MUST LOSE FORCED: Play optimally with deterministic highest weight choice
+  if (state.promoState === 'PROMO_LOSE_FORCED') {
+    let bestTokenIndex = validMoves[0];
+    let maxWeight = -1;
+
+    for (const tokenIndex of validMoves) {
+      const currentPos = bot.tokens[tokenIndex];
+      let weight = 15;
+
+      if (currentPos === -1 && roll === 6) {
+        weight = 50;
+      }
+
+      const nextPos = currentPos + roll;
+      if (nextPos <= 56) {
+        const nextCommonIndex = getCommonIndex(botIndex, nextPos);
+        if (nextCommonIndex !== -1 && !SAFE_COMMON_INDICES.includes(nextCommonIndex)) {
+          const canCapture = opponent.tokens.some((oppPos) => {
+            return getCommonIndex(opponentIndex, oppPos) === nextCommonIndex;
+          });
+          if (canCapture) {
+            weight = 95;
+          }
+        }
+
+        if (nextPos === 56) {
+          weight = 85;
+        }
+
+        if (nextCommonIndex !== -1 && SAFE_COMMON_INDICES.includes(nextCommonIndex)) {
+          weight = 45;
+        }
+
+        const currentCommonIndex = getCommonIndex(botIndex, currentPos);
+        if (currentCommonIndex !== -1 && !SAFE_COMMON_INDICES.includes(currentCommonIndex)) {
+          const isExposed = opponent.tokens.some((oppPos) => {
+            const oppCommon = getCommonIndex(opponentIndex, oppPos);
+            if (oppCommon === -1) return false;
+            const dist = (currentCommonIndex - oppCommon + 52) % 52;
+            return dist > 0 && dist <= 6;
+          });
+          if (isExposed) {
+            weight += 20;
+          }
+        }
+      }
+
+      if (weight > maxWeight) {
+        maxWeight = weight;
+        bestTokenIndex = tokenIndex;
+      }
+    }
+    return bestTokenIndex;
+  }
+
+  // 2. MUST WIN FORCED: Bot plays sub-optimally to guarantee the promoter wins
+  if (state.promoState === 'PROMO_WIN_FORCED') {
+    const moveWeights = validMoves.map((tokenIndex) => {
+      const currentPos = bot.tokens[tokenIndex];
+      let weight = 100; // start with high preference for standard moves
+
+      if (currentPos === -1 && roll === 6) {
+        weight = 10; // avoid releasing new tokens
+      }
+
+      const nextPos = currentPos + roll;
+      if (nextPos <= 56) {
+        const nextCommonIndex = getCommonIndex(botIndex, nextPos);
+        
+        // Avoid capturing promoter tokens
+        if (nextCommonIndex !== -1 && !SAFE_COMMON_INDICES.includes(nextCommonIndex)) {
+          const canCapture = opponent.tokens.some((oppPos) => {
+            return getCommonIndex(opponentIndex, oppPos) === nextCommonIndex;
+          });
+          if (canCapture) {
+            weight = 1; // avoid capture at all costs
+          }
+        }
+
+        // Avoid entering home zone
+        if (nextPos === 56) {
+          weight = 5;
+        }
+
+        // Avoid safe zones
+        if (nextCommonIndex !== -1 && SAFE_COMMON_INDICES.includes(nextCommonIndex)) {
+          weight = 15;
+        }
+      }
+      return { tokenIndex, weight };
+    });
+
+    const totalWeight = moveWeights.reduce((sum, item) => sum + item.weight, 0);
+    let randomVal = Math.random() * totalWeight;
+    for (const item of moveWeights) {
+      randomVal -= item.weight;
+      if (randomVal <= 0) {
+        return item.tokenIndex;
+      }
+    }
+    return validMoves[0];
+  }
+
+  // 3. Regular bot matchmaking weighted check (default)
   const moveWeights = validMoves.map((tokenIndex) => {
     const currentPos = bot.tokens[tokenIndex];
     let weight = 15; // default low base weight
@@ -251,6 +356,42 @@ const handleBotMatchTermination = async (roomId: string, state: MatchState): Pro
           referenceId: `win_${roomId}_${Date.now()}`,
         });
         await winningsTxn.save({ session });
+      }
+
+      // Check and update promoter state
+      for (const p of state.players) {
+        if (p.isBot) continue;
+        const playerDoc = await User.findById(p.id).session(session);
+        if (playerDoc && playerDoc.isPromoter) {
+          const stakeKey = `stake_${state.entryFee}`;
+          let currentPromoState = 'MUST_LOSE';
+          if (playerDoc.promoMatchState) {
+            if (typeof playerDoc.promoMatchState.get === 'function') {
+              currentPromoState = playerDoc.promoMatchState.get(stakeKey) || 'MUST_LOSE';
+            } else {
+              currentPromoState = playerDoc.promoMatchState[stakeKey] || 'MUST_LOSE';
+            }
+          }
+
+          let newPromoState = 'MUST_LOSE';
+          if (currentPromoState === 'MUST_WIN') {
+            newPromoState = 'MUST_LOSE';
+          } else {
+            newPromoState = 'MUST_WIN';
+          }
+
+          if (!playerDoc.promoMatchState) {
+            playerDoc.promoMatchState = {};
+          }
+          if (typeof playerDoc.promoMatchState.set === 'function') {
+            playerDoc.promoMatchState.set(stakeKey, newPromoState);
+          } else {
+            playerDoc.promoMatchState[stakeKey] = newPromoState;
+          }
+          playerDoc.markModified('promoMatchState');
+          await playerDoc.save({ session });
+          console.log(`Flipped promoter ${p.id} stake ${state.entryFee} state from ${currentPromoState} to ${newPromoState} in bot match`);
+        }
       }
     });
 

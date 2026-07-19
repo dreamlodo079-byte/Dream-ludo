@@ -33,6 +33,7 @@ export interface MatchState {
     turnTimer?: number;
     tokenCount?: number;
   };
+  promoState?: 'PROMO_WIN_FORCED' | 'PROMO_LOSE_FORCED';
 }
 
 // Common track length

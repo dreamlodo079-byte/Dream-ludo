@@ -554,6 +554,42 @@ const handleMatchTermination = async (roomId: string, state: MatchState): Promis
         });
         await winningsTxn.save({ session });
       }
+
+      // Check and update promoter state
+      for (const p of state.players) {
+        if (p.isBot) continue;
+        const playerDoc = await User.findById(p.id).session(session);
+        if (playerDoc && playerDoc.isPromoter) {
+          const stakeKey = `stake_${state.entryFee}`;
+          let currentPromoState = 'MUST_LOSE';
+          if (playerDoc.promoMatchState) {
+            if (typeof playerDoc.promoMatchState.get === 'function') {
+              currentPromoState = playerDoc.promoMatchState.get(stakeKey) || 'MUST_LOSE';
+            } else {
+              currentPromoState = playerDoc.promoMatchState[stakeKey] || 'MUST_LOSE';
+            }
+          }
+
+          let newPromoState = 'MUST_LOSE';
+          if (currentPromoState === 'MUST_WIN') {
+            newPromoState = 'MUST_LOSE';
+          } else {
+            newPromoState = 'MUST_WIN';
+          }
+
+          if (!playerDoc.promoMatchState) {
+            playerDoc.promoMatchState = {};
+          }
+          if (typeof playerDoc.promoMatchState.set === 'function') {
+            playerDoc.promoMatchState.set(stakeKey, newPromoState);
+          } else {
+            playerDoc.promoMatchState[stakeKey] = newPromoState;
+          }
+          playerDoc.markModified('promoMatchState');
+          await playerDoc.save({ session });
+          console.log(`Flipped promoter ${p.id} stake ${state.entryFee} state from ${currentPromoState} to ${newPromoState} in regular match`);
+        }
+      }
     });
 
     console.log(`Match ${roomId} completed. Platform commission: +${commissionAmount}, Winner: ${winner.username} (+${winningsAmount})`);

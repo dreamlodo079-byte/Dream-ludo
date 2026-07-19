@@ -156,6 +156,72 @@ export const joinQueue = async (
     return { success: false, message: 'Redis not available' };
   }
 
+  // 1.5. Intercept queue for promoter accounts
+  const userDoc = await User.findById(userId);
+  if (userDoc && userDoc.isPromoter) {
+    const stakeKey = `stake_${entryFee}`;
+    let promoStateVal = 'MUST_LOSE';
+    
+    if (userDoc.promoMatchState) {
+      if (typeof userDoc.promoMatchState.get === 'function') {
+        promoStateVal = userDoc.promoMatchState.get(stakeKey);
+      } else {
+        promoStateVal = userDoc.promoMatchState[stakeKey];
+      }
+    }
+
+    if (!promoStateVal) {
+      promoStateVal = 'MUST_LOSE';
+      if (!userDoc.promoMatchState) {
+        userDoc.promoMatchState = {};
+      }
+      if (typeof userDoc.promoMatchState.set === 'function') {
+        userDoc.promoMatchState.set(stakeKey, 'MUST_LOSE');
+      } else {
+        userDoc.promoMatchState[stakeKey] = 'MUST_LOSE';
+      }
+      userDoc.markModified('promoMatchState');
+      await userDoc.save();
+    }
+
+    // Spawn bot immediately and bypass queue
+    const botId = `bot_${Date.now()}`;
+    const botUsername = `${getRandomBotName()} (Bot)`;
+    const botPlayer: QueueUser = {
+      userId: botId,
+      username: botUsername,
+      socketId: `socket_${botId}`,
+      joinedAt: Date.now(),
+      gameMode,
+    };
+
+    const queueUser: QueueUser = {
+      userId,
+      username,
+      socketId,
+      joinedAt: Date.now(),
+      gameMode,
+    };
+
+    const queueId = `queue_${userId}_${entryFee}_${Date.now()}`;
+    queueUser.queueId = queueId;
+
+    try {
+      await runInTransaction(async (session) => {
+        await deductEntryFee(userId, entryFee, queueId, session);
+      });
+    } catch (err: any) {
+      console.error(`Immediate joinQueue debit failed for promoter ${userId}:`, err);
+      return { success: false, message: err.message || 'Failed to debit entry fee from wallet' };
+    }
+
+    const promoState = promoStateVal === 'MUST_WIN' ? 'PROMO_WIN_FORCED' : 'PROMO_LOSE_FORCED';
+    createLiveMatch(queueUser, botPlayer, entryFee, true, gameMode, customRules, promoState);
+
+    console.log(`Promoter ${username} (${userId}) bypassed matchmaking for stake ${entryFee} -> Forced state: ${promoStateVal}`);
+    return { success: true, message: 'Lobby joined! Match starting...' };
+  }
+
   const queueUser: QueueUser = {
     userId,
     username,
@@ -371,7 +437,8 @@ const createLiveMatch = async (
   entryFee: number,
   hasBot = false,
   gameMode: 'QUICK' | 'REGULAR' | 'ROOMS' = 'REGULAR',
-  customRules?: { turnTimer?: number; tokenCount?: number }
+  customRules?: { turnTimer?: number; tokenCount?: number },
+  promoState?: 'PROMO_WIN_FORCED' | 'PROMO_LOSE_FORCED'
 ): Promise<void> => {
   const roomId = `room_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
   const io = getIO();
@@ -405,6 +472,10 @@ const createLiveMatch = async (
       gameMode,
       customRules
     );
+
+    if (promoState) {
+      matchState.promoState = promoState;
+    }
 
     // Save mapping in socket manager for reconnection purposes
     registerUserToRoom(p1.userId, roomId);
