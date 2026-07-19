@@ -410,6 +410,9 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
 };
 
 // ============ MAIN GAME SCREEN ============
+import SoundManager from '../utils/SoundManager';
+
+// ============ MAIN GAME SCREEN ============
 export const GameScreen: React.FC<GameScreenProps> = ({
   roomId,
   currentUser,
@@ -748,6 +751,13 @@ export const GameScreen: React.FC<GameScreenProps> = ({
 
   const animateBackwardPath = async (pIdx: number, tIdx: number, start: number, end: number) => {
     const tokenIdx = pIdx * 4 + tIdx;
+    
+    // Play pawn killed sound only for the victim player
+    const myPlayerIndex = matchState?.players.findIndex((p: any) => p.id === currentUser._id);
+    if (pIdx === myPlayerIndex) {
+      SoundManager.playKilled();
+    }
+
     const stopAt = Math.max(0, end);
 
     for (let currentStep = start; currentStep > stopAt; currentStep--) {
@@ -786,6 +796,8 @@ export const GameScreen: React.FC<GameScreenProps> = ({
 
   const animateStepPath = async (pIdx: number, tIdx: number, start: number, end: number) => {
     const tokenIdx = pIdx * 4 + tIdx;
+    
+    SoundManager.playPawnHop(end - start, 280);
 
     for (let currentStep = start; currentStep < end; currentStep++) {
       const nextStep = currentStep + 1;
@@ -801,36 +813,36 @@ export const GameScreen: React.FC<GameScreenProps> = ({
         Animated.parallel([
           Animated.timing(pawnPositions[tokenIdx], {
             toValue: endCoords,
-            duration: 200,
+            duration: 280,
             useNativeDriver: true,
             easing: Easing.linear,
           }),
           Animated.sequence([
             Animated.timing(pawnHeightOffsets[tokenIdx], {
               toValue: -32,
-              duration: 100,
+              duration: 140,
               useNativeDriver: true,
               easing: Easing.out(Easing.quad),
             }),
             Animated.timing(pawnHeightOffsets[tokenIdx], {
               toValue: 0,
-              duration: 100,
+              duration: 140,
               useNativeDriver: true,
               easing: Easing.in(Easing.quad),
             }),
           ]),
           Animated.sequence([
             Animated.parallel([
-              Animated.timing(pawnScaleX[tokenIdx], { toValue: 0.85, duration: 100, useNativeDriver: true }),
-              Animated.timing(pawnScaleY[tokenIdx], { toValue: 1.15, duration: 100, useNativeDriver: true }),
+              Animated.timing(pawnScaleX[tokenIdx], { toValue: 0.85, duration: 140, useNativeDriver: Platform.OS !== 'web' }),
+              Animated.timing(pawnScaleY[tokenIdx], { toValue: 1.15, duration: 140, useNativeDriver: Platform.OS !== 'web' }),
             ]),
             Animated.parallel([
-              Animated.timing(pawnScaleX[tokenIdx], { toValue: 1.2, duration: 50, useNativeDriver: true }),
-              Animated.timing(pawnScaleY[tokenIdx], { toValue: 0.8, duration: 50, useNativeDriver: true }),
+              Animated.timing(pawnScaleX[tokenIdx], { toValue: 1.2, duration: 70, useNativeDriver: Platform.OS !== 'web' }),
+              Animated.timing(pawnScaleY[tokenIdx], { toValue: 0.8, duration: 70, useNativeDriver: Platform.OS !== 'web' }),
             ]),
             Animated.parallel([
-              Animated.timing(pawnScaleX[tokenIdx], { toValue: 1.0, duration: 50, useNativeDriver: true }),
-              Animated.timing(pawnScaleY[tokenIdx], { toValue: 1.0, duration: 50, useNativeDriver: true }),
+              Animated.timing(pawnScaleX[tokenIdx], { toValue: 1.0, duration: 70, useNativeDriver: Platform.OS !== 'web' }),
+              Animated.timing(pawnScaleY[tokenIdx], { toValue: 1.0, duration: 70, useNativeDriver: Platform.OS !== 'web' }),
             ]),
           ]),
         ]).start(() => {
@@ -840,12 +852,18 @@ export const GameScreen: React.FC<GameScreenProps> = ({
       });
     }
 
+    // Play home sound if token entered home
+    if (end === 56) {
+      SoundManager.playHomeEnter();
+    }
+
     isTokenAnimating.current[tokenIdx] = false;
   };
 
   useEffect(() => {
-    if (matchState && matchState.diceRoll !== null) {
+    if (matchState?.diceRoll !== undefined && matchState?.diceRoll !== null) {
       setIsDiceAnimating(true);
+      SoundManager.playDiceRoll();
 
       Animated.parallel([
         Animated.sequence([
@@ -870,6 +888,16 @@ export const GameScreen: React.FC<GameScreenProps> = ({
       }, 60);
     }
   }, [matchState?.diceRoll]);
+
+  // ============ MOUNT/SOUND EFFECT INIT ============
+  useEffect(() => {
+    SoundManager.preloadSounds().then(() => {
+      SoundManager.playGameStart();
+    });
+    return () => {
+      SoundManager.unloadAll();
+    };
+  }, []);
 
   if (!matchState) {
     return (
@@ -1564,6 +1592,8 @@ export const GameScreen: React.FC<GameScreenProps> = ({
           <View style={styles.victoryCard}>
             {winnerInfo?.winnerId === currentUser._id ? (
               <>
+                {/* Play Win Sound */}
+                {React.createElement(View, { onLayout: () => SoundManager.playWin() })}
                 <Text style={styles.victoryEmoji}>🏆</Text>
                 <Text style={styles.victoryTitle}>VICTORY!</Text>
                 <Text style={styles.victorySub}>Congratulations, you won!</Text>
@@ -1572,17 +1602,19 @@ export const GameScreen: React.FC<GameScreenProps> = ({
                   <Text style={styles.winningsAmount}>
                     ₹{winnerInfo?.winnings?.toFixed(2) || '0.00'}
                   </Text>
-                  <Text style={styles.winningsCredited}>✓ Credited to Wallet</Text>
+                  <Text style={styles.winningsCredited}>💰 Credited to Wallet</Text>
                 </View>
               </>
             ) : (
               <>
-                <Text style={styles.victoryEmoji}>😔</Text>
+                {/* Play Loss Sound */}
+                {React.createElement(View, { onLayout: () => SoundManager.playLoss() })}
+                <Text style={styles.victoryEmoji}>💔</Text>
                 <Text style={[styles.victoryTitle, styles.defeatTitle]}>DEFEATED</Text>
                 <Text style={styles.victorySub}>
                   {winnerInfo?.winnerUsername || 'Opponent'} won the match
                 </Text>
-                <Text style={styles.tryAgainText}>Better luck next time! 💪</Text>
+                <Text style={styles.tryAgainText}>Better luck next time! 🎲</Text>
               </>
             )}
             <TouchableOpacity
