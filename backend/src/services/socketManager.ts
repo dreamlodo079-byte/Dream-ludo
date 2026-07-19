@@ -154,6 +154,11 @@ export const initializeSocketIO = async (server: any): Promise<Server> => {
         return;
       }
 
+      if (state.transitionPending) {
+        socket.emit('ERROR', { message: 'Please wait for the pawn movement animation to complete' });
+        return;
+      }
+
       if (state.hasRolled) {
         socket.emit('ERROR', { message: 'Already rolled' });
         return;
@@ -179,16 +184,30 @@ export const initializeSocketIO = async (server: any): Promise<Server> => {
         if (shouldPassTurn) {
           const playerName = activePlayer.username;
           if (consecutiveReset) {
-            io.to(roomId).emit('SYSTEM_ALERT', { message: `${playerName} rolled three 6s in a row. Turn voided!` });
-          } else {
-            io.to(roomId).emit('SYSTEM_ALERT', { message: `${playerName} rolled ${roll} (No valid moves). Passing turn.` });
+            // We can keep this alert or remove it. The user just said "Turn skipped, User rolled 3 invalid move turn skipped".
+            // Let's remove the alerts completely as requested to keep it smooth.
           }
-
-          const { rotateTurn } = require('./gameEngine');
-          rotateTurn(state);
+          
+          // Set transition to give clients time to animate the dice roll before passing turn
+          state.transitionPending = true;
           await cacheRoomState(roomId, state);
-          io.to(roomId).emit('MATCH_STATE_UPDATE', state);
-          checkAndTriggerBot(roomId, state);
+          
+          setTimeout(async () => {
+            try {
+              const latestState: MatchState | null = await getRoomState(roomId);
+              if (!latestState || latestState.isTerminated) return;
+
+              const { rotateTurn } = require('./gameEngine');
+              rotateTurn(latestState);
+              latestState.transitionPending = false;
+              await cacheRoomState(roomId, latestState);
+              io.to(roomId).emit('MATCH_STATE_UPDATE', latestState);
+              checkAndTriggerBot(roomId, latestState);
+            } catch (err) {
+              console.error(`Error finalizing skipped turn for room ${roomId}:`, err);
+            }
+          }, 1500);
+
         } else {
           // If player has moves, wait for them to choose.
           const nextActivePlayer = state.players[state.activePlayerIndex];
@@ -215,9 +234,15 @@ export const initializeSocketIO = async (server: any): Promise<Server> => {
         return;
       }
 
+      if (state.transitionPending) {
+        socket.emit('ERROR', { message: 'Please wait for the pawn movement animation to complete' });
+        return;
+      }
+
       try {
         const { executeMove, rotateTurn } = require('./gameEngine');
         const { capturedToken, getsBonusRoll } = executeMove(state, tokenIndex);
+        state.transitionPending = true;
         await cacheRoomState(roomId, state);
 
         io.to(roomId).emit('TOKEN_MOVED', {
@@ -237,6 +262,7 @@ export const initializeSocketIO = async (server: any): Promise<Server> => {
             if (latestState.winnerId) {
               await handleMatchTermination(roomId, latestState);
             } else {
+              latestState.transitionPending = false;
               if (getsBonusRoll) {
                 latestState.hasRolled = false;
                 latestState.diceRoll = null;

@@ -85,6 +85,7 @@ export const triggerBotTurn = (roomId: string): void => {
         const selectedTokenIndex = selectBotTokenWeighted(state, validMoves);
 
         const { capturedToken, getsBonusRoll } = executeMove(state, selectedTokenIndex);
+        state.transitionPending = true;
         await cacheRoomState(roomId, state);
 
         io.to(roomId).emit('TOKEN_MOVED', {
@@ -103,6 +104,7 @@ export const triggerBotTurn = (roomId: string): void => {
             if (latestState.winnerId) {
               await handleBotMatchTermination(roomId, latestState);
             } else {
+              latestState.transitionPending = false;
               if (getsBonusRoll) {
                 latestState.hasRolled = false;
                 latestState.diceRoll = null;

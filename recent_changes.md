@@ -40,6 +40,16 @@ This document tracks the git operations and environment configurations performed
 * **Status Bar Layout Clipping**:
   - Imported `Platform` and added dynamic top padding offsets to the main game arena, toast containers, and loaders in [GameScreen.tsx](file:///e:/Documents/Nexus-Ludo/mobile-client/src/screens/GameScreen.tsx) to accommodate Android status bars and notch cutouts.
 
+### 4. Session 3 Fixes & Logic Tweaks
+* **Unified Dying Animation Speed**:
+  - Refactored `animateBackwardPath` in [GameScreen.tsx](file:///e:/Documents/Nexus-Ludo/mobile-client/src/screens/GameScreen.tsx) to dynamically compute step duration based on the number of tiles, ensuring backtracking completes efficiently (~450ms total). Ensured `useNativeDriver` works smoothly across both mobile and web.
+* **Consecutive Sixes Rule Simplification**:
+  - Modified the strict "3 consecutive 6s" penalty in [gameEngine.ts](file:///e:/Documents/Nexus-Ludo/backend/src/services/gameEngine.ts). A third consecutive 6 now simply voids the bonus roll and passes the turn, without reverting any valid token moves made during the first two 6s.
+* **Mobile Dice Sync & Skipped Turns**:
+  - Added a 1.5s delay timeout inside `REQUEST_ROLL` in [socketManager.ts](file:///e:/Documents/Nexus-Ludo/backend/src/services/socketManager.ts) when no valid moves are available. This fixes a race condition where the mobile dice animation skipped the final rolled value. Removed repetitive "turn skipped" system alerts for better UX.
+* **Goal (Center Home) Pawn Stacking**:
+  - Rewrote the coordinate grouping logic in `getTokenCoords` and `getStackingInfo` in [GameScreen.tsx](file:///e:/Documents/Nexus-Ludo/mobile-client/src/screens/GameScreen.tsx). Pawns resting in the center home triangle (pos 56) now correctly stack, scale down dynamically, and arrange themselves into neat micro-triangles instead of clipping over each other or hardcoding to 4 invisible slots.
+
 ---
 
 ## 🚀 How to Run the App (Current State)

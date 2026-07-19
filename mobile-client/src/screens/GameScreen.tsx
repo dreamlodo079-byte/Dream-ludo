@@ -442,7 +442,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   const yourTurnAnim = useRef(new Animated.Value(0)).current;
 
   // Match Found Transition State & Refs
-  const [showMatchFound, setShowMatchFound] = useState(true);
+  const [showMatchFound, setShowMatchFound] = useState(false);
   const matchFoundOpacity = useRef(new Animated.Value(1)).current;
   const avatarsScale = useRef(new Animated.Value(0)).current;
   const vsScale = useRef(new Animated.Value(0)).current;
@@ -450,66 +450,9 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   const titleTranslateY = useRef(new Animated.Value(-150)).current;
 
   useEffect(() => {
-    if (!matchState) return;
-
-    setShowMatchFound(true);
-    titleTranslateY.setValue(-150);
-    avatarsScale.setValue(0);
-    vsScale.setValue(0);
-    vsOpacity.setValue(0);
-    matchFoundOpacity.setValue(1);
-
-    // Let the view mount first on native, then start animation
-    const animTimeout = setTimeout(() => {
-      Animated.sequence([
-        // 1. Slide title down and pop player avatars
-        Animated.parallel([
-          Animated.spring(titleTranslateY, {
-            toValue: 0,
-            friction: 6,
-            tension: 40,
-            useNativeDriver: true,
-          }),
-          Animated.spring(avatarsScale, {
-            toValue: 1,
-            friction: 5,
-            tension: 30,
-            useNativeDriver: true,
-          }),
-        ]),
-        // 2. Pop VS in the middle
-        Animated.parallel([
-          Animated.spring(vsScale, {
-            toValue: 1,
-            friction: 4,
-            tension: 40,
-            useNativeDriver: true,
-          }),
-          Animated.timing(vsOpacity, {
-            toValue: 1,
-            duration: 350,
-            useNativeDriver: true,
-          }),
-        ]),
-      ]).start();
-    }, 100);
-
-    // After 2.6 seconds, fade out the overlay
-    const fadeOutTimeout = setTimeout(() => {
-      Animated.timing(matchFoundOpacity, {
-        toValue: 0,
-        duration: 400,
-        useNativeDriver: true,
-      }).start(() => {
-        setShowMatchFound(false);
-      });
-    }, 2600);
-
-    return () => {
-      clearTimeout(animTimeout);
-      clearTimeout(fadeOutTimeout);
-    };
-  }, [matchState !== null]);
+    // Disabled to bypass intro overlay and keep focus on immediate board action
+    setShowMatchFound(false);
+  }, []);
 
   const pawnPositions = useRef(
     Array.from({ length: 8 }, () => new Animated.ValueXY({ x: 0, y: 0 }))
@@ -607,13 +550,15 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   }, [matchState?.activePlayerIndex, matchState?.hasRolled]);
 
   const getStackingInfo = (pIdx: number, tIdx: number, pos: number) => {
-    if (pos === -1 || pos === 56 || !matchState?.players) {
+    if (pos === -1 || !matchState?.players) {
       return { subX: 0, subY: 0, scale: 1.0, stackCount: 1 };
     }
 
     const startOffset = PLAYER_START_OFFSETS[pIdx];
     let cellId: string;
-    if (pos >= 51 && pos <= 55) {
+    if (pos === 56) {
+      cellId = `goal_${pIdx}`;
+    } else if (pos >= 51 && pos <= 55) {
       cellId = `home_${pIdx}_${pos}`;
     } else {
       const commonIdx = (startOffset + pos) % 52;
@@ -625,7 +570,9 @@ export const GameScreen: React.FC<GameScreenProps> = ({
       const pStart = PLAYER_START_OFFSETS[pIndex];
       player.tokens.forEach((otherPos: number, tokenIndex: number) => {
         let otherCellId: string | null = null;
-        if (otherPos >= 51 && otherPos <= 55) {
+        if (otherPos === 56) {
+          otherCellId = `goal_${pIndex}`;
+        } else if (otherPos >= 51 && otherPos <= 55) {
           otherCellId = `home_${pIndex}_${otherPos}`;
         } else if (otherPos >= 0 && otherPos <= 50) {
           const cIdx = (pStart + otherPos) % 52;
@@ -684,8 +631,15 @@ export const GameScreen: React.FC<GameScreenProps> = ({
       gridX = yardCoords[tokenIndex].x;
       gridY = yardCoords[tokenIndex].y;
     } else if (pos === 56) {
-      gridX = 7.5;
-      gridY = 7.5;
+      if (playerIndex === 0) {
+        // Red home center
+        gridX = 6.5;
+        gridY = 7.5;
+      } else {
+        // Green home center
+        gridX = 8.5;
+        gridY = 7.5;
+      }
     } else if (pos >= 51 && pos <= 55) {
       const pathCoords = playerIndex === 0 ? RED_HOME_PATH_COORDS : GREEN_HOME_PATH_COORDS;
       const idx = pos - 51;
@@ -802,7 +756,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
           pawnScaleY[tokenIdx].setValue(1);
           Animated.spring(pawnPositions[tokenIdx], {
             toValue: targetCoords,
-            useNativeDriver: true,
+            useNativeDriver: Platform.OS !== 'web',
             friction: 6,
             tension: 40,
           }).start();
@@ -827,6 +781,9 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   const animateBackwardPath = async (pIdx: number, tIdx: number, start: number, end: number) => {
     const tokenIdx = pIdx * 4 + tIdx;
     const stopAt = Math.max(0, end);
+    const stepCount = start - stopAt;
+    // Calculate stepDuration dynamically to ensure the backtrack completes in ~450ms total
+    const stepDuration = Math.max(15, Math.min(120, 450 / (stepCount || 1)));
 
     for (let currentStep = start; currentStep > stopAt; currentStep--) {
       const nextStep = currentStep - 1;
@@ -835,8 +792,8 @@ export const GameScreen: React.FC<GameScreenProps> = ({
       await new Promise<void>((resolve) => {
         Animated.timing(pawnPositions[tokenIdx], {
           toValue: endCoords,
-          duration: 120, // satisfying step-by-step backward slide speed
-          useNativeDriver: true,
+          duration: stepDuration,
+          useNativeDriver: Platform.OS !== 'web',
           easing: Easing.linear,
         }).start(() => resolve());
       });
@@ -849,7 +806,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
       await new Promise<void>((resolve) => {
         Animated.spring(pawnPositions[tokenIdx], {
           toValue: finalCoords,
-          useNativeDriver: true,
+          useNativeDriver: Platform.OS !== 'web',
           friction: 6,
           tension: 40,
         }).start(() => resolve());
@@ -880,35 +837,35 @@ export const GameScreen: React.FC<GameScreenProps> = ({
           Animated.timing(pawnPositions[tokenIdx], {
             toValue: endCoords,
             duration: 200,
-            useNativeDriver: true,
+            useNativeDriver: Platform.OS !== 'web',
             easing: Easing.linear,
           }),
           Animated.sequence([
             Animated.timing(pawnHeightOffsets[tokenIdx], {
               toValue: -32,
               duration: 100,
-              useNativeDriver: true,
+              useNativeDriver: Platform.OS !== 'web',
               easing: Easing.out(Easing.quad),
             }),
             Animated.timing(pawnHeightOffsets[tokenIdx], {
               toValue: 0,
               duration: 100,
-              useNativeDriver: true,
+              useNativeDriver: Platform.OS !== 'web',
               easing: Easing.in(Easing.quad),
             }),
           ]),
           Animated.sequence([
             Animated.parallel([
-              Animated.timing(pawnScaleX[tokenIdx], { toValue: 0.85, duration: 100, useNativeDriver: true }),
-              Animated.timing(pawnScaleY[tokenIdx], { toValue: 1.15, duration: 100, useNativeDriver: true }),
+              Animated.timing(pawnScaleX[tokenIdx], { toValue: 0.85, duration: 100, useNativeDriver: Platform.OS !== 'web' }),
+              Animated.timing(pawnScaleY[tokenIdx], { toValue: 1.15, duration: 100, useNativeDriver: Platform.OS !== 'web' }),
             ]),
             Animated.parallel([
-              Animated.timing(pawnScaleX[tokenIdx], { toValue: 1.2, duration: 50, useNativeDriver: true }),
-              Animated.timing(pawnScaleY[tokenIdx], { toValue: 0.8, duration: 50, useNativeDriver: true }),
+              Animated.timing(pawnScaleX[tokenIdx], { toValue: 1.2, duration: 50, useNativeDriver: Platform.OS !== 'web' }),
+              Animated.timing(pawnScaleY[tokenIdx], { toValue: 0.8, duration: 50, useNativeDriver: Platform.OS !== 'web' }),
             ]),
             Animated.parallel([
-              Animated.timing(pawnScaleX[tokenIdx], { toValue: 1.0, duration: 50, useNativeDriver: true }),
-              Animated.timing(pawnScaleY[tokenIdx], { toValue: 1.0, duration: 50, useNativeDriver: true }),
+              Animated.timing(pawnScaleX[tokenIdx], { toValue: 1.0, duration: 50, useNativeDriver: Platform.OS !== 'web' }),
+              Animated.timing(pawnScaleY[tokenIdx], { toValue: 1.0, duration: 50, useNativeDriver: Platform.OS !== 'web' }),
             ]),
           ]),
         ]).start(() => {
@@ -1014,18 +971,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
       <SafeAreaView style={styles.container}>
         <StatusBar barStyle="dark-content" backgroundColor="#F1F5F9" />
 
-      {alertMessage && (
-        <Animated.View
-          style={[
-            styles.toastContainer,
-            {
-              transform: [{ translateY: toastAnim }],
-            },
-          ]}
-        >
-          <Text style={styles.toastText}>📢 {alertMessage}</Text>
-        </Animated.View>
-      )}
+
 
       {/* ========== TOP BAR ========== */}
       <View style={styles.topBar}>
@@ -1468,9 +1414,13 @@ export const GameScreen: React.FC<GameScreenProps> = ({
               return true;
             });
             
+            const currentPos = player.tokens[representativeTIdx];
             const canMoveToken = isUserToken && isMyTurn && hasRollVal && moveableTokenIndex !== undefined;
-            const sizeMultiplier = canMoveToken ? tokenPulseAnim : 1.0;
-            const isInYard = player.tokens[representativeTIdx] === -1;
+            const stacking = getStackingInfo(pIdx, representativeTIdx, currentPos);
+            // Dynamic scale: if animating/pulse apply it, otherwise use stacking scale.
+            // When in goal (56), use stacking.scale directly (it's between 0.60 and 1.0)
+            const sizeMultiplier = currentPos === 56 ? stacking.scale : (canMoveToken ? tokenPulseAnim : stacking.scale);
+            const isInYard = currentPos === -1;
 
             const handlePress = () => {
               if (canMoveToken && moveableTokenIndex !== undefined) {
@@ -1676,50 +1626,51 @@ export const GameScreen: React.FC<GameScreenProps> = ({
         </View>
       </Modal>
 
-      {/* ============ MATCH FOUND OVERLAY ============ */}
-      <Animated.View 
-        style={[styles.matchFoundOverlay, { opacity: matchFoundOpacity }]}
-        pointerEvents={showMatchFound ? 'auto' : 'none'}
-      >
-        <Animated.Text style={[styles.matchFoundTitle, { transform: [{ translateY: titleTranslateY }] }]}>
-          MATCH FOUND
-        </Animated.Text>
-        
-        <Animated.Text style={[styles.matchFoundSub, { opacity: vsOpacity }]}>
-          {matchState.gameMode || 'REGULAR'} MODE
-        </Animated.Text>
+      {showMatchFound && (
+        <Animated.View 
+          style={[styles.matchFoundOverlay, { opacity: matchFoundOpacity }]}
+          pointerEvents="auto"
+        >
+          <Animated.Text style={[styles.matchFoundTitle, { transform: [{ translateY: titleTranslateY }] }]}>
+            MATCH FOUND
+          </Animated.Text>
+          
+          <Animated.Text style={[styles.matchFoundSub, { opacity: vsOpacity }]}>
+            {matchState.gameMode || 'REGULAR'} MODE
+          </Animated.Text>
 
-        <View style={styles.vsRow}>
-          {/* Player 1 Circle */}
-          <Animated.View style={[styles.matchFoundPlayerCircle, styles.playerCircleRed, { transform: [{ scale: avatarsScale }] }]}>
-            <Text style={styles.matchFoundInitial}>
-              {matchState.players[0]?.username?.charAt(0).toUpperCase() || 'P'}
-            </Text>
-            <Text style={styles.matchFoundName} numberOfLines={1}>
-              {matchState.players[0]?.username || 'Player 1'}
-            </Text>
-          </Animated.View>
+          <View style={styles.vsRow}>
+            {/* Player 1 Circle */}
+            <Animated.View style={[styles.matchFoundPlayerCircle, styles.playerCircleRed, { transform: [{ scale: avatarsScale }] }]}>
+              <Text style={styles.matchFoundInitial}>
+                {matchState.players[0]?.username?.charAt(0).toUpperCase() || 'P'}
+              </Text>
+              <Text style={styles.matchFoundName} numberOfLines={1}>
+                {matchState.players[0]?.username || 'Player 1'}
+              </Text>
+            </Animated.View>
 
-          {/* VS Circle */}
-          <Animated.View style={[styles.matchFoundVsCircle, { opacity: vsOpacity, transform: [{ scale: vsScale }] }]}>
-            <Text style={styles.matchFoundVsText}>VS</Text>
-          </Animated.View>
+            {/* VS Circle */}
+            <Animated.View style={[styles.matchFoundVsCircle, { opacity: vsOpacity, transform: [{ scale: vsScale }] }]}>
+              <Text style={styles.matchFoundVsText}>VS</Text>
+            </Animated.View>
 
-          {/* Player 2 Circle */}
-          <Animated.View style={[styles.matchFoundPlayerCircle, styles.playerCircleGreen, { transform: [{ scale: avatarsScale }] }]}>
-            <Text style={styles.matchFoundInitial}>
-              {matchState.players[1]?.username?.charAt(0).toUpperCase() || 'P'}
-            </Text>
-            <Text style={styles.matchFoundName} numberOfLines={1}>
-              {matchState.players[1]?.username || 'Player 2'}
-            </Text>
-          </Animated.View>
-        </View>
+            {/* Player 2 Circle */}
+            <Animated.View style={[styles.matchFoundPlayerCircle, styles.playerCircleGreen, { transform: [{ scale: avatarsScale }] }]}>
+              <Text style={styles.matchFoundInitial}>
+                {matchState.players[1]?.username?.charAt(0).toUpperCase() || 'P'}
+              </Text>
+              <Text style={styles.matchFoundName} numberOfLines={1}>
+                {matchState.players[1]?.username || 'Player 2'}
+              </Text>
+            </Animated.View>
+          </View>
 
-        <Animated.Text style={[styles.matchFoundFooter, { opacity: vsOpacity }]}>
-          Prepare for battle...
-        </Animated.Text>
-      </Animated.View>
+          <Animated.Text style={[styles.matchFoundFooter, { opacity: vsOpacity }]}>
+            Prepare for battle...
+          </Animated.Text>
+        </Animated.View>
+      )}
     </SafeAreaView>
     </View>
   );

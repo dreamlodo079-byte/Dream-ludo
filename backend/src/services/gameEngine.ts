@@ -21,6 +21,7 @@ export interface MatchState {
 
   // Custom Game Modes (QUICK, REGULAR, ROOMS)
   gameMode?: 'QUICK' | 'REGULAR' | 'ROOMS';
+  transitionPending?: boolean; // Flag to block incoming roll/move actions during walk animations
   matchTimer?: number; // Countdown timer for QUICK mode
   scores?: number[]; // Scores for players in QUICK mode
   customRules?: {
@@ -111,11 +112,31 @@ export const createInitialState = (
   };
 };
 
+const hasOpponentBlockade = (state: MatchState, activePlayerIndex: number, nextPos: number): boolean => {
+  const activeCommonIndex = getCommonIndex(activePlayerIndex, nextPos);
+  if (activeCommonIndex === -1 || SAFE_COMMON_INDICES.includes(activeCommonIndex)) {
+    return false;
+  }
+  const opponentIndex = (activePlayerIndex + 1) % state.players.length;
+  const opponent = state.players[opponentIndex];
+  
+  let oppTokensCount = 0;
+  for (let i = 0; i < opponent.tokens.length; i++) {
+    const oppPos = opponent.tokens[i];
+    const oppCommonIndex = getCommonIndex(opponentIndex, oppPos);
+    if (oppCommonIndex === activeCommonIndex) {
+      oppTokensCount++;
+    }
+  }
+  return oppTokensCount >= 2;
+};
+
 /**
  * Checks if a player has any valid moves with the current dice roll.
  */
 export const getValidMoves = (state: MatchState, roll: number): number[] => {
-  const activePlayer = state.players[state.activePlayerIndex];
+  const activePlayerIndex = state.activePlayerIndex;
+  const activePlayer = state.players[activePlayerIndex];
   const validTokenIndices: number[] = [];
 
   for (let i = 0; i < activePlayer.tokens.length; i++) {
@@ -127,14 +148,20 @@ export const getValidMoves = (state: MatchState, roll: number): number[] => {
     // Locked in yard: QUICK mode bypasses yard release constraint (any roll works)
     if (pos === -1) {
       if (state.gameMode === 'QUICK' || roll === 6) {
-        validTokenIndices.push(i);
+        const nextPos = 0;
+        if (!hasOpponentBlockade(state, activePlayerIndex, nextPos)) {
+          validTokenIndices.push(i);
+        }
       }
       continue;
     }
 
     // On board: check if the new position does not exceed home run terminal (56)
     if (pos + roll <= 56) {
-      validTokenIndices.push(i);
+      const nextPos = pos + roll;
+      if (!hasOpponentBlockade(state, activePlayerIndex, nextPos)) {
+        validTokenIndices.push(i);
+      }
     }
   }
 
@@ -162,14 +189,8 @@ export const executeRoll = (state: MatchState): { roll: number; shouldPassTurn: 
 
   if (roll === 6) {
     state.consecutiveSixes += 1;
-    
-    // 3 consecutive 6s nullified: reset tokens to pre-turn snapshot, reset counter, and pass turn
+    // 3 consecutive 6s nullified: reset counter, and pass turn (but don't revert tokens to avoid confusion)
     if (state.consecutiveSixes === 3) {
-      state.players.forEach((p, idx) => {
-        if (state.preTurnTokens && state.preTurnTokens[idx]) {
-          p.tokens = [...state.preTurnTokens[idx]];
-        }
-      });
       state.consecutiveSixes = 0;
       state.diceRoll = null;
       state.hasRolled = false;
@@ -227,14 +248,10 @@ export const executeMove = (state: MatchState, tokenIndex: number): { capturedTo
     throw new Error('Move exceeds board terminal path');
   }
 
-  // Update token position
-  activePlayer.tokens[tokenIndex] = nextPos;
-
-  // Process capture if on common track
+  // Process capture if on common track (validate before mutating)
   let capturedToken: { playerIndex: number; tokenIndex: number } | null = null;
-  const activeCommonIndex = getCommonIndex(activeIndex, nextPos);
-  
   let hasCaptured = false;
+  const activeCommonIndex = getCommonIndex(activeIndex, nextPos);
 
   if (activeCommonIndex !== -1 && !SAFE_COMMON_INDICES.includes(activeCommonIndex)) {
     const opponentIndex = (activeIndex + 1) % state.players.length;
@@ -254,15 +271,22 @@ export const executeMove = (state: MatchState, tokenIndex: number): { capturedTo
     }
     
     const isBlockaded = oppTokensCount >= 2;
+    if (isBlockaded) {
+      throw new Error("Cannot capture or land on tile protected by opponent's blockade stack!");
+    }
     
-    if (!isBlockaded && oppTokensCount > 0) {
-      // Capture opponent's tokens: reset to yard (-1)
-      oppMatchedIndices.forEach((i) => {
-        opponent.tokens[i] = -1;
-        capturedToken = { playerIndex: opponentIndex, tokenIndex: i };
-      });
+    if (oppTokensCount > 0) {
+      // Setup capture info to apply in the mutation phase
+      capturedToken = { playerIndex: opponentIndex, tokenIndex: oppMatchedIndices[0] };
       hasCaptured = true;
     }
+  }
+
+  // --- MUTATION PHASE (Fully validated, safe to write state) ---
+  activePlayer.tokens[tokenIndex] = nextPos;
+  if (hasCaptured && capturedToken) {
+    const opponent = state.players[capturedToken.playerIndex];
+    opponent.tokens[capturedToken.tokenIndex] = -1; // Send back to yard
   }
 
   // Calculate scores for QUICK mode
