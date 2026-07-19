@@ -208,6 +208,7 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({ onBack }) =>
           const headers = token ? { Authorization: `Bearer ${token}` } : {};
           const res = await axios.delete(`${API_SERVER_URL}/api/admin/tournament/delete/${tourId}`, { headers });
           if (res.data.success) {
+            setTournaments((prev) => prev.filter((t) => t._id !== tourId));
             showToast('Deleted', res.data.message, 'success');
             loadDataForTab('TOURNAMENT');
           }

@@ -247,6 +247,27 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
     ).start();
   }, [currentUser._id]);
 
+  // Real-time Socket Listener for Tournament Mutations (Create, Edit, Delete, Register)
+  useEffect(() => {
+    if (!socket) return;
+    const handleTournamentsUpdate = (data: { tournaments: any[] }) => {
+      if (Array.isArray(data?.tournaments)) {
+        setTournamentsList(data.tournaments);
+      }
+    };
+    socket.on('TOURNAMENTS_UPDATED', handleTournamentsUpdate);
+    return () => {
+      socket.off('TOURNAMENTS_UPDATED', handleTournamentsUpdate);
+    };
+  }, [socket]);
+
+  // Re-fetch tournaments when returning to HOME view
+  useEffect(() => {
+    if (currentView === 'HOME') {
+      fetchActiveTournament();
+    }
+  }, [currentView]);
+
   // Handle Upper Segment slide animation
   useEffect(() => {
     let targetX = 0;

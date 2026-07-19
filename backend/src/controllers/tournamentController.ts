@@ -95,6 +95,9 @@ tournamentRouter.post('/register', async (req: Request, res: Response) => {
       };
     });
 
+    const { broadcastTournamentUpdate } = require('../services/socketManager');
+    await broadcastTournamentUpdate();
+
     return res.json(result);
   } catch (error: any) {
     console.error('Tournament registration error:', error);

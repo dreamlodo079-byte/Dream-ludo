@@ -5,6 +5,7 @@ import { Tournament, TournamentStatus } from '../models/Tournament';
 import { getRedisClient } from '../config/redis';
 import { authenticateJWT, requireSuperAdmin, AuthenticatedRequest } from '../middleware/auth';
 import { initializeTournamentRound } from '../services/tournamentEngine';
+import { broadcastTournamentUpdate } from '../services/socketManager';
 import { getUsers, promoteUser, demoteUser } from '../controllers/adminController';
 
 const router = Router();
@@ -259,6 +260,7 @@ router.post('/tournament/trigger', async (req: AuthenticatedRequest, res: Respon
     await tour.save();
 
     await initializeTournamentRound(tour, 1);
+    await broadcastTournamentUpdate();
 
     return res.json({
       success: true,
@@ -301,6 +303,8 @@ router.post('/tournament/cancel', async (req: AuthenticatedRequest, res: Respons
       }
     }
 
+    await broadcastTournamentUpdate();
+
     return res.json({
       success: true,
       message: `Emergency cancellation executed for ${tour.title}. All entry fees refunded.`,
@@ -336,6 +340,7 @@ router.post('/tournament/create', async (req: AuthenticatedRequest, res: Respons
     });
 
     await newTour.save();
+    await broadcastTournamentUpdate();
 
     return res.json({
       success: true,
@@ -367,6 +372,7 @@ router.put('/tournament/update/:id', async (req: AuthenticatedRequest, res: Resp
     if (status) tour.status = status;
 
     await tour.save();
+    await broadcastTournamentUpdate();
 
     return res.json({
       success: true,
@@ -388,6 +394,7 @@ router.delete('/tournament/delete/:id', async (req: AuthenticatedRequest, res: R
     }
 
     await Tournament.findByIdAndDelete(id);
+    await broadcastTournamentUpdate();
 
     return res.json({
       success: true,

@@ -647,6 +647,21 @@ export const getIO = (): Server => {
   return io;
 };
 
+export const broadcastTournamentUpdate = async (): Promise<void> => {
+  try {
+    const { Tournament, TournamentStatus } = require('../models/Tournament');
+    const list = await Tournament.find({
+      status: { $in: [TournamentStatus.UPCOMING, TournamentStatus.ACTIVE] },
+    }).sort({ endsAt: 1 });
+    if (io) {
+      io.emit('TOURNAMENTS_UPDATED', { tournaments: list });
+      console.log(`Broadcasted TOURNAMENTS_UPDATED to all connected clients (${list.length} active tournaments)`);
+    }
+  } catch (err) {
+    console.error('Error broadcasting tournament updates:', err);
+  }
+};
+
 export const handleHandshakeTimeout = async (roomId: string): Promise<void> => {
   clearHandshakeTimer(roomId);
   const state: MatchState | null = await getRoomState(roomId);
