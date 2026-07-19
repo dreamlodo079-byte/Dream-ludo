@@ -9,7 +9,7 @@ import { GameScreen } from './src/screens/GameScreen';
 import { LeaderboardScreen } from './src/screens/LeaderboardScreen';
 import { ChallengeScreen } from './src/screens/ChallengeScreen';
 import { WalletProvider, useWallet } from './src/hooks/useWallet';
-import { MatchmakingOverlay } from './src/components/MatchmakingOverlay';
+import { MatchmakingCardOverlay } from './src/components/MatchmakingCardOverlay';
 
 const API_SERVER_URL = process.env.EXPO_PUBLIC_SERVER_URL || 'http://localhost:5000';
 
@@ -256,16 +256,14 @@ function AppContent() {
         )}
       </View>
 
-      {/* Matchmaking Handshake Overlay */}
-      <MatchmakingOverlay
+      {/* Matchmaking Handshake Card Overlay */}
+      <MatchmakingCardOverlay
         visible={showOverlay}
-        currentUser={{
-          username: currentUser?.username || 'You',
-        }}
         opponent={matchedOpponent}
         onCancel={handleOverlayCancel}
         onAnimationComplete={handleOverlayComplete}
         durationSeconds={30}
+        entryFee={matchFoundData?.entryFee}
       />
     </SafeAreaView>
   );
