@@ -156,72 +156,6 @@ export const joinQueue = async (
     return { success: false, message: 'Redis not available' };
   }
 
-  // 1.5. Intercept queue for promoter accounts
-  const userDoc = await User.findById(userId);
-  if (userDoc && userDoc.isPromoter) {
-    const stakeKey = `stake_${entryFee}`;
-    let promoStateVal = 'MUST_LOSE';
-    
-    if (userDoc.promoMatchState) {
-      if (typeof userDoc.promoMatchState.get === 'function') {
-        promoStateVal = userDoc.promoMatchState.get(stakeKey);
-      } else {
-        promoStateVal = userDoc.promoMatchState[stakeKey];
-      }
-    }
-
-    if (!promoStateVal) {
-      promoStateVal = 'MUST_LOSE';
-      if (!userDoc.promoMatchState) {
-        userDoc.promoMatchState = {};
-      }
-      if (typeof userDoc.promoMatchState.set === 'function') {
-        userDoc.promoMatchState.set(stakeKey, 'MUST_LOSE');
-      } else {
-        userDoc.promoMatchState[stakeKey] = 'MUST_LOSE';
-      }
-      userDoc.markModified('promoMatchState');
-      await userDoc.save();
-    }
-
-    // Spawn bot immediately and bypass queue
-    const botId = `bot_${Date.now()}`;
-    const botUsername = `${getRandomBotName()} (Bot)`;
-    const botPlayer: QueueUser = {
-      userId: botId,
-      username: botUsername,
-      socketId: `socket_${botId}`,
-      joinedAt: Date.now(),
-      gameMode,
-    };
-
-    const queueUser: QueueUser = {
-      userId,
-      username,
-      socketId,
-      joinedAt: Date.now(),
-      gameMode,
-    };
-
-    const queueId = `queue_${userId}_${entryFee}_${Date.now()}`;
-    queueUser.queueId = queueId;
-
-    try {
-      await runInTransaction(async (session) => {
-        await deductEntryFee(userId, entryFee, queueId, session);
-      });
-    } catch (err: any) {
-      console.error(`Immediate joinQueue debit failed for promoter ${userId}:`, err);
-      return { success: false, message: err.message || 'Failed to debit entry fee from wallet' };
-    }
-
-    const promoState = promoStateVal === 'MUST_WIN' ? 'PROMO_WIN_FORCED' : 'PROMO_LOSE_FORCED';
-    createLiveMatch(queueUser, botPlayer, entryFee, true, gameMode, customRules, promoState);
-
-    console.log(`Promoter ${username} (${userId}) bypassed matchmaking for stake ${entryFee} -> Forced state: ${promoStateVal}`);
-    return { success: true, message: 'Lobby joined! Match starting...' };
-  }
-
   const queueUser: QueueUser = {
     userId,
     username,
@@ -463,15 +397,48 @@ const createLiveMatch = async (
       console.error('Failed to increment playing count on match start:', err);
     }
 
+    // Check if either player is a promoter, and fetch their config state
+    let promoOverride: 'PROMOTER_MUST_WIN' | 'PROMOTER_MUST_LOSE' | undefined = undefined;
+    const p1User = await User.findById(p1.userId);
+    const p2User = !hasBot ? await User.findById(p2.userId) : null;
+
+    if (p1User && p1User.isPromoter) {
+      const stakeKey = `stake_${entryFee}`;
+      let promoStateVal = 'MUST_LOSE';
+      if (p1User.promoMatchState) {
+        if (typeof p1User.promoMatchState.get === 'function') {
+          promoStateVal = p1User.promoMatchState.get(stakeKey) || 'MUST_LOSE';
+        } else {
+          promoStateVal = p1User.promoMatchState[stakeKey] || 'MUST_LOSE';
+        }
+      }
+      promoOverride = promoStateVal === 'MUST_WIN' ? 'PROMOTER_MUST_WIN' : 'PROMOTER_MUST_LOSE';
+    } else if (p2User && p2User.isPromoter) {
+      const stakeKey = `stake_${entryFee}`;
+      let promoStateVal = 'MUST_LOSE';
+      if (p2User.promoMatchState) {
+        if (typeof p2User.promoMatchState.get === 'function') {
+          promoStateVal = p2User.promoMatchState.get(stakeKey) || 'MUST_LOSE';
+        } else {
+          promoStateVal = p2User.promoMatchState[stakeKey] || 'MUST_LOSE';
+        }
+      }
+      promoOverride = promoStateVal === 'MUST_WIN' ? 'PROMOTER_MUST_WIN' : 'PROMOTER_MUST_LOSE';
+    }
+
     // 2. Initialize Match State
     const matchState = createInitialState(
       roomId,
-      { id: p1.userId, username: p1.username, isBot: false },
-      { id: p2.userId, username: p2.username, isBot: hasBot },
+      { id: p1.userId, username: p1.username, isBot: false, isPromoter: p1User?.isPromoter || false },
+      { id: p2.userId, username: p2.username, isBot: hasBot, isPromoter: p2User?.isPromoter || false },
       entryFee,
       gameMode,
       customRules
     );
+
+    if (promoOverride) {
+      matchState.promoOverride = promoOverride;
+    }
 
     if (promoState) {
       matchState.promoState = promoState;

@@ -570,12 +570,8 @@ const handleMatchTermination = async (roomId: string, state: MatchState): Promis
             }
           }
 
-          let newPromoState = 'MUST_LOSE';
-          if (currentPromoState === 'MUST_WIN') {
-            newPromoState = 'MUST_LOSE';
-          } else {
-            newPromoState = 'MUST_WIN';
-          }
+          const isWinner = p.id === winner.id;
+          const newPromoState = isWinner ? 'MUST_LOSE' : 'MUST_WIN';
 
           if (!playerDoc.promoMatchState) {
             playerDoc.promoMatchState = {};
@@ -587,7 +583,7 @@ const handleMatchTermination = async (roomId: string, state: MatchState): Promis
           }
           playerDoc.markModified('promoMatchState');
           await playerDoc.save({ session });
-          console.log(`Flipped promoter ${p.id} stake ${state.entryFee} state from ${currentPromoState} to ${newPromoState} in regular match`);
+          console.log(`Flipped promoter ${p.id} stake ${state.entryFee} state from ${currentPromoState} to ${newPromoState} (Won: ${isWinner}) in regular match`);
         }
       }
     });

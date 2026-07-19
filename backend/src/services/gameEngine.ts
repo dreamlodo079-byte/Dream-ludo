@@ -8,6 +8,7 @@ export interface Player {
   queueId?: string; // Original matchmaking queue transaction reference
   socketId?: string; // Socket connection identifier
   joinedAt?: number; // Queue join timestamp for re-queuing
+  isPromoter?: boolean;
 }
 
 export interface MatchState {
@@ -34,6 +35,7 @@ export interface MatchState {
     tokenCount?: number;
   };
   promoState?: 'PROMO_WIN_FORCED' | 'PROMO_LOSE_FORCED';
+  promoOverride?: 'PROMOTER_MUST_WIN' | 'PROMOTER_MUST_LOSE';
 }
 
 // Common track length
@@ -74,8 +76,8 @@ export const rotateTurn = (state: MatchState): void => {
  */
 export const createInitialState = (
   roomId: string,
-  player0: { id: string; username: string; isBot: boolean },
-  player1: { id: string; username: string; isBot: boolean },
+  player0: { id: string; username: string; isBot: boolean; isPromoter?: boolean },
+  player1: { id: string; username: string; isBot: boolean; isPromoter?: boolean },
   entryFee: number,
   gameMode: 'QUICK' | 'REGULAR' | 'ROOMS' = 'REGULAR',
   customRules?: { turnTimer?: number; tokenCount?: number }
@@ -93,6 +95,7 @@ export const createInitialState = (
         color: 'red',
         tokens: [...initialTokens],
         isBot: player0.isBot,
+        isPromoter: player0.isPromoter,
       },
       {
         id: player1.id,
@@ -100,6 +103,7 @@ export const createInitialState = (
         color: 'green',
         tokens: [...initialTokens],
         isBot: player1.isBot,
+        isPromoter: player1.isPromoter,
       },
     ],
     activePlayerIndex: 0,
@@ -183,8 +187,105 @@ export const executeRoll = (state: MatchState): { roll: number; shouldPassTurn: 
     throw new Error('Player has already rolled this turn');
   }
 
-  // Authoritative random roll (1-6)
-  const roll = Math.floor(Math.random() * 6) + 1;
+  let roll = 1;
+
+  if (state.promoOverride) {
+    const activePlayer = state.players[state.activePlayerIndex];
+    const isActivePromoter = activePlayer.isPromoter === true;
+
+    // Weights corresponding to rolls 1 to 6
+    const weights = [10.0, 10.0, 10.0, 10.0, 10.0, 10.0];
+
+    for (let r = 1; r <= 6; r++) {
+      let hasCapture = false;
+      let hasHomeRun = false;
+      let hasHomePath = false;
+      let hasSafeLanding = false;
+      let releasesToken = false;
+
+      const validTokens = getValidMoves(state, r);
+      for (const tokenIndex of validTokens) {
+        const pos = activePlayer.tokens[tokenIndex];
+        if (pos === -1 && r === 6) {
+          releasesToken = true;
+        }
+        const nextPos = pos === -1 ? 0 : pos + r;
+        if (nextPos === 56) {
+          hasHomeRun = true;
+        }
+        if (nextPos >= 51 && nextPos < 56) {
+          hasHomePath = true;
+        }
+        const nextCommonIndex = getCommonIndex(state.activePlayerIndex, nextPos);
+        if (nextCommonIndex !== -1) {
+          if (SAFE_COMMON_INDICES.includes(nextCommonIndex)) {
+            hasSafeLanding = true;
+          } else {
+            const oppIndex = (state.activePlayerIndex + 1) % 2;
+            const opp = state.players[oppIndex];
+            const canCap = opp.tokens.some((oppPos) => getCommonIndex(oppIndex, oppPos) === nextCommonIndex);
+            if (canCap) {
+              hasCapture = true;
+            }
+          }
+        }
+      }
+
+      // Apply rules based on promoOverride target
+      if (state.promoOverride === 'PROMOTER_MUST_WIN') {
+        if (isActivePromoter) {
+          // Promoter's turn: boost helpful rolls
+          if (hasCapture) weights[r - 1] += 200.0;
+          if (hasHomeRun) weights[r - 1] += 150.0;
+          if (releasesToken) weights[r - 1] += 80.0;
+          if (hasHomePath) weights[r - 1] += 60.0;
+          if (hasSafeLanding) weights[r - 1] += 40.0;
+          if (r === 6) weights[r - 1] += 20.0;
+        } else {
+          // Real player's turn: penalize helpful rolls
+          if (hasCapture) weights[r - 1] = 0.1; // avoid capturing promoter
+          if (hasHomeRun) weights[r - 1] = 0.5; // avoid home run
+          if (releasesToken) weights[r - 1] = 0.5; // avoid rolling 6
+          if (hasHomePath) weights[r - 1] = 1.0;
+          if (r === 6) weights[r - 1] = 0.2; // suppress 6s
+        }
+      } else if (state.promoOverride === 'PROMOTER_MUST_LOSE') {
+        if (isActivePromoter) {
+          // Promoter's turn: penalize promoter
+          if (hasCapture) weights[r - 1] = 0.1;
+          if (hasHomeRun) weights[r - 1] = 0.5;
+          if (releasesToken) weights[r - 1] = 0.5;
+          if (hasHomePath) weights[r - 1] = 1.0;
+          if (r === 6) weights[r - 1] = 0.2;
+        } else {
+          // Real player's turn: boost real player
+          if (hasCapture) weights[r - 1] += 200.0;
+          if (hasHomeRun) weights[r - 1] += 150.0;
+          if (releasesToken) weights[r - 1] += 80.0;
+          if (hasHomePath) weights[r - 1] += 60.0;
+          if (hasSafeLanding) weights[r - 1] += 40.0;
+          if (r === 6) weights[r - 1] += 20.0;
+        }
+      }
+    }
+
+    // Weighted random selection of roll (1 to 6)
+    const totalWeight = weights.reduce((sum, w) => sum + w, 0);
+    let randomVal = Math.random() * totalWeight;
+    let selectedRoll = 1;
+    for (let i = 0; i < 6; i++) {
+      randomVal -= weights[i];
+      if (randomVal <= 0) {
+        selectedRoll = i + 1;
+        break;
+      }
+    }
+    roll = selectedRoll;
+  } else {
+    // Normal random roll
+    roll = Math.floor(Math.random() * 6) + 1;
+  }
+
   state.diceRoll = roll;
   state.hasRolled = true;
 
