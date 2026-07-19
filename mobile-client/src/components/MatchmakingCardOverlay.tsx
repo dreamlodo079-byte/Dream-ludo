@@ -19,6 +19,7 @@ import Animated, {
   cancelAnimation,
   interpolate,
   Extrapolation,
+  runOnJS,
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -256,9 +257,15 @@ export const MatchmakingCardOverlay: React.FC<MatchmakingCardOverlayProps> = ({
   // Handle Cancel Button Tap with Slide-Down Exit
   const handleCancelTap = () => {
     clearTimer();
-    cardTranslateY.value = withTiming(250, { duration: 200 }, () => {
-      onCancel();
+    cardTranslateY.value = withTiming(250, { duration: 200 }, (finished) => {
+      if (finished && typeof onCancel === 'function') {
+        runOnJS(onCancel)();
+      }
     });
+    // Fire JS callback immediately to unmount/leave queue if needed
+    if (typeof onCancel === 'function') {
+      onCancel();
+    }
   };
 
   // Helper for Initials
