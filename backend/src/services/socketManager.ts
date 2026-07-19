@@ -4,7 +4,6 @@ import { createAdapter } from '@socket.io/redis-adapter';
 import {
   MatchState,
   executeRoll,
-  executeMove,
   skipTurn,
 } from './gameEngine';
 import { runInTransaction } from '../config/db';
@@ -217,7 +216,8 @@ export const initializeSocketIO = async (server: any): Promise<Server> => {
       }
 
       try {
-        const { capturedToken } = executeMove(state, tokenIndex);
+        const { executeMove, rotateTurn } = require('./gameEngine');
+        const { capturedToken, getsBonusRoll } = executeMove(state, tokenIndex);
         await cacheRoomState(roomId, state);
 
         io.to(roomId).emit('TOKEN_MOVED', {
@@ -227,13 +227,33 @@ export const initializeSocketIO = async (server: any): Promise<Server> => {
           state,
         });
 
-        if (state.isTerminated) {
-          await handleMatchTermination(roomId, state);
-        } else {
-          io.to(roomId).emit('MATCH_STATE_UPDATE', state);
-          // Check if next player is bot
-          checkAndTriggerBot(roomId, state);
-        }
+        // Delay switching to give clients time to animate the move
+        const transitionDelay = capturedToken ? 1800 : 1200;
+        setTimeout(async () => {
+          try {
+            const latestState: MatchState | null = await getRoomState(roomId);
+            if (!latestState || latestState.isTerminated) return;
+
+            if (latestState.winnerId) {
+              await handleMatchTermination(roomId, latestState);
+            } else {
+              if (getsBonusRoll) {
+                latestState.hasRolled = false;
+                latestState.diceRoll = null;
+                latestState.turnTimer = latestState.customRules?.turnTimer || (latestState.gameMode === 'ROOMS' && latestState.customRules?.turnTimer) || 15;
+              } else {
+                rotateTurn(latestState);
+              }
+
+              await cacheRoomState(roomId, latestState);
+              io.to(roomId).emit('MATCH_STATE_UPDATE', latestState);
+              checkAndTriggerBot(roomId, latestState);
+            }
+          } catch (err) {
+            console.error(`Error finalizing delayed turn transition for room ${roomId}:`, err);
+          }
+        }, transitionDelay);
+
       } catch (err: any) {
         socket.emit('ERROR', { message: err.message });
       }
@@ -317,56 +337,65 @@ export const startRoomTimer = (roomId: string): void => {
   }
 
   const interval = setInterval(async () => {
-    const state: MatchState | null = await getRoomState(roomId);
-    if (!state || state.isTerminated) {
-      clearInterval(interval);
-      turnTimerIntervals.delete(roomId);
-      return;
-    }
-
-    // Process global countdown timer for QUICK mode
-    if (state.gameMode === 'QUICK' && state.matchTimer !== undefined) {
-      state.matchTimer -= 1;
-      if (state.matchTimer <= 0) {
-        state.isTerminated = true;
-
-        // Determine winner
-        const score0 = state.scores ? state.scores[0] : 0;
-        const score1 = state.scores ? state.scores[1] : 0;
-        if (score0 > score1) {
-          state.winnerId = state.players[0].id;
-        } else if (score1 > score0) {
-          state.winnerId = state.players[1].id;
-        } else {
-          state.winnerId = state.players[0].id;
-        }
-
-        await cacheRoomState(roomId, state);
-        await handleMatchTermination(roomId, state);
+    try {
+      const state: MatchState | null = await getRoomState(roomId);
+      if (!state || state.isTerminated) {
+        clearInterval(interval);
+        turnTimerIntervals.delete(roomId);
         return;
       }
-    }
 
-    state.turnTimer -= 1;
+      // Process global countdown timer for QUICK mode
+      if (state.gameMode === 'QUICK' && state.matchTimer !== undefined) {
+        state.matchTimer -= 1;
+        if (state.matchTimer <= 0) {
+          state.isTerminated = true;
 
-    if (state.turnTimer <= 0) {
-      // Time out! Skip turn
-      skipTurn(state);
-      await cacheRoomState(roomId, state);
-      io.to(roomId).emit('TURN_SKIPPED', {
-        message: 'Turn skipped due to inactivity.',
-        state,
-      });
+          // Determine winner
+          const score0 = state.scores ? state.scores[0] : 0;
+          const score1 = state.scores ? state.scores[1] : 0;
+          if (score0 > score1) {
+            state.winnerId = state.players[0].id;
+          } else if (score1 > score0) {
+            state.winnerId = state.players[1].id;
+          } else {
+            state.winnerId = state.players[0].id;
+          }
 
-      checkAndTriggerBot(roomId, state);
-    } else {
-      await cacheRoomState(roomId, state);
-      io.to(roomId).emit('TIMER_TICK', {
-        turnTimer: state.turnTimer,
-        activePlayerIndex: state.activePlayerIndex,
-        matchTimer: state.matchTimer,
-        scores: state.scores,
-      });
+          await cacheRoomState(roomId, state);
+          await handleMatchTermination(roomId, state);
+          return;
+        }
+      }
+
+      // Safeguard turnTimer against NaN or non-number types
+      if (typeof state.turnTimer !== 'number' || isNaN(state.turnTimer)) {
+        state.turnTimer = 15;
+      }
+
+      state.turnTimer -= 1;
+
+      if (state.turnTimer <= 0) {
+        // Time out! Skip turn
+        skipTurn(state);
+        await cacheRoomState(roomId, state);
+        io.to(roomId).emit('TURN_SKIPPED', {
+          message: 'Turn skipped due to inactivity.',
+          state,
+        });
+
+        checkAndTriggerBot(roomId, state);
+      } else {
+        await cacheRoomState(roomId, state);
+        io.to(roomId).emit('TIMER_TICK', {
+          turnTimer: state.turnTimer,
+          activePlayerIndex: state.activePlayerIndex,
+          matchTimer: state.matchTimer,
+          scores: state.scores,
+        });
+      }
+    } catch (error) {
+      console.error(`Error in room timer tick for room ${roomId}:`, error);
     }
   }, 1000);
 
@@ -483,6 +512,13 @@ const handleMatchTermination = async (roomId: string, state: MatchState): Promis
  */
 export const registerUserToRoom = (userId: string, roomId: string): void => {
   userActiveRooms.set(userId, roomId);
+  const activeSockets = userDeviceSockets.get(userId) || [];
+  activeSockets.forEach((sid) => {
+    const sock = io?.sockets.sockets.get(sid);
+    if (sock) {
+      sock.join(roomId);
+    }
+  });
 };
 
 export const getIO = (): Server => {

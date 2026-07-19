@@ -191,7 +191,7 @@ export const executeRoll = (state: MatchState): { roll: number; shouldPassTurn: 
  * Moves a token for the active player.
  * Checks for captures/cuts and handles win states.
  */
-export const executeMove = (state: MatchState, tokenIndex: number): { capturedToken: { playerIndex: number; tokenIndex: number } | null } => {
+export const executeMove = (state: MatchState, tokenIndex: number): { capturedToken: { playerIndex: number; tokenIndex: number } | null; getsBonusRoll: boolean } => {
   if (!state.hasRolled || state.diceRoll === null) {
     throw new Error('Roll dice before making a move');
   }
@@ -284,29 +284,17 @@ export const executeMove = (state: MatchState, tokenIndex: number): { capturedTo
     state.scores[activeIndex] += pointsEarned;
   }
 
-  // Reset roll state
-  state.hasRolled = false;
-  state.diceRoll = null;
-
   // Check if player won (all active tokens at 56)
   const isWinner = activePlayer.tokens.every((pos) => pos === 56);
   if (isWinner) {
     state.winnerId = activePlayer.id;
     state.isTerminated = true;
-  } else {
-    // Grant bonus roll if rolled 6, captured opponent, or reached goal (56)
-    const getsBonusRoll = roll === 6 || hasCaptured || nextPos === 56;
-    
-    if (getsBonusRoll) {
-      state.hasRolled = false;
-      state.diceRoll = null;
-      state.turnTimer = state.customRules?.turnTimer || (state.gameMode === 'ROOMS' && state.customRules?.turnTimer) || 15;
-    } else {
-      rotateTurn(state);
-    }
   }
 
-  return { capturedToken };
+  // Grant bonus roll if rolled 6, captured opponent, or reached goal (56)
+  const getsBonusRoll = roll === 6 || hasCaptured || nextPos === 56;
+
+  return { capturedToken, getsBonusRoll };
 };
 
 /**

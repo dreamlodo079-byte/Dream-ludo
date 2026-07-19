@@ -84,7 +84,7 @@ export const triggerBotTurn = (roomId: string): void => {
         // Determine which token to move using weighted matrix logic
         const selectedTokenIndex = selectBotTokenWeighted(state, validMoves);
 
-        const { capturedToken } = executeMove(state, selectedTokenIndex);
+        const { capturedToken, getsBonusRoll } = executeMove(state, selectedTokenIndex);
         await cacheRoomState(roomId, state);
 
         io.to(roomId).emit('TOKEN_MOVED', {
@@ -94,15 +94,35 @@ export const triggerBotTurn = (roomId: string): void => {
           state,
         });
 
-        if (state.isTerminated) {
-          await handleBotMatchTermination(roomId, state);
-        } else {
-          io.to(roomId).emit('MATCH_STATE_UPDATE', state);
-          const nextPlayer = state.players[state.activePlayerIndex];
-          if (nextPlayer.isBot) {
-            triggerBotTurn(roomId);
+        const transitionDelay = capturedToken ? 1800 : 1200;
+        setTimeout(async () => {
+          try {
+            const latestState: MatchState | null = await getRoomState(roomId);
+            if (!latestState || latestState.isTerminated) return;
+
+            if (latestState.winnerId) {
+              await handleBotMatchTermination(roomId, latestState);
+            } else {
+              if (getsBonusRoll) {
+                latestState.hasRolled = false;
+                latestState.diceRoll = null;
+                latestState.turnTimer = latestState.customRules?.turnTimer || (latestState.gameMode === 'ROOMS' && latestState.customRules?.turnTimer) || 15;
+              } else {
+                rotateTurn(latestState);
+              }
+
+              await cacheRoomState(roomId, latestState);
+              io.to(roomId).emit('MATCH_STATE_UPDATE', latestState);
+
+              const nextPlayer = latestState.players[latestState.activePlayerIndex];
+              if (nextPlayer.isBot) {
+                triggerBotTurn(roomId);
+              }
+            }
+          } catch (err) {
+            console.error(`Error finalizing bot delayed transition for room ${roomId}:`, err);
           }
-        }
+        }, transitionDelay);
       }
     } catch (err) {
       console.error(`Error executing bot turn in room ${roomId}:`, err);

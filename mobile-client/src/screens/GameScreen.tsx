@@ -13,6 +13,7 @@ import {
   StatusBar,
   SafeAreaView,
   useWindowDimensions,
+  Platform,
 } from 'react-native';
 import Svg, {
   Rect,
@@ -440,6 +441,76 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   const tokenPulseAnim = useRef(new Animated.Value(1)).current;
   const yourTurnAnim = useRef(new Animated.Value(0)).current;
 
+  // Match Found Transition State & Refs
+  const [showMatchFound, setShowMatchFound] = useState(true);
+  const matchFoundOpacity = useRef(new Animated.Value(1)).current;
+  const avatarsScale = useRef(new Animated.Value(0)).current;
+  const vsScale = useRef(new Animated.Value(0)).current;
+  const vsOpacity = useRef(new Animated.Value(0)).current;
+  const titleTranslateY = useRef(new Animated.Value(-150)).current;
+
+  useEffect(() => {
+    if (!matchState) return;
+
+    setShowMatchFound(true);
+    titleTranslateY.setValue(-150);
+    avatarsScale.setValue(0);
+    vsScale.setValue(0);
+    vsOpacity.setValue(0);
+    matchFoundOpacity.setValue(1);
+
+    // Let the view mount first on native, then start animation
+    const animTimeout = setTimeout(() => {
+      Animated.sequence([
+        // 1. Slide title down and pop player avatars
+        Animated.parallel([
+          Animated.spring(titleTranslateY, {
+            toValue: 0,
+            friction: 6,
+            tension: 40,
+            useNativeDriver: true,
+          }),
+          Animated.spring(avatarsScale, {
+            toValue: 1,
+            friction: 5,
+            tension: 30,
+            useNativeDriver: true,
+          }),
+        ]),
+        // 2. Pop VS in the middle
+        Animated.parallel([
+          Animated.spring(vsScale, {
+            toValue: 1,
+            friction: 4,
+            tension: 40,
+            useNativeDriver: true,
+          }),
+          Animated.timing(vsOpacity, {
+            toValue: 1,
+            duration: 350,
+            useNativeDriver: true,
+          }),
+        ]),
+      ]).start();
+    }, 100);
+
+    // After 2.6 seconds, fade out the overlay
+    const fadeOutTimeout = setTimeout(() => {
+      Animated.timing(matchFoundOpacity, {
+        toValue: 0,
+        duration: 400,
+        useNativeDriver: true,
+      }).start(() => {
+        setShowMatchFound(false);
+      });
+    }, 2600);
+
+    return () => {
+      clearTimeout(animTimeout);
+      clearTimeout(fadeOutTimeout);
+    };
+  }, [matchState !== null]);
+
   const pawnPositions = useRef(
     Array.from({ length: 8 }, () => new Animated.ValueXY({ x: 0, y: 0 }))
   ).current;
@@ -520,6 +591,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   useEffect(() => {
     if (!matchState) return;
     const activePlayer = matchState.players[matchState.activePlayerIndex];
+    if (!activePlayer) return;
     const isMyTurn = activePlayer.id === currentUser._id;
 
     if (isMyTurn && !matchState.hasRolled) {
@@ -725,6 +797,9 @@ export const GameScreen: React.FC<GameScreenProps> = ({
         const targetCoords = getTokenCoords(pIdx, tIdx, serverPos);
 
         if (visualPos === -1 && serverPos !== -1) {
+          pawnHeightOffsets[tokenIdx].setValue(0);
+          pawnScaleX[tokenIdx].setValue(1);
+          pawnScaleY[tokenIdx].setValue(1);
           Animated.spring(pawnPositions[tokenIdx], {
             toValue: targetCoords,
             useNativeDriver: true,
@@ -740,6 +815,9 @@ export const GameScreen: React.FC<GameScreenProps> = ({
           animateStepPath(pIdx, tIdx, visualPos, serverPos);
         } else {
           pawnPositions[tokenIdx].setValue(targetCoords);
+          pawnHeightOffsets[tokenIdx].setValue(0);
+          pawnScaleX[tokenIdx].setValue(1);
+          pawnScaleY[tokenIdx].setValue(1);
           visualPositions.current[tokenIdx] = serverPos;
         }
       });
@@ -887,8 +965,8 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   const myPlayerIndex = matchState.players.findIndex((p: any) => p.id === currentUser._id);
   const isWinner = winnerInfo !== null;
 
-  const p1TokensHome = matchState.players[0].tokens.filter((t: number) => t === 56).length;
-  const p2TokensHome = matchState.players[1].tokens.filter((t: number) => t === 56).length;
+  const p1TokensHome = matchState.players[0]?.tokens?.filter((t: number) => t === 56).length || 0;
+  const p2TokensHome = matchState.players[1]?.tokens?.filter((t: number) => t === 56).length || 0;
 
   const handleRollDice = () => {
     if (!isMyTurn || matchState.hasRolled || isDiceAnimating) return;
@@ -898,8 +976,9 @@ export const GameScreen: React.FC<GameScreenProps> = ({
 
 
   const handleTokenPress = (tokenIndex: number) => {
-    if (!isMyTurn || !matchState.hasRolled) return;
+    if (!isMyTurn || !matchState.hasRolled || myPlayerIndex === -1) return;
     const myPlayer = matchState.players[myPlayerIndex];
+    if (!myPlayer) return;
     const pos = myPlayer.tokens[tokenIndex];
     const roll = matchState.diceRoll;
 
@@ -931,8 +1010,9 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   const prizePool = (matchState.entryFee || 0) * 2 * 0.9;
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F1F5F9" />
+    <View style={{ flex: 1, position: 'relative' }}>
+      <SafeAreaView style={styles.container}>
+        <StatusBar barStyle="dark-content" backgroundColor="#F1F5F9" />
 
       {alertMessage && (
         <Animated.View
@@ -972,14 +1052,14 @@ export const GameScreen: React.FC<GameScreenProps> = ({
       {/* ========== PLAYER CARDS ========== */}
       <View style={styles.playerCardsRow}>
         <PlayerCard
-          username={matchState.players[0].username}
+          username={matchState.players[0]?.username || 'Player 1'}
           color="red"
           isActive={matchState.activePlayerIndex === 0}
-          isCurrentUser={matchState.players[0].id === currentUser._id}
+          isCurrentUser={matchState.players[0]?.id === currentUser._id}
           turnTimer={matchState.turnTimer}
           totalTime={15}
           tokensHome={p1TokensHome}
-          totalTokens={matchState.players[0].tokens.length}
+          totalTokens={matchState.players[0]?.tokens?.length || 4}
           score={matchState.gameMode === 'QUICK' ? (matchState.scores ? matchState.scores[0] : 0) : undefined}
           align="left"
         />
@@ -987,14 +1067,14 @@ export const GameScreen: React.FC<GameScreenProps> = ({
           <Text style={styles.vsText}>VS</Text>
         </View>
         <PlayerCard
-          username={matchState.players[1].username}
+          username={matchState.players[1]?.username || 'Player 2'}
           color="green"
           isActive={matchState.activePlayerIndex === 1}
-          isCurrentUser={matchState.players[1].id === currentUser._id}
+          isCurrentUser={matchState.players[1]?.id === currentUser._id}
           turnTimer={matchState.turnTimer}
           totalTime={15}
           tokensHome={p2TokensHome}
-          totalTokens={matchState.players[1].tokens.length}
+          totalTokens={matchState.players[1]?.tokens?.length || 4}
           score={matchState.gameMode === 'QUICK' ? (matchState.scores ? matchState.scores[1] : 0) : undefined}
           align="right"
         />
@@ -1595,7 +1675,53 @@ export const GameScreen: React.FC<GameScreenProps> = ({
           </View>
         </View>
       </Modal>
+
+      {/* ============ MATCH FOUND OVERLAY ============ */}
+      <Animated.View 
+        style={[styles.matchFoundOverlay, { opacity: matchFoundOpacity }]}
+        pointerEvents={showMatchFound ? 'auto' : 'none'}
+      >
+        <Animated.Text style={[styles.matchFoundTitle, { transform: [{ translateY: titleTranslateY }] }]}>
+          MATCH FOUND
+        </Animated.Text>
+        
+        <Animated.Text style={[styles.matchFoundSub, { opacity: vsOpacity }]}>
+          {matchState.gameMode || 'REGULAR'} MODE
+        </Animated.Text>
+
+        <View style={styles.vsRow}>
+          {/* Player 1 Circle */}
+          <Animated.View style={[styles.matchFoundPlayerCircle, styles.playerCircleRed, { transform: [{ scale: avatarsScale }] }]}>
+            <Text style={styles.matchFoundInitial}>
+              {matchState.players[0]?.username?.charAt(0).toUpperCase() || 'P'}
+            </Text>
+            <Text style={styles.matchFoundName} numberOfLines={1}>
+              {matchState.players[0]?.username || 'Player 1'}
+            </Text>
+          </Animated.View>
+
+          {/* VS Circle */}
+          <Animated.View style={[styles.matchFoundVsCircle, { opacity: vsOpacity, transform: [{ scale: vsScale }] }]}>
+            <Text style={styles.matchFoundVsText}>VS</Text>
+          </Animated.View>
+
+          {/* Player 2 Circle */}
+          <Animated.View style={[styles.matchFoundPlayerCircle, styles.playerCircleGreen, { transform: [{ scale: avatarsScale }] }]}>
+            <Text style={styles.matchFoundInitial}>
+              {matchState.players[1]?.username?.charAt(0).toUpperCase() || 'P'}
+            </Text>
+            <Text style={styles.matchFoundName} numberOfLines={1}>
+              {matchState.players[1]?.username || 'Player 2'}
+            </Text>
+          </Animated.View>
+        </View>
+
+        <Animated.Text style={[styles.matchFoundFooter, { opacity: vsOpacity }]}>
+          Prepare for battle...
+        </Animated.Text>
+      </Animated.View>
     </SafeAreaView>
+    </View>
   );
 };
 
@@ -1605,10 +1731,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#F1F5F9',
     alignItems: 'center',
     position: 'relative',
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 24) + 6 : 6,
   },
   toastContainer: {
     position: 'absolute',
-    top: 50,
+    top: Platform.OS === 'android' ? (StatusBar.currentHeight || 24) + 65 : 75,
     left: 20,
     right: 20,
     backgroundColor: 'rgba(15, 23, 42, 0.95)',
@@ -1637,6 +1764,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 24) + 10 : 20,
   },
   loadingText: {
     color: '#6366F1',
@@ -2264,6 +2392,103 @@ const styles = StyleSheet.create({
     borderColor: '#FCA5A5',
     overflow: 'hidden',
     textAlign: 'center',
+  },
+  matchFoundOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: '#0F172A',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10000,
+  },
+  matchFoundTitle: {
+    fontSize: 32,
+    fontWeight: '900',
+    color: '#F59E0B',
+    letterSpacing: 4,
+    marginBottom: 8,
+    textShadowColor: 'rgba(245, 158, 11, 0.4)',
+    textShadowOffset: { width: 0, height: 4 },
+    textShadowRadius: 10,
+  },
+  matchFoundSub: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#94A3B8',
+    letterSpacing: 2,
+    marginBottom: 60,
+  },
+  vsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+  },
+  matchFoundPlayerCircle: {
+    width: 110,
+    height: 110,
+    borderRadius: 55,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 10,
+  },
+  playerCircleRed: {
+    backgroundColor: '#EF4444',
+    borderColor: '#FCA5A5',
+  },
+  playerCircleGreen: {
+    backgroundColor: '#10B981',
+    borderColor: '#A7F3D0',
+  },
+  matchFoundInitial: {
+    fontSize: 48,
+    fontWeight: '900',
+    color: '#FFFFFF',
+  },
+  matchFoundName: {
+    position: 'absolute',
+    bottom: -35,
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    width: 140,
+    textAlign: 'center',
+  },
+  matchFoundVsCircle: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: '#1E293B',
+    borderWidth: 3,
+    borderColor: '#F59E0B',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginHorizontal: 20,
+    shadowColor: '#F59E0B',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  matchFoundVsText: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#F59E0B',
+  },
+  matchFoundFooter: {
+    marginTop: 80,
+    fontSize: 14,
+    color: '#64748B',
+    fontWeight: '600',
+    letterSpacing: 1,
   },
 });
 

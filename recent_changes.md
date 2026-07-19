@@ -27,6 +27,18 @@ This document tracks the git operations and environment configurations performed
   EXPO_PUBLIC_SERVER_URL="http://192.168.1.14:5000"
   ```
 * **Verification**: Verified that the backend port binding is correctly bound to `0.0.0.0:5000`, making it accessible on the local Wi-Fi network.
+### 3. Session 2 Fixes & UI/UX Optimizations
+* **Game Freeze Safety Guards**:
+  - Wrapped room turn timer updates inside a try-catch block and added fallback checks against `NaN` parameters inside `startRoomTimer` in [socketManager.ts](file:///e:/Documents/Nexus-Ludo/backend/src/services/socketManager.ts).
+  - Added player array index boundaries and optional chaining inside `handleTokenPress`, avatar rendering loops, and turn status hooks in [GameScreen.tsx](file:///e:/Documents/Nexus-Ludo/mobile-client/src/screens/GameScreen.tsx) to prevent `TypeError` exceptions from locking the JS thread.
+* **Winnings Wallet Modifications**:
+  - Created and ran a custom database migration script `add_balance.ts` in [backend/src/scratch/add_balance.ts](file:///e:/Documents/Nexus-Ludo/backend/src/scratch/add_balance.ts) crediting account `9405107842` (`Lucifer705`) with ₹5000 deposit and ₹5000 winnings balances.
+* **Pawn Animation Reset**:
+  - Implemented coordinate and scale resets inside the fallback render paths of [GameScreen.tsx](file:///e:/Documents/Nexus-Ludo/mobile-client/src/screens/GameScreen.tsx), solving the bug where interrupted tokens got stuck floating "in the air."
+* **Delayed Turn Switching**:
+  - Decoupled turn rotation from [gameEngine.ts](file:///e:/Documents/Nexus-Ludo/backend/src/services/gameEngine.ts). Added a `setTimeout` transition delay (1.2s for normal walks, 1.8s for captures) inside socket event listeners to ensure turns rotate only after pawn animations complete.
+* **Status Bar Layout Clipping**:
+  - Imported `Platform` and added dynamic top padding offsets to the main game arena, toast containers, and loaders in [GameScreen.tsx](file:///e:/Documents/Nexus-Ludo/mobile-client/src/screens/GameScreen.tsx) to accommodate Android status bars and notch cutouts.
 
 ---
 

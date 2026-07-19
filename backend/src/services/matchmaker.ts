@@ -18,6 +18,7 @@ export interface QueueUser {
   socketId: string;
   joinedAt: number;
   gameMode?: 'QUICK' | 'REGULAR' | 'ROOMS';
+  queueId?: string;
 }
 
 const MIN_ENTRY_FEE = 3; // Minimum allowed entry fee in INR
@@ -217,7 +218,9 @@ export const joinQueue = async (
   }
 
   // Debit fee immediately inside Mongoose transaction for queue protection
-  const queueId = `queue_${userId}_${entryFee}`;
+  const queueId = `queue_${userId}_${entryFee}_${Date.now()}`;
+  queueUser.queueId = queueId;
+
   try {
     await runInTransaction(async (session) => {
       await deductEntryFee(userId, entryFee, queueId, session);
@@ -340,7 +343,7 @@ export const leaveQueue = async (userId: string): Promise<{ success: boolean; me
           const match = key.match(/^queue:tier_(\d+)_mode_(QUICK|REGULAR)$/);
           if (match) {
             const entryFee = parseInt(match[1], 10);
-            const queueId = `queue_${userId}_${entryFee}`;
+            const queueId = player.queueId || `queue_${userId}_${entryFee}`;
             
             // Refund inside transaction
             await runInTransaction(async (session) => {
