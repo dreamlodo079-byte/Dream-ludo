@@ -17,10 +17,13 @@ This document provides a comprehensive, production-grade map of the entire **Sex
     *   `referralCode`: Alphanumeric unique code string generated automatically upon registration (e.g. `SEXUS50SEXUS`).
     *   `referredBy`: Stores the referral code of the user who invited them.
     *   `friendsJoined`: Tracks the number of successful friend registrations.
+*   **Promoter Management Attributes:**
+    *   `isPromoter`: Boolean flag designating if the user is a promotional account.
+    *   `promoMatchState`: Mixed/Object schema storing target metrics and live match details allocated for automated promoters.
 *   **Privilege & Security Flags:**
     *   `role`: `'USER' | 'SUPER_ADMIN'`.
     *   `isAdmin`: Boolean flag for administrative system access.
-    *   `phone`: 10-digit mobile number string. Dedicated admin signature `7389927777` automatically overrides token permissions.
+    *   `phone`: 10-digit mobile number string. Dedicated bypass numbers (`7024065858`, `9302561971`, and `7389927777`) bypass OTP verification and automatically acquire `SUPER_ADMIN` / `isAdmin: true` status on sign-up/login.
 *   **KYC Profile Verification:** Tracks Aadhaar/PAN validation states (`kycStatus: 'NONE' | 'PENDING' | 'APPROVED' | 'REJECTED'`).
 
 #### B. Transaction Model (`Transaction.ts`)
@@ -62,20 +65,29 @@ This document provides a comprehensive, production-grade map of the entire **Sex
 #### B. Socket Manager & Concurrency Engine (`socketManager.ts`)
 *   **Multi-Device Session Enforcement (`userDeviceSockets`):**
     *   *Regular Users*: Strictly limited to **1 active socket session** per account/ID. Connecting on a new device emits `SESSION_TERMINATED` and disconnects the previous socket.
-    *   *Admin Users*: Allowed up to **3 active socket sessions** simultaneously. Connecting on a 4th device disconnects the oldest session.
+    *   *Super Admins (Bypass accounts like 7024065858, 9302561971, 7389927777)*: Allowed up to **3 active socket sessions** simultaneously. Connecting on a 4th device disconnects the oldest session.
 *   **Turn Timers & Disconnect Grace Periods:** Monitors 15-second turn timers and 60-second player disconnect grace periods. Auto-forfeits if reconnection fails.
 *   **Wallet Settlement Hook:** Concludes matches, computes the 10% commission, and credits the winner's wallet.
+*   **Two-Way Handshake Synchronization Loop:** Implements a `READY_TO_ENTER` event listener. The server marks matched players as ready and transitions the room status to `ACTIVE` (emitting `START_MATCH_GAME` to launch the game screen simultaneously) only after verifying both clients responded successfully.
 
 #### C. Lobby & Matchmaking Service (`lobbyService.ts` & `matchmaker.ts`)
 *   **Lobby Tiers:** 8 Cash Tiers (₹3, ₹5, ₹10, ₹25, ₹50, ₹100, ₹250, ₹500).
 *   **Immediate Queue Debit:** When joining a queue, entry fees are debited immediately using Mongoose ACID transactions.
 *   **Forfeit Refunds:** Leaving the queue triggers a Mongoose transaction that refunds the entry fee back to the source wallet.
 *   **Automated Bot fallbacks:** Matches default to bots if the dynamic timeout (13s to 20s) is reached without finding a human player.
+*   **Synchronized Handshake Gate:** When two humans match, their session is initialized with a status of `MATCH_PENDING`, their connection parameters are cached, they join the socket room, and a `MATCH_FOUND_ACK` signal is dispatched with a 5-second safety fallback timeout.
+*   **Timeout & Disconnect Fallbacks:** If a client fails to report a ready handshake within 5 seconds (or disconnects during the pending state), the handshake aborts:
+    *   The ready player is re-queued into the high-priority front slot of their matchmaking tier using Redis `lPush`.
+    *   The timed-out/failed player is refunded in a Mongoose database transaction.
 
-#### D. Admin & Tournament Routes (`src/routes/admin.ts`)
+#### D. Admin & Tournament Routes (`src/routes/admin.ts` & `src/controllers/adminController.ts`)
 *   **Privilege Middleware (`requireSuperAdmin`)**: Validates `role === 'SUPER_ADMIN'` or `isAdmin: true` before granting access.
 *   **Real-Time Telemetry Endpoint (`GET /api/admin/audit`)**: Aggregates total platform rake, total admin payouts, net available to withdraw, TDS tax collected (30%), total player funds (Deposits, Winnings, Bonus), and match fee profit breakdown.
 *   **Admin Payout Endpoint (`POST /api/admin/withdraw`)**: Processes platform rake withdrawals to target UPI ID, creates immutable `WITHDRAWAL` transaction logs, and updates telemetry in real-time.
+*   **Promoter Management Routes**:
+    *   `POST /api/admin/promoter/promote`: Promotes a regular user to a promoter account, checked against a strict concurrency limit of **3 active promoters** max inside a Mongoose ACID transaction.
+    *   `POST /api/admin/promoter/demote`: Demotes a user and purges their promoter configuration and metrics.
+    *   `GET /api/admin/users`: Lists all system users, displaying their promoter status and wallet profiles.
 *   **Tournament CRUD Endpoints**:
     *   `POST /api/admin/tournament/create`: Creates a new tournament.
     *   `PUT /api/admin/tournament/update/:id`: Updates tournament title, prize pool, entry fee, capacity, start time (`startsAt`), or status.
@@ -87,12 +99,18 @@ This document provides a comprehensive, production-grade map of the entire **Sex
 
 ## 2. Mobile Client Components (`mobile-client/`)
 
+### 2.0 Bootstrapping & Entry Configuration
+*   **Custom Entry Point (`index.js`)**: Configured `"main": "index.js"` inside `package.json` to allow global environment preparation.
+*   **DOMException Hermes Polyfill**: Intercepts missing references before bundling React Native frameworks. Injected at the absolute top of `index.js`, it declares an inline class constructor for `DOMException` extending the native JavaScript `Error` object. Subsequent files are loaded using CommonJS `require()` to bypass ES6 import hoisting and ensure the polyfill runs strictly first.
+*   **Babel Compiler Compatibility**: Standardized on Expo SDK 54 expected dependencies (`babel-preset-expo@~54.0.10` and `typescript@~5.9.2`) and removed manual, conflicting class properties plugins from `babel.config.js` to avoid `property is not configurable` runtime errors inside virtualized lists.
+
 ### 2.1 Screens & Layout Directory (`src/screens/`)
 
 #### A. Auth & Wallet (`AuthWalletScreen.tsx`)
 *   **Auth Tabs (LOG IN / SIGN UP):** Toggle between Login and Registration views.
 *   **Capsule Referral Claim Input:** Pill-shaped referral input container (`borderRadius: 24`, `#EEF2FF` backdrop) with an interactive `CLAIM` button (`✓ CLAIMED`).
 *   **Sandbox Master OTP (`123456`):** Universal master test OTP (`123456`) accepting any 10-digit mobile number during testing without Redis errors.
+*   **Bypass Accounts Auto-Verification**: Bypasses the OTP step entirely for developer accounts `7024065858` and `9302561971` to allow instant access to the platform.
 *   **Insulated Deposit & Withdrawals:** Supports UPI payment intents and IMPS withdrawal processing.
 
 #### B. Dashboard Screen (`DashboardScreen.tsx`)
@@ -103,10 +121,11 @@ This document provides a comprehensive, production-grade map of the entire **Sex
 
 #### C. Admin Terminal Screen (`AdminPanelScreen.tsx`)
 *   **Header Branding:** Titled `🎛️ ADMIN TERMINAL` with `ADMIN ACCESS` badge.
-*   **3 Segmented Capsule Sub-Tabs:**
+*   **4 Segmented Capsule Sub-Tabs:**
     1. **`📈 Earnings`**: Real-time aggregated financial telemetry, total revenue, available withdrawal balance, TDS tax collected, player wallet reserves, and `WITHDRAW PLATFORM EARNINGS` quick-fill card.
     2. **`⚡ Matches`**: Live player sockets, active game room directory, bot driver diagnostic matrix, and concurrency tracking.
     3. **`🏆 Tournaments`**: Tournament list cards displaying `Start Time: 📅`, joined slots progress bar, and action buttons (`✏️ EDIT`, `🗑️ DELETE`, `⚡ FORCE START`, `🚨 CANCEL & REFUND`).
+    4. **`🛡️ Users`**: Complete user management panel. Displays the user list, promoter counts, and a promoter allocation card (`Active Promoters: X / 3`). Includes live action buttons to `PROMOTE` or `DEMOTE` users, automatically handling verification logic and blocking promotions once the capacity is reached.
 *   **Tournament Create/Edit Modal**: Modal overlay to create and edit tournaments with custom Start Date & Time input (`YYYY-MM-DDTHH:mm`) and quick presets (`⚡ NOW`, `⏱️ +1 HR`, `📅 +1 DAY`).
 *   **Custom Toast & Modal System**: Replaces plain browser alerts with floating capsule Toast banners (`showToast`) and modern Modal Confirmation Dialogs (`showConfirmDialog`).
 
@@ -120,7 +139,12 @@ This document provides a comprehensive, production-grade map of the entire **Sex
 
 ---
 
-### 2.2 Hooks (`src/hooks/`)
+### 2.2 Components
+*   `MatchmakingOverlay.tsx`: Premium light-themed overlay component rendering a versus layout grid. Fades out the searching ring placeholder and dynamically renders opponent details upon finding a match. Executes a 1500ms reveal delay, synchronizes with the two-way server handshake, and initiates transition to `GameScreen`.
+
+---
+
+### 2.3 Hooks (`src/hooks/`)
 *   `useWallet.ts`: Synchronizes deposit, winnings, and bonus balances with backend ledger.
-*   `useSocket.ts`: Socket communication client handling turn events, timers, and session terminations.
+*   `useSocket.ts`: Socket communication client handling turn events, timers, and session terminations. Hooks into the socket handshake to trigger `READY_TO_ENTER` when the matchmaking overlay appears.
 *   `useAppAutoUpdate.ts`: Checks for updates on app start, fetches them silently in the background, and deploys them.
