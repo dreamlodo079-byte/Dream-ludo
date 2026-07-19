@@ -10,6 +10,7 @@ import {
   Modal,
 } from 'react-native';
 import axios from 'axios';
+import { CustomAlertModal, CustomAlertOptions } from '../components/CustomAlertModal';
 
 const API_SERVER_URL = process.env.EXPO_PUBLIC_SERVER_URL || 'http://localhost:5000';
 
@@ -35,7 +36,7 @@ export const LeaderboardScreen: React.FC<LeaderboardScreenProps> = ({ onBack }) 
   const [users, setUsers] = useState<LeaderboardUser[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const [customAlert, setCustomAlert] = useState<{ visible: boolean; title: string; message: string; type: 'success' | 'error' | 'info' }>({
+  const [customAlert, setCustomAlert] = useState<CustomAlertOptions>({
     visible: false,
     title: '',
     message: '',
@@ -198,38 +199,10 @@ export const LeaderboardScreen: React.FC<LeaderboardScreenProps> = ({ onBack }) 
           </View>
         </ScrollView>
       )}
-      {customAlert.visible && (
-        <Modal visible={true} transparent animationType="fade">
-          <View style={styles.alertOverlay}>
-            <View style={styles.alertCard}>
-              <View style={[
-                styles.alertIconCircle,
-                customAlert.type === 'success' ? styles.alertIcon_success :
-                customAlert.type === 'error' ? styles.alertIcon_error :
-                styles.alertIcon_info
-              ]}>
-                <Text style={[styles.alertIconText, { color: customAlert.type === 'success' ? '#10B981' : customAlert.type === 'error' ? '#EF4444' : '#4F46E5' }]}>
-                  {customAlert.type === 'success' ? '✓' : customAlert.type === 'error' ? '✕' : 'ℹ'}
-                </Text>
-              </View>
-              <Text style={styles.alertTitle}>{customAlert.title}</Text>
-              <Text style={styles.alertMessage}>{customAlert.message}</Text>
-              <TouchableOpacity 
-                style={[
-                  styles.alertButton,
-                  customAlert.type === 'success' ? styles.alertBtn_success :
-                  customAlert.type === 'error' ? styles.alertBtn_error :
-                  styles.alertBtn_info
-                ]} 
-                onPress={() => setCustomAlert({ ...customAlert, visible: false })}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.alertButtonText}>Got It</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </Modal>
-      )}
+      <CustomAlertModal
+        alert={customAlert}
+        onClose={() => setCustomAlert((prev) => ({ ...prev, visible: false }))}
+      />
     </View>
   );
 };

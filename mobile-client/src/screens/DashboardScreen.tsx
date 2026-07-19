@@ -26,6 +26,7 @@ import { AuthWalletScreen } from './AuthWalletScreen';
 import { LiveArenaScreen } from './LiveArenaScreen';
 import { AdminPanelScreen } from './AdminPanelScreen';
 import { MatchmakingCardOverlay } from '../components/MatchmakingCardOverlay';
+import { CustomAlertModal, CustomAlertOptions } from '../components/CustomAlertModal';
 
 const API_SERVER_URL = process.env.EXPO_PUBLIC_SERVER_URL || 'http://localhost:5000';
 const ENTRY_FEES = [50, 100, 500, 1000];
@@ -156,15 +157,32 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
 
   const [currentView, setCurrentView] = useState<'HOME' | 'LIVE' | 'LEADERBOARD' | 'PROFILE' | 'ADMIN'>('HOME');
 
-  const [customAlert, setCustomAlert] = useState<{ visible: boolean; title: string; message: string; type: 'success' | 'error' | 'info' }>({
+  const [customAlert, setCustomAlert] = useState<CustomAlertOptions>({
     visible: false,
     title: '',
     message: '',
     type: 'info',
   });
 
-  const showCustomAlert = (title: string, message: string, type: 'success' | 'error' | 'info' = 'info') => {
-    setCustomAlert({ visible: true, title, message, type });
+  const showCustomAlert = (
+    title: string,
+    message: string,
+    type: 'success' | 'error' | 'info' | 'wallet' = 'info',
+    onConfirm?: () => void,
+    onCancel?: () => void,
+    confirmText?: string,
+    cancelText?: string
+  ) => {
+    setCustomAlert({
+      visible: true,
+      title,
+      message,
+      type,
+      onConfirm,
+      onCancel,
+      confirmText,
+      cancelText,
+    });
   };
 
   // Upper Carousel Toggle tabs (QUICK, REGULAR, ROOMS)
@@ -248,18 +266,19 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
 
   const handleJoinMatchmaking = async () => {
     if (!socketId) {
-      Alert.alert('Connection Notice', 'Establishing server link, please try again in a moment.');
+      showCustomAlert('Connection Notice', 'Establishing server link, please try again in a moment.', 'info');
       return;
     }
 
     if (balances.total < selectedTier) {
-      Alert.alert(
+      showCustomAlert(
         'Insufficient Wallet Balance',
         `Your balance is ₹${balances.total.toFixed(2)}. Entry fee is ₹${selectedTier}. Please add cash or claim rewards to play!`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Add Cash', onPress: () => setCurrentView('PROFILE') },
-        ]
+        'wallet',
+        () => setCurrentView('PROFILE'),
+        () => {},
+        'ADD CASH',
+        'CANCEL'
       );
       return;
     }
@@ -919,38 +938,10 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
       </View>
 
       {/* Premium Custom Alert Modal */}
-      {customAlert.visible && (
-        <Modal visible={true} transparent animationType="fade">
-          <View style={styles.alertOverlay}>
-            <View style={styles.alertCard}>
-              <View style={[
-                styles.alertIconCircle,
-                customAlert.type === 'success' ? styles.alertIcon_success :
-                customAlert.type === 'error' ? styles.alertIcon_error :
-                styles.alertIcon_info
-              ]}>
-                <Text style={[styles.alertIconText, { color: customAlert.type === 'success' ? '#10B981' : customAlert.type === 'error' ? '#EF4444' : '#4F46E5' }]}>
-                  {customAlert.type === 'success' ? '✓' : customAlert.type === 'error' ? '✕' : 'ℹ'}
-                </Text>
-              </View>
-              <Text style={styles.alertTitle}>{customAlert.title}</Text>
-              <Text style={styles.alertMessage}>{customAlert.message}</Text>
-              <TouchableOpacity 
-                style={[
-                  styles.alertButton,
-                  customAlert.type === 'success' ? styles.alertBtn_success :
-                  customAlert.type === 'error' ? styles.alertBtn_error :
-                  styles.alertBtn_info
-                ]} 
-                onPress={() => setCustomAlert({ ...customAlert, visible: false })}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.alertButtonText}>Got It</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </Modal>
-      )}
+      <CustomAlertModal
+        alert={customAlert}
+        onClose={() => setCustomAlert((prev) => ({ ...prev, visible: false }))}
+      />
       {/* Matchmaking Status Overlay Card */}
       <MatchmakingCardOverlay
         visible={isSearching}

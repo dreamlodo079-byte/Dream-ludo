@@ -10,6 +10,8 @@ import { LeaderboardScreen } from './src/screens/LeaderboardScreen';
 import { ChallengeScreen } from './src/screens/ChallengeScreen';
 import { WalletProvider, useWallet } from './src/hooks/useWallet';
 import { MatchmakingCardOverlay } from './src/components/MatchmakingCardOverlay';
+import { CustomToast, ToastOptions } from './src/components/CustomToast';
+import { CustomAlertModal, CustomAlertOptions } from './src/components/CustomAlertModal';
 
 const API_SERVER_URL = process.env.EXPO_PUBLIC_SERVER_URL || 'http://localhost:5000';
 
@@ -64,6 +66,7 @@ function AppContent() {
 
   const [showOverlay, setShowOverlay] = useState(false);
   const [matchedOpponent, setMatchedOpponent] = useState<any>(null);
+  const [toast, setToast] = useState<ToastOptions>({ visible: false, message: '', type: 'info' });
 
   // Load session from localStorage on startup
   useEffect(() => {
@@ -102,7 +105,11 @@ function AppContent() {
       setShowOverlay(false);
       setMatchedOpponent(null);
       clearMatchFoundData();
-      alert(handshakeTimeoutData.reason || 'Matchmaking handshake timed out.');
+      setToast({
+        visible: true,
+        message: handshakeTimeoutData.reason || 'Matchmaking handshake timed out.',
+        type: 'error',
+      });
       clearHandshakeTimeoutData();
     }
   }, [handshakeTimeoutData, clearMatchFoundData, clearHandshakeTimeoutData]);
@@ -264,6 +271,11 @@ function AppContent() {
         onAnimationComplete={handleOverlayComplete}
         durationSeconds={30}
         entryFee={matchFoundData?.entryFee}
+      />
+      {/* Top Floating Toast Notification */}
+      <CustomToast
+        toast={toast}
+        onDismiss={() => setToast((prev) => ({ ...prev, visible: false }))}
       />
     </SafeAreaView>
   );

@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useWallet } from '../hooks/useWallet';
+import { CustomToast } from '../components/CustomToast';
 import {
   View,
   Text,
@@ -327,11 +329,14 @@ export const LiveArenaScreen: React.FC<LiveArenaScreenProps> = ({
         <Text style={styles.headerTitle}>LIVE BATTLE ARENA</Text>
       </View>
 
-      {dropdownMsg && (
-        <View style={[styles.dropdownAlert, dropdownMsg.type === 'error' ? styles.dropdownAlertError : styles.dropdownAlertSuccess]}>
-          <Text style={styles.dropdownAlertText}>{dropdownMsg.text}</Text>
-        </View>
-      )}
+      <CustomToast
+        toast={{
+          visible: !!dropdownMsg,
+          message: dropdownMsg?.text || '',
+          type: dropdownMsg?.type || 'info',
+        }}
+        onDismiss={() => setDropdownMsg(null)}
+      />
 
       {/* Screen Explanatory Tagline */}
       <View style={styles.taglineCard}>
