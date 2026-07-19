@@ -1,4 +1,3 @@
-// Polyfill global DOMException to support modern third-party package APIs in Hermes
 if (typeof global.DOMException === 'undefined') {
   class DOMException extends Error {
     constructor(message, name) {
@@ -6,7 +5,18 @@ if (typeof global.DOMException === 'undefined') {
       this.name = name || 'DOMException';
     }
   }
-  global.DOMException = DOMException;
+  try {
+    Object.defineProperty(global, 'DOMException', {
+      value: DOMException,
+      writable: true,
+      configurable: true,
+      enumerable: false,
+    });
+  } catch (e) {
+    try {
+      global.DOMException = DOMException;
+    } catch (_e) {}
+  }
 }
 
 // Use require instead of import to prevent ES6 module hoisting

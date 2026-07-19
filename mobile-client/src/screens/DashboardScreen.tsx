@@ -25,6 +25,7 @@ import { ChallengeScreen } from './ChallengeScreen';
 import { AuthWalletScreen } from './AuthWalletScreen';
 import { LiveArenaScreen } from './LiveArenaScreen';
 import { AdminPanelScreen } from './AdminPanelScreen';
+import { MatchmakingCardOverlay } from '../components/MatchmakingCardOverlay';
 
 const API_SERVER_URL = process.env.EXPO_PUBLIC_SERVER_URL || 'http://localhost:5000';
 const ENTRY_FEES = [50, 100, 500, 1000];
@@ -294,6 +295,18 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
       clearInterval(countdown);
       setIsSearching(false);
       showCustomAlert('Error', err.response?.data?.error || err.message, 'error');
+    }
+  };
+
+  const handleCancelQueue = async () => {
+    setIsSearching(false);
+    try {
+      await axios.post(`${API_SERVER_URL}/api/payments/matchmaker/leave`, {
+        userId: currentUser._id,
+        entryFee: selectedTier,
+      });
+    } catch (err) {
+      console.warn('Failed to cancel matchmaking from dashboard:', err);
     }
   };
 
@@ -627,36 +640,17 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   </View>
                 </View>
 
-                {isSearching ? (
-                  <View style={styles.searchingCard}>
-                    <View style={{ alignItems: 'center', justifyContent: 'center', height: 120 }}>
-                      <Animated.View style={{ transform: [{ scale: radarPulse }], opacity: radarOpacity, position: 'absolute' }}>
-                        <Svg width="120" height="120" viewBox="0 0 120 120">
-                          <Circle cx="60" cy="60" r="50" fill="none" stroke="#4F46E5" strokeWidth="2.5" opacity="0.4" />
-                          <Circle cx="60" cy="60" r="30" fill="none" stroke="#4F46E5" strokeWidth="1.5" opacity="0.2" />
-                        </Svg>
-                      </Animated.View>
-                      <ActivityIndicator size="large" color="#4F46E5" />
-                    </View>
-                    <Text style={styles.searchingText}>LOOKING FOR ACTIVE PLAYERS...</Text>
-                    <Text style={styles.timerText}>Starting match shortly in {searchTimer}s</Text>
-                    <TouchableOpacity style={styles.cancelBtn} onPress={() => setIsSearching(false)}>
-                      <Text style={styles.cancelBtnText}>CANCEL</Text>
-                    </TouchableOpacity>
+                <AnimatedPressable
+                  style={styles.primaryActionBtn}
+                  onPress={handleJoinMatchmaking}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FFF" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 8 }}>
+                      <Path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+                    </Svg>
+                    <Text style={styles.primaryActionText}>FIND QUICK MATCH</Text>
                   </View>
-                ) : (
-                  <AnimatedPressable
-                    style={styles.primaryActionBtn}
-                    onPress={handleJoinMatchmaking}
-                  >
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      <Svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FFF" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 8 }}>
-                        <Path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
-                      </Svg>
-                      <Text style={styles.primaryActionText}>FIND QUICK MATCH</Text>
-                    </View>
-                  </AnimatedPressable>
-                )}
+                </AnimatedPressable>
               </View>
             )}
 
@@ -711,27 +705,15 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   </View>
                 </View>
 
-                {isSearching ? (
-                  <View style={styles.searchingCard}>
-                    <View style={{ alignItems: 'center', justifyContent: 'center', height: 120 }}>
-                      <ActivityIndicator size="large" color="#4F46E5" />
-                    </View>
-                    <Text style={styles.searchingText}>MATCHMAKING ACTIVE...</Text>
-                    <TouchableOpacity style={styles.cancelBtn} onPress={() => setIsSearching(false)}>
-                      <Text style={styles.cancelBtnText}>CANCEL</Text>
-                    </TouchableOpacity>
-                  </View>
-                ) : (
-                  <AnimatedPressable
-                    style={[
-                      styles.primaryActionBtn,
-                      { backgroundColor: '#2563EB' }
-                    ]}
-                    onPress={handleJoinMatchmaking}
-                  >
-                    <Text style={styles.primaryActionText}>FIND REGULAR MATCH</Text>
-                  </AnimatedPressable>
-                )}
+                <AnimatedPressable
+                  style={[
+                    styles.primaryActionBtn,
+                    { backgroundColor: '#2563EB' }
+                  ]}
+                  onPress={handleJoinMatchmaking}
+                >
+                  <Text style={styles.primaryActionText}>FIND REGULAR MATCH</Text>
+                </AnimatedPressable>
               </View>
             )}
 
@@ -969,6 +951,14 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           </View>
         </Modal>
       )}
+      {/* Matchmaking Status Overlay Card */}
+      <MatchmakingCardOverlay
+        visible={isSearching}
+        onCancel={handleCancelQueue}
+        onAnimationComplete={() => setIsSearching(false)}
+        durationSeconds={13}
+        entryFee={selectedTier}
+      />
     </View>
   );
 };
