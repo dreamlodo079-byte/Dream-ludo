@@ -61,6 +61,7 @@ This document provides a comprehensive, production-grade map of the entire **Sex
     *   **Safe Zones:** Tokens on starting spots or star cells are protected.
     *   **Roll & Move Validations:** Calculates token path coordinates.
 *   **Server Bot Logic:** Simulates realistic player behavior and moves.
+*   **Forced Promotional States:** Extends `MatchState` with an optional `promoState` parameter (`'PROMO_WIN_FORCED' | 'PROMO_LOSE_FORCED'`) to dynamically govern the bot's pathing strategy.
 
 #### B. Socket Manager & Concurrency Engine (`socketManager.ts`)
 *   **Multi-Device Session Enforcement (`userDeviceSockets`):**
@@ -69,6 +70,7 @@ This document provides a comprehensive, production-grade map of the entire **Sex
 *   **Turn Timers & Disconnect Grace Periods:** Monitors 15-second turn timers and 60-second player disconnect grace periods. Auto-forfeits if reconnection fails.
 *   **Wallet Settlement Hook:** Concludes matches, computes the 10% commission, and credits the winner's wallet.
 *   **Two-Way Handshake Synchronization Loop:** Implements a `READY_TO_ENTER` event listener. The server marks matched players as ready and transitions the room status to `ACTIVE` (emitting `START_MATCH_GAME` to launch the game screen simultaneously) only after verifying both clients responded successfully.
+*   **Promoter Outcome Flipping:** Checks for `isPromoter === true` in the database transaction upon match termination. Swaps the promoter's target state for that custom stake key (`stake_<fee>`) from `MUST_WIN` to `MUST_LOSE` or vice versa.
 
 #### C. Lobby & Matchmaking Service (`lobbyService.ts` & `matchmaker.ts`)
 *   **Lobby Tiers:** 8 Cash Tiers (₹3, ₹5, ₹10, ₹25, ₹50, ₹100, ₹250, ₹500).
@@ -79,6 +81,7 @@ This document provides a comprehensive, production-grade map of the entire **Sex
 *   **Timeout & Disconnect Fallbacks:** If a client fails to report a ready handshake within 5 seconds (or disconnects during the pending state), the handshake aborts:
     *   The ready player is re-queued into the high-priority front slot of their matchmaking tier using Redis `lPush`.
     *   The timed-out/failed player is refunded in a Mongoose database transaction.
+*   **Promoter Queue Interceptor:** Intercepts queue entries for accounts with `isPromoter === true`. It bypasses the human matching pool entirely, debits the fee, queries the custom stake key (e.g. `stake_13`) to identify if they must win or lose, and instantly launches a bot match with the corresponding `promoState`.
 
 #### D. Admin & Tournament Routes (`src/routes/admin.ts` & `src/controllers/adminController.ts`)
 *   **Privilege Middleware (`requireSuperAdmin`)**: Validates `role === 'SUPER_ADMIN'` or `isAdmin: true` before granting access.
@@ -94,6 +97,12 @@ This document provides a comprehensive, production-grade map of the entire **Sex
     *   `DELETE /api/admin/tournament/delete/:id`: Permanently deletes a tournament.
     *   `POST /api/admin/tournament/trigger`: Force-starts a tournament bracket immediately.
     *   `POST /api/admin/tournament/cancel`: Cancels a tournament and refunds all entry fees to registrants in Mongoose ACID transactions.
+
+#### E. Bot Driver & Pathing Engine (`botDriver.ts`)
+*   **Dynamic Outcomes Pathing:** Employs customized weights based on `state.promoState`:
+    *   **Forced Bot Loss (`PROMO_WIN_FORCED`)**: Bot plays sub-optimally to guarantee the promoter wins. It actively avoids captures, safe zones, and entering the home zone.
+    *   **Forced Bot Win (`PROMO_LOSE_FORCED`)**: Bot plays in a high-difficulty mode, selecting the mathematically optimal move deterministically.
+*   **Promoter Outcome Flipping:** Similar to the socket manager, swaps the promoter's target win/loss state inside the database transaction when a bot match terminates.
 
 ---
 
