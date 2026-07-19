@@ -21,6 +21,8 @@ export interface IUser extends Document {
   friendsJoined?: number;
   referredBy?: string | null;
   password?: string;
+  isPromoter?: boolean;
+  promoMatchState?: Record<string, any>;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -62,6 +64,14 @@ const UserSchema = new Schema<IUser, IUserModel>(
     isAdmin: {
       type: Boolean,
       default: false,
+    },
+    isPromoter: {
+      type: Boolean,
+      default: false,
+    },
+    promoMatchState: {
+      type: Schema.Types.Mixed,
+      default: {},
     },
     panNumber: {
       type: String,

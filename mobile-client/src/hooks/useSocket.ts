@@ -11,6 +11,8 @@ export const useSocket = (userId: string | null) => {
   const [tokenMoveInfo, setTokenMoveInfo] = useState<any>(null);
   const [winnerInfo, setWinnerInfo] = useState<any>(null);
   const [alertMessage, setAlertMessage] = useState<string | null>(null);
+  const [matchFoundData, setMatchFoundData] = useState<any>(null);
+  const [handshakeTimeoutData, setHandshakeTimeoutData] = useState<any>(null);
 
   useEffect(() => {
     if (!userId) return;
@@ -88,6 +90,22 @@ export const useSocket = (userId: string | null) => {
       setAlertMessage(`Error: ${data.message}`);
     });
 
+    socket.on('MATCH_FOUND_ACK', (data: any) => {
+      console.log('Match found ACK received:', data);
+      setMatchFoundData(data);
+    });
+
+    socket.on('START_MATCH_GAME', ({ roomId, state }: { roomId: string; state: any }) => {
+      console.log('Match start game received:', roomId);
+      setMatchState(state);
+      setWinnerInfo(null);
+    });
+
+    socket.on('MATCH_HANDSHAKE_TIMEOUT', (data: any) => {
+      console.log('Match handshake timeout:', data);
+      setHandshakeTimeoutData(data);
+    });
+
     return () => {
       socket.disconnect();
     };
@@ -120,6 +138,22 @@ export const useSocket = (userId: string | null) => {
     setWinnerInfo(null);
     setDiceRollInfo(null);
     setTokenMoveInfo(null);
+    setMatchFoundData(null);
+    setHandshakeTimeoutData(null);
+  }, []);
+
+  const sendReadyToEnter = useCallback((roomId: string) => {
+    if (socketRef.current) {
+      socketRef.current.emit('READY_TO_ENTER', { roomId });
+    }
+  }, []);
+
+  const clearMatchFoundData = useCallback(() => {
+    setMatchFoundData(null);
+  }, []);
+
+  const clearHandshakeTimeoutData = useCallback(() => {
+    setHandshakeTimeoutData(null);
   }, []);
 
   return {
@@ -135,5 +169,10 @@ export const useSocket = (userId: string | null) => {
     requestMove,
     requestForfeit,
     resetMatchState,
+    matchFoundData,
+    handshakeTimeoutData,
+    sendReadyToEnter,
+    clearMatchFoundData,
+    clearHandshakeTimeoutData,
   };
 };

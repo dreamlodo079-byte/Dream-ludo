@@ -630,7 +630,7 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
                     onFocus={() => setIsFocusedOtp(true)}
                     onBlur={() => setIsFocusedOtp(false)}
                     autoCorrect={false}
-                    autoComplete="one-time-code"
+                    autoComplete="sms-otp"
                     textContentType="oneTimeCode"
                     importantForAutofill="no"
                   />

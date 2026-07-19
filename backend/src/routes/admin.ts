@@ -5,6 +5,7 @@ import { Tournament, TournamentStatus } from '../models/Tournament';
 import { getRedisClient } from '../config/redis';
 import { authenticateJWT, requireSuperAdmin, AuthenticatedRequest } from '../middleware/auth';
 import { initializeTournamentRound } from '../services/tournamentEngine';
+import { getUsers, promoteUser, demoteUser } from '../controllers/adminController';
 
 const router = Router();
 
@@ -450,5 +451,10 @@ router.post('/kyc/action', async (req: AuthenticatedRequest, res: Response) => {
     return res.status(500).json({ error: err.message });
   }
 });
+
+// Promoter Management Routes
+router.get('/users', getUsers as any);
+router.post('/promoter/promote', promoteUser as any);
+router.post('/promoter/demote', demoteUser as any);
 
 export default router;

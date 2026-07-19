@@ -40,7 +40,7 @@ interface AdminPanelScreenProps {
   onBack: () => void;
 }
 
-type TabType = 'AUDIT' | 'CONCURRENCY' | 'TOURNAMENT';
+type TabType = 'AUDIT' | 'CONCURRENCY' | 'TOURNAMENT' | 'COMPLIANCE';
 
 export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({ onBack }) => {
   const [activeTab, setActiveTab] = useState<TabType>('AUDIT');
@@ -57,6 +57,8 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({ onBack }) =>
   const [tournaments, setTournaments] = useState<any[]>([]);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [kycUsers, setKycUsers] = useState<any[]>([]);
+  const [usersList, setUsersList] = useState<any[]>([]);
+  const [promoterCount, setPromoterCount] = useState(0);
   // Custom Toast Banner & Confirmation Modal States
   const [toast, setToast] = useState<{
     visible: boolean;
@@ -318,6 +320,12 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({ onBack }) =>
         if (res.data.success) {
           setTournaments(res.data.tournaments || []);
         }
+      } else if (tab === 'COMPLIANCE') {
+        const res = await axios.get(`${API_SERVER_URL}/api/admin/users`, { headers });
+        if (res.data.success) {
+          setUsersList(res.data.users || []);
+          setPromoterCount(res.data.promoterCount || 0);
+        }
       }
     } catch (err: any) {
       console.error('Error fetching admin telemetry data:', err);
@@ -416,6 +424,48 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({ onBack }) =>
     }
   };
 
+  const handlePromoteUser = async (userId: string) => {
+    setActionLoading(`promote_${userId}`);
+    try {
+      const token = await fetchAuthToken();
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const res = await axios.post(
+        `${API_SERVER_URL}/api/admin/promoter/promote`,
+        { userId },
+        { headers }
+      );
+      if (res.data.success) {
+        showToast('Promoted! 💚', 'User successfully promoted to Promoter status.', 'success');
+        loadDataForTab('COMPLIANCE');
+      }
+    } catch (err: any) {
+      showToast('Promotion Failed', err.response?.data?.error || err.message, 'error');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleDemoteUser = async (userId: string) => {
+    setActionLoading(`demote_${userId}`);
+    try {
+      const token = await fetchAuthToken();
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const res = await axios.post(
+        `${API_SERVER_URL}/api/admin/promoter/demote`,
+        { userId },
+        { headers }
+      );
+      if (res.data.success) {
+        showToast('Demoted! 💔', 'User successfully demoted to regular status.', 'success');
+        loadDataForTab('COMPLIANCE');
+      }
+    } catch (err: any) {
+      showToast('Demotion Failed', err.response?.data?.error || err.message, 'error');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   return (
     <View style={styles.container}>
       {/* Admin Header */}
@@ -453,6 +503,14 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({ onBack }) =>
         >
           <Text style={[styles.tabText, activeTab === 'TOURNAMENT' && styles.activeTabText]} numberOfLines={1}>
             🏆 Tournaments
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tabButton, activeTab === 'COMPLIANCE' && styles.activeTabButton]}
+          onPress={() => setActiveTab('COMPLIANCE')}
+        >
+          <Text style={[styles.tabText, activeTab === 'COMPLIANCE' && styles.activeTabText]} numberOfLines={1}>
+            🛡️ Users
           </Text>
         </TouchableOpacity>
       </View>
@@ -797,6 +855,87 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({ onBack }) =>
                   );
                 })
               )}
+            </View>
+          )}
+
+          {/* TAB D: Compliance / User & Promoter Management */}
+          {activeTab === 'COMPLIANCE' && (
+            <View>
+              {/* Promoter Capacity Counter Card */}
+              <View style={styles.sectionCard}>
+                <View style={styles.cardHeaderRow}>
+                  <Text style={styles.cardHeaderTitle}>🛡️ PROMOTIONAL ACCOUNT MANAGEMENT</Text>
+                  <Text style={[
+                    styles.cardHeaderBadge,
+                    promoterCount >= 3 ? { backgroundColor: '#FEE2E2', color: '#B91C1C' } : { backgroundColor: '#ECFDF5', color: '#047857' }
+                  ]}>
+                    Active Promoters: {promoterCount} / 3
+                  </Text>
+                </View>
+                <Text style={styles.promoterDescription}>
+                  Promoters are special mock accounts designed to test real-money lobby matches dynamically. The platform limits active promoters to exactly 3 accounts.
+                </Text>
+              </View>
+
+              {/* Users & Promoters Table Card */}
+              <View style={styles.sectionCard}>
+                <Text style={styles.cardHeaderTitle}>ALL REGISTERED USERS</Text>
+                {usersList.length === 0 ? (
+                  <Text style={styles.emptyText}>No registered users found.</Text>
+                ) : (
+                  usersList.map((userItem) => {
+                    const isPromoted = userItem.isPromoter === true;
+                    const isPromoting = actionLoading === `promote_${userItem._id}`;
+                    const isDemoting = actionLoading === `demote_${userItem._id}`;
+                    const limitReached = promoterCount >= 3;
+
+                    return (
+                      <View key={userItem._id} style={styles.userRow}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.userUsername}>{userItem.username}</Text>
+                          <Text style={styles.userSubText}>
+                            Phone: {userItem.phone} • Registered: {formatDateTime(userItem.createdAt)}
+                          </Text>
+                        </View>
+
+                        <View style={styles.userActions}>
+                          {isPromoted ? (
+                            <TouchableOpacity
+                              style={[styles.userActionBtn, styles.demoteBtn]}
+                              onPress={() => handleDemoteUser(userItem._id)}
+                              disabled={isDemoting}
+                              activeOpacity={0.8}
+                            >
+                              {isDemoting ? (
+                                <ActivityIndicator color="#FFFFFF" size="small" />
+                              ) : (
+                                <Text style={styles.userActionText}>DEMOTE</Text>
+                              )}
+                            </TouchableOpacity>
+                          ) : (
+                            <TouchableOpacity
+                              style={[
+                                styles.userActionBtn,
+                                styles.promoteBtn,
+                                (limitReached || isPromoting) && styles.disabledBtn
+                              ]}
+                              onPress={() => handlePromoteUser(userItem._id)}
+                              disabled={limitReached || isPromoting}
+                              activeOpacity={0.8}
+                            >
+                              {isPromoting ? (
+                                <ActivityIndicator color="#FFFFFF" size="small" />
+                              ) : (
+                                <Text style={styles.userActionText}>PROMOTE</Text>
+                              )}
+                            </TouchableOpacity>
+                          )}
+                        </View>
+                      </View>
+                    );
+                  })
+                )}
+              </View>
             </View>
           )}
         </ScrollView>
@@ -1788,6 +1927,58 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '900',
     letterSpacing: 0.5,
+  },
+  promoterDescription: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748B',
+    lineHeight: 18,
+    marginTop: 8,
+  },
+  userRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  userUsername: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  userSubText: {
+    fontSize: 11,
+    color: '#94A3B8',
+    marginTop: 2,
+    fontWeight: '600',
+  },
+  userActions: {
+    marginLeft: 12,
+  },
+  userActionBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 80,
+  },
+  userActionText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  promoteBtn: {
+    backgroundColor: '#10B981',
+  },
+  demoteBtn: {
+    backgroundColor: '#EF4444',
+  },
+  disabledBtn: {
+    backgroundColor: '#CBD5E1',
+    opacity: 0.6,
   },
 });
 

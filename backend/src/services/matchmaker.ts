@@ -412,10 +412,7 @@ const createLiveMatch = async (
       registerUserToRoom(p2.userId, roomId);
     }
 
-    // 3. Cache state in Redis
-    await cacheRoomState(roomId, matchState);
-
-    // 4. Connect sockets to room
+    // Cache state in Redis and connect sockets to room
     const p1Socket = io.sockets.sockets.get(p1.socketId);
     if (p1Socket) p1Socket.join(roomId);
 
@@ -424,19 +421,62 @@ const createLiveMatch = async (
       if (p2Socket) p2Socket.join(roomId);
     }
 
-    console.log(`Match created in room ${roomId} (Mode: ${gameMode}). Players: ${p1.username} vs ${p2.username}`);
+    if (!hasBot) {
+      // Human vs Human matchmaking synchronization handshake
+      matchState.status = 'MATCH_PENDING';
+      
+      // Save tracking info on players
+      matchState.players[0].queueId = p1.queueId;
+      matchState.players[0].socketId = p1.socketId;
+      matchState.players[0].joinedAt = p1.joinedAt;
 
-    // Emit match start and state
-    io.to(roomId).emit('MATCH_START', { roomId, state: matchState });
+      matchState.players[1].queueId = p2.queueId;
+      matchState.players[1].socketId = p2.socketId;
+      matchState.players[1].joinedAt = p2.joinedAt;
 
-    // Start turn countdown timer
-    startRoomTimer(roomId);
+      await cacheRoomState(roomId, matchState);
+      
+      console.log(`Match pending handshake in room ${roomId}. Players: ${p1.username} vs ${p2.username}`);
 
-    // If active player is the bot, trigger its initial play sequence
-    const activePlayer = matchState.players[matchState.activePlayerIndex];
-    if (activePlayer.isBot) {
-      const { triggerBotTurn } = require('./botDriver'); // Avoid circular dependency
-      triggerBotTurn(roomId);
+      // Dispatch MATCH_FOUND_ACK to trigger client overlays
+      io.to(roomId).emit('MATCH_FOUND_ACK', {
+        roomId,
+        entryFee,
+        gameMode,
+        players: matchState.players.map(p => ({
+          id: p.id,
+          username: p.username,
+          isBot: p.isBot
+        }))
+      });
+
+      // Start safety timeout fallback (5 seconds)
+      const { setHandshakeTimer, handleHandshakeTimeout } = require('./socketManager');
+      const handshakeTimeout = setTimeout(async () => {
+        await handleHandshakeTimeout(roomId);
+      }, 5000);
+      setHandshakeTimer(roomId, handshakeTimeout);
+
+    } else {
+      // Bot match: immediately start active game session
+      matchState.status = 'ACTIVE';
+      await cacheRoomState(roomId, matchState);
+
+      console.log(`Match created in room ${roomId} against bot. Player: ${p1.username}`);
+
+      // Emit start signals
+      io.to(roomId).emit('MATCH_START', { roomId, state: matchState });
+      io.to(roomId).emit('START_MATCH_GAME', { roomId, state: matchState });
+
+      // Start turn countdown timer
+      startRoomTimer(roomId);
+
+      // Trigger bot's initial turn
+      const activePlayer = matchState.players[matchState.activePlayerIndex];
+      if (activePlayer.isBot) {
+        const { triggerBotTurn } = require('./botDriver'); // Avoid circular dependency
+        triggerBotTurn(roomId);
+      }
     }
   } catch (error) {
     console.error(`Failed to initialize match for room ${roomId}:`, error);

@@ -2,6 +2,7 @@
   "expo": {
     "name": "Sexus",
     "slug": "sexus-platform",
+    "newArchEnabled": true,
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",

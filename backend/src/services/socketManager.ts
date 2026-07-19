@@ -24,6 +24,21 @@ const turnTimerIntervals = new Map<string, NodeJS.Timeout>();
 // Map of userId -> NodeJS.Timeout for the 60-second reconnection grace period
 const reconnectTimers = new Map<string, NodeJS.Timeout>();
 
+// Map of roomId -> NodeJS.Timeout for the 5-second handshake timer
+const handshakeTimers = new Map<string, NodeJS.Timeout>();
+
+export const setHandshakeTimer = (roomId: string, timer: NodeJS.Timeout): void => {
+  handshakeTimers.set(roomId, timer);
+};
+
+export const clearHandshakeTimer = (roomId: string): void => {
+  const timer = handshakeTimers.get(roomId);
+  if (timer) {
+    clearTimeout(timer);
+    handshakeTimers.delete(roomId);
+  }
+};
+
 // Map of userId -> current active roomId
 const userActiveRooms = new Map<string, string>();
 
@@ -89,7 +104,12 @@ export const initializeSocketIO = async (server: any): Promise<Server> => {
       try {
         // Fetch User to determine device limit (1 for regular users, 3 for admins)
         const userDoc = await User.findById(userId);
-        const isAdminUser = userDoc?.isAdmin || userDoc?.role === 'SUPER_ADMIN' || userDoc?.phone === '7389927777';
+        const isAdminUser =
+          userDoc?.isAdmin ||
+          userDoc?.role === 'SUPER_ADMIN' ||
+          userDoc?.phone === '7389927777' ||
+          userDoc?.phone === '7024065858' ||
+          userDoc?.phone === '9302561971';
         const maxAllowedSessions = isAdminUser ? 3 : 1;
 
         let activeSockets = userDeviceSockets.get(userId) || [];
@@ -140,6 +160,43 @@ export const initializeSocketIO = async (server: any): Promise<Server> => {
       }
     });
 
+    socket.on('READY_TO_ENTER', async ({ roomId }: { roomId: string }) => {
+      const userId = socketUserMap.get(socket.id);
+      if (!userId || !roomId) return;
+
+      const state: MatchState | null = await getRoomState(roomId);
+      if (!state || state.status !== 'MATCH_PENDING' || state.isTerminated) return;
+
+      const pIndex = state.players.findIndex((p) => p.id === userId);
+      if (pIndex !== -1) {
+        state.players[pIndex].ready = true;
+        await cacheRoomState(roomId, state);
+        console.log(`Player ${userId} marked ready in room ${roomId}`);
+      }
+
+      // Check if both players (or all human players) are ready
+      const allReady = state.players.every((p) => p.isBot || p.ready);
+      if (allReady) {
+        clearHandshakeTimer(roomId);
+        state.status = 'ACTIVE';
+        await cacheRoomState(roomId, state);
+
+        console.log(`Handshake succeeded for room ${roomId}. Starting game.`);
+
+        // Emit START_MATCH_GAME to the room
+        io.to(roomId).emit('START_MATCH_GAME', { roomId, state });
+
+        // Start turn countdown timer
+        startRoomTimer(roomId);
+
+        // Trigger bot turn if needed (unlikely on dual ready, but safe fallback)
+        const activePlayer = state.players[state.activePlayerIndex];
+        if (activePlayer.isBot) {
+          triggerBotTurn(roomId);
+        }
+      }
+    });
+
     socket.on('REQUEST_ROLL', async ({ roomId }: { roomId: string }) => {
       const userId = socketUserMap.get(socket.id);
       if (!userId) return;
@@ -182,7 +239,6 @@ export const initializeSocketIO = async (server: any): Promise<Server> => {
         });
 
         if (shouldPassTurn) {
-          const playerName = activePlayer.username;
           if (consecutiveReset) {
             // We can keep this alert or remove it. The user just said "Turn skipped, User rolled 3 invalid move turn skipped".
             // Let's remove the alerts completely as requested to keep it smooth.
@@ -316,26 +372,34 @@ export const initializeSocketIO = async (server: any): Promise<Server> => {
 
         const roomId = userActiveRooms.get(userId);
         if (roomId) {
-          // Start 60-second grace period for reconnection
-          io.to(roomId).emit('SYSTEM_ALERT', { message: `A player has disconnected. Grace period of 60 seconds to reconnect.` });
-          const timer = setTimeout(async () => {
-            console.log(`Reconnection timeout. User ${userId} forfeited match in room ${roomId}`);
-            const state: MatchState | null = await getRoomState(roomId);
-            if (state && !state.isTerminated) {
-              // Forfeit: The other player wins (stable userId search)
-              const otherPlayerIndex = state.players.findIndex((p) => p.id !== userId);
-              const otherPlayer = state.players[otherPlayerIndex];
-              if (otherPlayer) {
-                state.winnerId = otherPlayer.id;
-                state.isTerminated = true;
-                await cacheRoomState(roomId, state);
-                io.to(roomId).emit('MATCH_STATE_UPDATE', state);
-                await handleMatchTermination(roomId, state);
-              }
+          getRoomState(roomId).then(async (state) => {
+            if (state && state.status === 'MATCH_PENDING') {
+              console.log(`User ${userId} disconnected during handshake in room ${roomId}. Aborting match.`);
+              await handleHandshakeTimeout(roomId);
+              return;
             }
-          }, 60000);
 
-          reconnectTimers.set(userId, timer);
+            // Start 60-second grace period for reconnection
+            io.to(roomId).emit('SYSTEM_ALERT', { message: `A player has disconnected. Grace period of 60 seconds to reconnect.` });
+            const timer = setTimeout(async () => {
+              console.log(`Reconnection timeout. User ${userId} forfeited match in room ${roomId}`);
+              const latestState: MatchState | null = await getRoomState(roomId);
+              if (latestState && !latestState.isTerminated) {
+                // Forfeit: The other player wins (stable userId search)
+                const otherPlayerIndex = latestState.players.findIndex((p) => p.id !== userId);
+                const otherPlayer = latestState.players[otherPlayerIndex];
+                if (otherPlayer) {
+                  latestState.winnerId = otherPlayer.id;
+                  latestState.isTerminated = true;
+                  await cacheRoomState(roomId, latestState);
+                  io.to(roomId).emit('MATCH_STATE_UPDATE', latestState);
+                  await handleMatchTermination(roomId, latestState);
+                }
+              }
+            }, 60000);
+
+            reconnectTimers.set(userId, timer);
+          });
         }
         socketUserMap.delete(socket.id);
       }
@@ -549,4 +613,86 @@ export const registerUserToRoom = (userId: string, roomId: string): void => {
 
 export const getIO = (): Server => {
   return io;
+};
+
+export const handleHandshakeTimeout = async (roomId: string): Promise<void> => {
+  clearHandshakeTimer(roomId);
+  const state: MatchState | null = await getRoomState(roomId);
+  if (!state || state.status === 'ACTIVE' || state.isTerminated) return;
+
+  console.log(`Handshake timed out/cancelled for room ${roomId}. Performing re-queue/refund routines.`);
+
+  // Mark state as terminated so no further actions are processed
+  state.isTerminated = true;
+  await cacheRoomState(roomId, state);
+
+  const redis = getRedisClient();
+  const { refundEntryFee } = require('./matchmaker');
+
+  for (const player of state.players) {
+    if (player.isBot) continue;
+
+    // Disconnect user socket from room mapping
+    userActiveRooms.delete(player.id);
+
+    // Get player's active socket connections
+    const sids = userDeviceSockets.get(player.id) || [];
+    
+    if (player.ready) {
+      // 1. Re-queue the ready player to the front of their matchmaking tier (high-priority slot)
+      const queueKey = `queue:tier_${state.entryFee}_mode_${state.gameMode || 'REGULAR'}`;
+      const queueUser = {
+        userId: player.id,
+        username: player.username,
+        socketId: player.socketId || (sids[0] || ''),
+        joinedAt: player.joinedAt || Date.now(),
+        gameMode: state.gameMode,
+        queueId: player.queueId,
+      };
+
+      if (redis) {
+        await redis.lPush(queueKey, JSON.stringify(queueUser));
+        console.log(`Returned ready player ${player.username} (${player.id}) to front of queue: ${queueKey}`);
+      }
+
+      // Notify player of handshake timeout, telling them they are re-queued
+      sids.forEach((sid) => {
+        const sock = io.sockets.sockets.get(sid);
+        if (sock) {
+          sock.emit('MATCH_HANDSHAKE_TIMEOUT', {
+            roomId,
+            reason: 'Opponent failed to connect. Searching for a new match...',
+            action: 'RE-ENTER_QUEUE',
+          });
+        }
+      });
+    } else {
+      // 2. Refund the player who timed out/failed to join
+      if (player.queueId) {
+        console.log(`Refunding timed out player ${player.username} (${player.id}) for queue session ${player.queueId}`);
+        try {
+          await runInTransaction(async (session) => {
+            await refundEntryFee(player.id, state.entryFee, player.queueId!, session);
+          });
+        } catch (err) {
+          console.error(`Refund transaction failed for user ${player.id} on handshake timeout:`, err);
+        }
+      }
+
+      // Notify player of handshake timeout, telling them search is dismissed
+      sids.forEach((sid) => {
+        const sock = io.sockets.sockets.get(sid);
+        if (sock) {
+          sock.emit('MATCH_HANDSHAKE_TIMEOUT', {
+            roomId,
+            reason: 'Connection handshake timed out.',
+            action: 'DISMISS',
+          });
+        }
+      });
+    }
+  }
+
+  // Cleanup room state from Redis cache
+  await deleteRoomState(roomId);
 };

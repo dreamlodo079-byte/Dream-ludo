@@ -4,6 +4,10 @@ export interface Player {
   color: 'red' | 'green';
   tokens: number[]; // Array of tokens, values range from -1 (in yard) to 56 (home run terminal)
   isBot: boolean;
+  ready?: boolean; // Handshake readiness flag
+  queueId?: string; // Original matchmaking queue transaction reference
+  socketId?: string; // Socket connection identifier
+  joinedAt?: number; // Queue join timestamp for re-queuing
 }
 
 export interface MatchState {
@@ -18,6 +22,7 @@ export interface MatchState {
   isTerminated: boolean;
   entryFee: number;
   preTurnTokens?: number[][]; // Coordinates snapshot at start of turn to process 3x consecutive 6s rollback
+  status?: 'MATCH_PENDING' | 'ACTIVE'; // State synchronization status
 
   // Custom Game Modes (QUICK, REGULAR, ROOMS)
   gameMode?: 'QUICK' | 'REGULAR' | 'ROOMS';
