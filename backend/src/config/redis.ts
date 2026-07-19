@@ -44,12 +44,18 @@ class InMemRedisStore {
     return matchedKeys;
   }
   async incr(key: string) {
-    const rawVal = this.store.get(key);
-    let val = rawVal ? parseInt(rawVal, 10) : 0;
-    if (isNaN(val)) val = 0;
-    val += 1;
-    this.store.set(key, val.toString());
+    return this.incrBy(key, 1);
+  }
+  async incrBy(key: string, increment: number) {
+    const val = Number(this.store.get(key) || 0) + increment;
+    this.store.set(key, String(val));
     return val;
+  }
+  async decr(key: string) {
+    return this.incrBy(key, -1);
+  }
+  async decrBy(key: string, decrement: number) {
+    return this.incrBy(key, -decrement);
   }
   async expire(key: string, seconds: number) {
     setTimeout(() => {
@@ -94,31 +100,6 @@ class InMemRedisStore {
     });
     this.lists.set(key, newList);
     return removed;
-  }
-  async keys(pattern: string) {
-    const regex = new RegExp('^' + pattern.replace(/\*/g, '.*') + '$');
-    const matched: string[] = [];
-    for (const k of this.store.keys()) {
-      if (regex.test(k)) matched.push(k);
-    }
-    for (const k of this.lists.keys()) {
-      if (regex.test(k)) matched.push(k);
-    }
-    return matched;
-  }
-  async incr(key: string) {
-    return this.incrBy(key, 1);
-  }
-  async incrBy(key: string, increment: number) {
-    const val = Number(this.store.get(key) || 0) + increment;
-    this.store.set(key, String(val));
-    return val;
-  }
-  async decr(key: string) {
-    return this.incrBy(key, -1);
-  }
-  async decrBy(key: string, decrement: number) {
-    return this.incrBy(key, -decrement);
   }
 }
 

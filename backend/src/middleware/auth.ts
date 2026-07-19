@@ -8,6 +8,8 @@ export interface AuthenticatedRequest extends Request {
   user?: {
     userId: string;
     username: string;
+    role?: string;
+    isAdmin?: boolean;
   };
   token?: string;
 }
@@ -39,8 +41,19 @@ export const authenticateJWT = async (
     }
 
     // Verify token validity
-    const decoded = jwt.verify(token, JWT_SECRET) as { userId: string; username: string; exp?: number };
-    req.user = { userId: decoded.userId, username: decoded.username };
+    const decoded = jwt.verify(token, JWT_SECRET) as {
+      userId: string;
+      username: string;
+      role?: string;
+      isAdmin?: boolean;
+      exp?: number;
+    };
+    req.user = {
+      userId: decoded.userId,
+      username: decoded.username,
+      role: decoded.role,
+      isAdmin: decoded.isAdmin,
+    };
     req.token = token;
 
     return next();
@@ -48,6 +61,20 @@ export const authenticateJWT = async (
     console.error('JWT verification error:', error);
     return res.status(401).json({ error: 'Invalid or expired token' });
   }
+};
+
+/**
+ * Express Middleware to enforce Super-Admin access restriction.
+ */
+export const requireSuperAdmin = async (
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  if (!req.user || (req.user.role !== 'SUPER_ADMIN' && !req.user.isAdmin)) {
+    return res.status(403).json({ error: 'Forbidden: Super-Admin authorization required' });
+  }
+  return next();
 };
 
 /**
