@@ -11,12 +11,16 @@ export const connectDB = async (): Promise<void> => {
       maxPoolSize: 100,             // Allows up to 100 parallel database connections per server instance
       minPoolSize: 10,              // Keeps 10 connections always warmed up
       socketTimeoutMS: 45000,       // Closes stagnant sockets after 45 seconds
+      serverSelectionTimeoutMS: 10000, // Timeout server selection after 10s
       retryWrites: true,
       w: 'majority'                 // Guarantees transaction validation across Atlas cluster replica sets
     });
     console.log("Production MongoDB Pool Initialized Successfully.");
-  } catch (error) {
-    console.error("Database connection failure:", error);
+  } catch (error: any) {
+    console.error("Database connection failure:", error?.message || error);
+    if (error?.message?.includes('whitelisted') || error?.name === 'MongooseServerSelectionError') {
+      console.error("\n⚠️ MONGODB ATLAS NETWORK ACCESS NOTICE:\nPlease ensure your current IP address (or 0.0.0.0/0 for access everywhere) is added to MongoDB Atlas -> Network Access Whitelist.\n");
+    }
     process.exit(1);
   }
 };
