@@ -26,8 +26,12 @@ const MIN_ENTRY_FEE = 3; // Minimum allowed entry fee in INR
 let checkQueueInterval: NodeJS.Timeout | null = null;
 
 const botNames = [
-  'ProLudoPlayer', 'DiceMaster', 'LuckyRoller', 'TokenRunner', 'LudoLegend',
-  'KingOfLudo', 'SuperStriker', 'SafeZoneHero', 'SpeedRunner', 'VictorySeeker'
+  'Rahul_99', 'Aarav_Sharma', 'Vikram_RMG', 'Amit_Verma', 'Rohan_Ludo',
+  'Priya_Singh', 'Karan_Player', 'Deepak_98', 'Rajesh_K', 'Sunil_R',
+  'Sanjay_M', 'Anil_Kumar', 'Vijay_P', 'Manish_S', 'Suresh_Player',
+  'Pooja_Sharma', 'Neha_Gupta', 'Ramesh_Ludo', 'Ajay_King', 'Dinesh_Master',
+  'Abhishek_07', 'Sachin_Pro', 'Varun_95', 'Gaurav_X', 'Nitin_RMG',
+  'Mohit_Star', 'Pawan_Ludo', 'Ritik_Player', 'Suraj_R', 'Deepika_S'
 ];
 
 const getRandomBotName = (): string => {
@@ -81,7 +85,7 @@ export const processMatchmakingQueue = async (tier: number, mode: 'QUICK' | 'REG
 
           // Spawn server bot
           const botId = `bot_${Date.now()}`;
-          const botUsername = `${getRandomBotName()} (Bot)`;
+          const botUsername = getRandomBotName();
           const botPlayer: QueueUser = {
             userId: botId,
             username: botUsername,
