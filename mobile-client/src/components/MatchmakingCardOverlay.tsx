@@ -205,7 +205,7 @@ export const MatchmakingCardOverlay: React.FC<MatchmakingCardOverlayProps> = ({
     }
   }, [visible, durationSeconds]);
 
-  // ─── 2. Functional Ticker & Auto-Cancel Logic 
+  // ─── 2. Functional Ticker & Grace Period Auto-Cancel Logic 
   useEffect(() => {
     if (!visible || opponent) {
       clearTimer();
@@ -218,7 +218,6 @@ export const MatchmakingCardOverlay: React.FC<MatchmakingCardOverlayProps> = ({
       setSecondsLeft((prev) => {
         if (prev <= 1) {
           clearTimer();
-          handleCancelTap();
           return 0;
         }
         return prev - 1;
@@ -227,6 +226,18 @@ export const MatchmakingCardOverlay: React.FC<MatchmakingCardOverlayProps> = ({
 
     return clearTimer;
   }, [visible, opponent, durationSeconds, clearTimer]);
+
+  useEffect(() => {
+    if (secondsLeft <= 0 && visible && !opponent && !isSuccess) {
+      // 2-second grace period to allow the server-side matchmaking loop to inject a bot
+      const graceTimeout = setTimeout(() => {
+        if (!opponent && !isSuccess && visible) {
+          handleCancelTap();
+        }
+      }, 2000);
+      return () => clearTimeout(graceTimeout);
+    }
+  }, [secondsLeft, visible, opponent, isSuccess]);
 
   // ─── 3. Match Secured Split-Snap VS Reveal ─
   useEffect(() => {

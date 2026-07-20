@@ -5,6 +5,7 @@ const SOCKET_SERVER_URL = process.env.EXPO_PUBLIC_SERVER_URL || 'http://localhos
 
 export const useSocket = (userId: string | null) => {
   const socketRef = useRef<Socket | null>(null);
+  const isInMatchRef = useRef(false);
   const [isConnected, setIsConnected] = useState(false);
   const [matchState, setMatchState] = useState<any>(null);
   const [diceRollInfo, setDiceRollInfo] = useState<any>(null);
@@ -41,6 +42,7 @@ export const useSocket = (userId: string | null) => {
 
     socket.on('MATCH_START', ({ roomId, state }: { roomId: string; state: any }) => {
       console.log('Match started in room:', roomId);
+      isInMatchRef.current = true;
       setMatchState(state);
       setWinnerInfo(null);
     });
@@ -83,7 +85,9 @@ export const useSocket = (userId: string | null) => {
 
     socket.on('MATCH_TERMINATED', (data: any) => {
       console.log('Match terminated:', data);
-      setWinnerInfo(data);
+      if (isInMatchRef.current) {
+        setWinnerInfo(data);
+      }
     });
 
     socket.on('ERROR', (data: { message: string }) => {
@@ -97,6 +101,7 @@ export const useSocket = (userId: string | null) => {
 
     socket.on('START_MATCH_GAME', ({ roomId, state }: { roomId: string; state: any }) => {
       console.log('Match start game received:', roomId);
+      isInMatchRef.current = true;
       setMatchState(state);
       setWinnerInfo(null);
     });
@@ -134,6 +139,7 @@ export const useSocket = (userId: string | null) => {
   }, []);
 
   const resetMatchState = useCallback(() => {
+    isInMatchRef.current = false;
     setMatchState(null);
     setWinnerInfo(null);
     setDiceRollInfo(null);

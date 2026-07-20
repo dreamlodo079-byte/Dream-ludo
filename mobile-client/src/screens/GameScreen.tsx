@@ -983,8 +983,9 @@ export const GameScreen: React.FC<GameScreenProps> = ({
     setShowExitConfirm(false);
     if (requestForfeit) {
       requestForfeit(roomId);
+    } else {
+      onLeaveMatch();
     }
-    onLeaveMatch();
   };
 
   const rotZInterpolate = diceRotZ.interpolate({
