@@ -441,15 +441,37 @@ export const startRoomTimer = (roomId: string): void => {
         if (state.matchTimer <= 0) {
           state.isTerminated = true;
 
-          // Determine winner
+          // Determine winner using score and tie-breaker rules
           const score0 = state.scores ? state.scores[0] : 0;
           const score1 = state.scores ? state.scores[1] : 0;
+
           if (score0 > score1) {
             state.winnerId = state.players[0].id;
           } else if (score1 > score0) {
             state.winnerId = state.players[1].id;
           } else {
-            state.winnerId = state.players[0].id;
+            // TIE-BREAKER 1: Compare tokens at home (56)
+            const home0 = state.players[0].tokens.filter(pos => pos === 56).length;
+            const home1 = state.players[1].tokens.filter(pos => pos === 56).length;
+
+            if (home0 > home1) {
+              state.winnerId = state.players[0].id;
+            } else if (home1 > home0) {
+              state.winnerId = state.players[1].id;
+            } else {
+              // TIE-BREAKER 2: Compare overall progress (sum of positions)
+              const progress0 = state.players[0].tokens.reduce((acc, pos) => acc + (pos === -1 ? 0 : pos), 0);
+              const progress1 = state.players[1].tokens.reduce((acc, pos) => acc + (pos === -1 ? 0 : pos), 0);
+
+              if (progress0 > progress1) {
+                state.winnerId = state.players[0].id;
+              } else if (progress1 > progress0) {
+                state.winnerId = state.players[1].id;
+              } else {
+                // Fallback
+                state.winnerId = state.players[0].id;
+              }
+            }
           }
 
           await cacheRoomState(roomId, state);

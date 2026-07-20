@@ -389,15 +389,21 @@ export const executeMove = (state: MatchState, tokenIndex: number): { capturedTo
     }
   }
 
+  let oppPosBeforeReset = -1;
   // --- MUTATION PHASE (Fully validated, safe to write state) ---
   activePlayer.tokens[tokenIndex] = nextPos;
   if (hasCaptured && capturedToken) {
     const opponent = state.players[capturedToken.playerIndex];
+    oppPosBeforeReset = opponent.tokens[capturedToken.tokenIndex];
     opponent.tokens[capturedToken.tokenIndex] = -1; // Send back to yard
   }
 
   // Calculate scores for QUICK mode
   if (state.gameMode === 'QUICK') {
+    if (!state.scores) {
+      state.scores = [0, 0];
+    }
+
     let pointsEarned = 0;
     if (currentPos === -1 && nextPos === 0) {
       pointsEarned = 1; // 1 tile advanced = 1 point
@@ -407,11 +413,17 @@ export const executeMove = (state: MatchState, tokenIndex: number): { capturedTo
 
     if (hasCaptured) {
       pointsEarned += 10; // 1 opponent captured = 10 points
+      if (capturedToken && oppPosBeforeReset >= 0) {
+        const opponentIndex = capturedToken.playerIndex;
+        const pointsLost = oppPosBeforeReset + 1;
+        state.scores[opponentIndex] = Math.max(0, state.scores[opponentIndex] - pointsLost);
+      }
     }
 
-    if (!state.scores) {
-      state.scores = [0, 0];
+    if (nextPos === 56) {
+      pointsEarned += 56; // Home entry bonus (+56 points)
     }
+
     state.scores[activeIndex] += pointsEarned;
   }
 
