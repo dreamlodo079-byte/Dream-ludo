@@ -14,6 +14,7 @@ import {
   SafeAreaView,
   useWindowDimensions,
   Platform,
+  Image,
 } from 'react-native';
 import Svg, {
   Rect,
@@ -286,30 +287,45 @@ const getArrowPath = (cx: number, cy: number, size: number, direction: 'up' | 'd
 // ============ PLAYER CARD (PREMIUM LIKE MPL/ZUPEE) ============
 interface PlayerCardProps {
   username: string;
+  phone?: string;
   color: 'red' | 'green';
   isActive: boolean;
   isCurrentUser: boolean;
   turnTimer: number;
   totalTime: number;
-  tokensHome: number;
   align: 'left' | 'right';
-  totalTokens: number;
-  score?: number;
+  diceValue: number;
+  isDiceAnimating: boolean;
+  canRoll: boolean;
+  onRoll: () => void;
+  avatarUri: any;
+  diceTransform?: any[];
 }
 
-const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+const AnimatedPath = Animated.createAnimatedComponent(Path);
+
+const maskPhone = (phone?: string) => {
+  if (!phone) return '62#######60';
+  const clean = phone.replace(/[^0-9]/g, '');
+  if (clean.length < 4) return phone;
+  return `${clean.substring(0, 2)}#######${clean.substring(clean.length - 2)}`;
+};
 
 const PlayerCard: React.FC<PlayerCardProps> = ({
   username,
+  phone,
   color,
   isActive,
   isCurrentUser,
   turnTimer,
   totalTime,
-  tokensHome,
   align,
-  totalTokens,
-  score,
+  diceValue,
+  isDiceAnimating,
+  canRoll,
+  onRoll,
+  avatarUri,
+  diceTransform,
 }) => {
   const c = COLORS[color];
   const animatedRatio = useRef(new Animated.Value(turnTimer / totalTime)).current;
@@ -327,87 +343,92 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
     }
   }, [turnTimer, isActive, totalTime]);
 
-  // Circle timer SVG calculations
-  const ringSize = 36;
-  const strokeWidth = 2.5;
-  const radius = (ringSize - strokeWidth) / 2;
-  const circumference = 2 * Math.PI * radius;
+  const perimeter = 259;
   
+  // At ratio=1 (start), offset=0 -> full path visible.
+  // At ratio=0 (end), offset=perimeter -> gap starts at 0, grows clockwise. Visible line shrinks towards the end of the path (which is back at the arrow).
   const animatedDashoffset = animatedRatio.interpolate({
     inputRange: [0, 1],
-    outputRange: [circumference, 0],
+    outputRange: [perimeter, 0],
   });
   
-  const timerColor = turnTimer <= 4 ? '#EF4444' : c.primary;
+  const timerColor = turnTimer <= 4 ? '#EF4444' : c.primary; 
 
-  return (
-    <Animated.View
-      style={[
-        styles.playerCard,
-        {
-          borderColor: isActive ? c.primary : '#E2E8F0',
-          borderWidth: isActive ? 2 : 1.5,
-          backgroundColor: isActive ? c.bg : '#FFFFFF',
-        },
-      ]}
-    >
-      {/* Avatar Container with Timer Ring */}
-      <View style={styles.avatarWrapper}>
-        <Svg width={ringSize} height={ringSize} style={styles.timerRing}>
-          <Circle
-            cx={ringSize / 2}
-            cy={ringSize / 2}
-            r={radius}
-            stroke="#E2E8F0"
-            strokeWidth={strokeWidth}
-            fill="none"
-          />
+  const renderDiceBubble = () => {
+    const isLeft = align === 'right'; 
+    
+    // Custom SVG paths to start exactly at the arrow
+    const rightAlignPath = "M 76 40 L 76 59 A 17 17 0 0 1 59 76 L 21 76 A 17 17 0 0 1 4 59 L 4 21 A 17 17 0 0 1 21 4 L 59 4 A 17 17 0 0 1 76 21 Z";
+    const leftAlignPath = "M 4 40 L 4 21 A 17 17 0 0 1 21 4 L 59 4 A 17 17 0 0 1 76 21 L 76 59 A 17 17 0 0 1 59 76 L 21 76 A 17 17 0 0 1 4 59 Z";
+    const pathData = isLeft ? rightAlignPath : leftAlignPath;
+
+    return (
+      <View style={styles.diceBoxWrapper}>
+        <Svg width={80} height={80} style={StyleSheet.absoluteFill}>
+          {/* Background Track */}
+          <Path d={pathData} stroke="#334155" strokeWidth={4} fill="none" />
           {isActive && (
-            <AnimatedCircle
-              cx={ringSize / 2}
-              cy={ringSize / 2}
-              r={radius}
+            <AnimatedPath
+              d={pathData}
               stroke={timerColor}
-              strokeWidth={strokeWidth}
+              strokeWidth={5.5}
               fill="none"
-              strokeDasharray={circumference}
+              strokeDasharray={perimeter}
               strokeDashoffset={animatedDashoffset}
               strokeLinecap="round"
-              transform={`rotate(-90 ${ringSize / 2} ${ringSize / 2})`}
             />
           )}
         </Svg>
-        <View style={[styles.avatar, { backgroundColor: c.primary }]}>
-          <Text style={styles.avatarText}>{username.charAt(0).toUpperCase()}</Text>
+        <TouchableOpacity
+          disabled={!canRoll}
+          onPress={onRoll}
+          activeOpacity={0.8}
+          style={{ width: 80, height: 80, alignItems: 'center', justifyContent: 'center' }}
+        >
+          {isActive && (
+            <Animated.View style={[
+              { alignItems: 'center', justifyContent: 'center' },
+              diceTransform ? { transform: diceTransform } : undefined
+            ]}>
+              <Dice value={diceValue} size={54} />
+            </Animated.View>
+          )}
+        </TouchableOpacity>
+        <View style={[styles.bubblePointer, 
+          isLeft ? { right: -6, transform: [{rotate: '45deg'}] } : { left: -6, transform: [{rotate: '45deg'}] },
+          { backgroundColor: '#0F172A', borderColor: isActive ? timerColor : '#334155' },
+          isLeft ? { borderTopWidth: 2, borderRightWidth: 2 } : { borderBottomWidth: 2, borderLeftWidth: 2 }
+        ]} />
+      </View>
+    );
+  };
+
+  const renderAvatar = () => (
+    <View style={[styles.avatarBorderContainer, { borderColor: c.primary }]}>
+      <Image source={avatarUri} style={styles.avatarImageLarge} />
+    </View>
+  );
+
+  return (
+    <View style={styles.diagonalCardContainer}>
+      {align === 'right' && (
+        <View style={[styles.nameBadge, { backgroundColor: c.primary }]}>
+          <Text style={styles.nameBadgeText}>{username.toUpperCase()}</Text>
         </View>
-        {isActive && (
-          <View style={[styles.timerBadge, { backgroundColor: timerColor }]}>
-            <Text style={styles.timerBadgeText}>{turnTimer}</Text>
-          </View>
-        )}
+      )}
+      
+      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+        {align === 'right' && renderDiceBubble()}
+        {renderAvatar()}
+        {align === 'left' && renderDiceBubble()}
       </View>
 
-      {/* Player Info */}
-      <View style={[styles.playerInfo, align === 'right' && { alignItems: 'flex-end' }]}>
-        <Text style={[styles.playerName, { color: '#0F172A' }]} numberOfLines={1}>
-          {username}
-          {isCurrentUser && <Text style={{ color: c.primary }}> (You)</Text>}
-        </Text>
-        <View style={[styles.playerStats, { flexDirection: align === 'right' ? 'row-reverse' : 'row', flexWrap: 'wrap', gap: 4, justifyContent: align === 'right' ? 'flex-end' : 'flex-start' }]}>
-          <View style={[styles.tokenBadge, { backgroundColor: c.bg, borderColor: c.primary, paddingHorizontal: 5, paddingVertical: 1.5, borderRadius: 6 }]}>
-            <Text style={[styles.tokenBadgeText, { color: c.dark, fontSize: 8.5 }]}>🏠 {tokensHome}/{totalTokens}</Text>
-          </View>
-          {score !== undefined && (
-            <View style={{ backgroundColor: '#FEF3C7', borderColor: '#F59E0B', borderWidth: 1, borderRadius: 6, paddingHorizontal: 5, paddingVertical: 1.5 }}>
-              <Text style={{ fontSize: 8.5, fontWeight: '800', color: '#B45309' }}>🏆 {score} pts</Text>
-            </View>
-          )}
+      {align === 'left' && (
+        <View style={[styles.nameBadge, { backgroundColor: c.primary, marginTop: 6 }]}>
+          <Text style={styles.nameBadgeText}>{maskPhone(phone)}</Text>
         </View>
-        {isActive && (
-          <Text style={[styles.turnLabel, { color: c.primary }]}>● PLAYING</Text>
-        )}
-      </View>
-    </Animated.View>
+      )}
+    </View>
   );
 };
 
@@ -922,16 +943,8 @@ export const GameScreen: React.FC<GameScreenProps> = ({
         ]),
       ]).start();
 
-      let count = 0;
-      const interval = setInterval(() => {
-        setDiceDisplayVal(Math.floor(Math.random() * 6) + 1);
-        count++;
-        if (count >= 8) {
-          clearInterval(interval);
-          setDiceDisplayVal(matchState.diceRoll);
-          setIsDiceAnimating(false);
-        }
-      }, 60);
+      setDiceDisplayVal(matchState.diceRoll);
+      setIsDiceAnimating(false);
     }
   }, [matchState?.diceRoll]);
 
@@ -1013,66 +1026,89 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   const prizePool = (matchState.entryFee || 0) * 2 * 0.9;
 
   return (
-    <View style={{ flex: 1, position: 'relative' }}>
-      <SafeAreaView style={styles.container}>
-        <StatusBar barStyle="dark-content" backgroundColor="#F1F5F9" />
-
-
-
-      {/* ========== TOP BAR ========== */}
-      <View style={styles.topBar}>
-        <TouchableOpacity style={styles.topExitBtn} onPress={handleExitPress} activeOpacity={0.7}>
-          <Text style={styles.topExitIcon}>✕</Text>
-        </TouchableOpacity>
-
-        <View style={styles.prizePoolContainer}>
-          <Text style={styles.prizePoolLabel}>PRIZE POOL</Text>
-          <Text style={styles.prizePoolValue}>₹{prizePool.toFixed(0)}</Text>
-          {matchState.gameMode === 'QUICK' && matchState.matchTimer !== undefined && (
-            <Text style={styles.topMatchTimer}>
-              ⏱️ {Math.floor(matchState.matchTimer / 60)}:{String(matchState.matchTimer % 60).padStart(2, '0')}
-            </Text>
-          )}
-        </View>
-
-        <View style={styles.connectionStatus}>
-          <View style={[styles.connectionDot, { backgroundColor: isConnected ? '#10B981' : '#EF4444' }]} />
-          <Text style={styles.connectionText}>{isConnected ? 'LIVE' : 'OFFLINE'}</Text>
-        </View>
+    <View style={styles.mainContainer}>
+      <StatusBar barStyle="light-content" backgroundColor="#0B132B" />
+      <View style={StyleSheet.absoluteFill}>
+        <Svg height="100%" width="100%">
+          <Defs>
+            <LinearGradient id="bgGrad" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0" stopColor="#0B132B" />
+              <Stop offset="1" stopColor="#1E293B" />
+            </LinearGradient>
+          </Defs>
+          <Rect width="100%" height="100%" fill="url(#bgGrad)" />
+        </Svg>
       </View>
 
-      {/* ========== PLAYER CARDS ========== */}
-      <View style={styles.playerCardsRow}>
-        <PlayerCard
-          username={matchState.players[0]?.username || 'Player 1'}
-          color="red"
-          isActive={matchState.activePlayerIndex === 0}
-          isCurrentUser={matchState.players[0]?.id === currentUser._id}
-          turnTimer={matchState.turnTimer}
-          totalTime={15}
-          tokensHome={p1TokensHome}
-          totalTokens={matchState.players[0]?.tokens?.length || 4}
-          score={matchState.gameMode === 'QUICK' ? (matchState.scores ? matchState.scores[0] : 0) : undefined}
-          align="left"
-        />
-        <View style={styles.vsContainer}>
-          <Text style={styles.vsText}>VS</Text>
-        </View>
-        <PlayerCard
-          username={matchState.players[1]?.username || 'Player 2'}
-          color="green"
-          isActive={matchState.activePlayerIndex === 1}
-          isCurrentUser={matchState.players[1]?.id === currentUser._id}
-          turnTimer={matchState.turnTimer}
-          totalTime={15}
-          tokensHome={p2TokensHome}
-          totalTokens={matchState.players[1]?.tokens?.length || 4}
-          score={matchState.gameMode === 'QUICK' ? (matchState.scores ? matchState.scores[1] : 0) : undefined}
-          align="right"
-        />
-      </View>
+      <SafeAreaView style={styles.safeArea}>
+        {/* ========== TOP BAR ========== */}
+        <View style={styles.premiumTopBar}>
+          <View style={styles.topBarLeft}>
+            <TouchableOpacity style={styles.settingsBtn} onPress={handleExitPress}>
+              <Text style={{fontSize: 18, color: '#FFFFFF', fontWeight: 'bold'}}>✕</Text>
+            </TouchableOpacity>
+            <View style={styles.signalBars}>
+              <View style={[styles.signalBar, {height: 6}]} />
+              <View style={[styles.signalBar, {height: 10}]} />
+              <View style={[styles.signalBar, {height: 14}]} />
+              <View style={[styles.signalBar, {height: 18}]} />
+            </View>
+          </View>
 
-      {/* ========== BOARD CONTAINER (OUTER) ========== */}
+          <View style={styles.prizePoolBadge}>
+            <Text style={styles.prizePoolTitle}>🏆 PRIZE POOL 🏆</Text>
+            <Text style={styles.premiumPrizePoolValue}>₹{prizePool.toFixed(0)}</Text>
+          </View>
+          <View style={{width: 60}} />
+        </View>
+
+        <View style={{alignItems: 'center', marginTop: 10}}>
+          <View style={styles.matchTimerCapsule}>
+             <Text style={styles.matchTimerText}>🕒 {matchState.gameMode === 'QUICK' && matchState.matchTimer !== undefined ? `${Math.floor(matchState.matchTimer / 60)}:${String(matchState.matchTimer % 60).padStart(2, '0')}` : '04:53'}</Text>
+          </View>
+        </View>
+
+        {/* ========== GAME ARENA ========== */}
+        <View style={styles.arenaContainer}>
+          
+          <View style={styles.topRightPlayerWrapper}>
+            <PlayerCard
+              username={matchState.players[1]?.username || 'Player 2'}
+              color="green"
+              isActive={matchState.activePlayerIndex === 1}
+              isCurrentUser={matchState.players[1]?.id === currentUser._id}
+              turnTimer={matchState.turnTimer}
+              totalTime={15}
+              align="right"
+              diceValue={matchState.activePlayerIndex === 1 ? (diceDisplayVal || 1) : 1}
+              isDiceAnimating={matchState.activePlayerIndex === 1 && isDiceAnimating}
+              canRoll={false}
+              onRoll={() => {}}
+              avatarUri={require('../../assets/avatar.png')}
+              diceTransform={matchState.activePlayerIndex === 1 ? [{ scale: diceScale }, { rotate: rotZInterpolate }] : undefined}
+            />
+          </View>
+
+          <View style={styles.bottomLeftPlayerWrapper}>
+             <PlayerCard
+              username={matchState.players[0]?.username || 'Player 1'}
+              phone={currentUser.phone}
+              color="red"
+              isActive={matchState.activePlayerIndex === 0}
+              isCurrentUser={matchState.players[0]?.id === currentUser._id}
+              turnTimer={matchState.turnTimer}
+              totalTime={15}
+              align="left"
+              diceValue={matchState.activePlayerIndex === 0 ? (diceDisplayVal || 1) : 1}
+              isDiceAnimating={matchState.activePlayerIndex === 0 && isDiceAnimating}
+              canRoll={isMyTurn && !matchState.hasRolled && !isDiceAnimating}
+              onRoll={handleRollDice}
+              avatarUri={require('../../assets/avatar.png')}
+              diceTransform={matchState.activePlayerIndex === 0 ? [{ scale: diceScale }, { rotate: rotZInterpolate }] : undefined}
+            />
+          </View>
+
+          {/* ========== BOARD CONTAINER (OUTER) ========== */}
       <View style={{ position: 'relative', width: BOARD_SIZE, height: BOARD_SIZE }}>
         {/* Board Background wrapper (clips sharp SVG corners) */}
         <View style={[styles.boardWrapper, { width: BOARD_SIZE, height: BOARD_SIZE, overflow: 'hidden' }]}>
@@ -1428,7 +1464,18 @@ export const GameScreen: React.FC<GameScreenProps> = ({
       </View>
 
       {/* ============ PAWNS LAYER (OUTSIDE CLIPPING VIEW) ============ */}
-      <View style={[StyleSheet.absoluteFill, { zIndex: 10, elevation: 10 }]} pointerEvents="box-none">
+      <View 
+        style={{ 
+          position: 'absolute', 
+          left: 3, 
+          top: 3, 
+          width: BOARD_SIZE - 6, 
+          height: BOARD_SIZE - 6, 
+          zIndex: 10, 
+          elevation: 10 
+        }} 
+        pointerEvents="box-none"
+      >
         {matchState.players.map((player: any, pIdx: number) => {
           // Render each token individually to allow getStackingInfo to position them side-by-side
           const tokensList = player.tokens.map((pos: number, tIdx: number) => ({
@@ -1552,55 +1599,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
 
 
 
-      {/* ============ BOTTOM CONTROL PANEL ============ */}
-      <View style={styles.bottomPanel}>
-        <View style={{ width: '100%', alignItems: 'center', justifyContent: 'center' }}>
-          {isMyTurn ? (
-            <Animated.View style={[styles.turnBanner, { opacity: yourTurnAnim }]}>
-              <Text style={styles.turnBannerIcon}>🎯</Text>
-              <Text style={styles.turnBannerText}>YOUR TURN</Text>
-            </Animated.View>
-          ) : (
-            <View style={styles.waitingBanner}>
-              <ActivityIndicator size="small" color="#64748B" />
-              <Text style={styles.waitingText}>{activePlayer.username}'s turn...</Text>
-            </View>
-          )}
-
-          <View style={styles.diceRow}>
-            {/* DICE */}
-            <TouchableOpacity
-              onPress={handleRollDice}
-              disabled={!isMyTurn || matchState.hasRolled || isDiceAnimating}
-              activeOpacity={0.8}
-            >
-              <Animated.View
-                style={[
-                  styles.diceContainer,
-                  isMyTurn && !matchState.hasRolled && styles.diceContainerActive,
-                  {
-                    transform: [
-                      { scale: diceScale },
-                      { rotate: rotZInterpolate },
-                    ],
-                  },
-                ]}
-              >
-                {isDiceAnimating ? (
-                  <ActivityIndicator color="#6366F1" size="large" />
-                ) : (
-                  <Dice value={diceDisplayVal} size={70} />
-                )}
-                {isMyTurn && !matchState.hasRolled && !isDiceAnimating && (
-                  <View style={styles.tapHint}>
-                    <Text style={styles.tapHintText}>TAP!</Text>
-                  </View>
-                )}
-              </Animated.View>
-            </TouchableOpacity>
-          </View>
         </View>
-      </View>
 
       {/* ============ EXIT CONFIRM MODAL ============ */}
       <Modal visible={showExitConfirm} transparent animationType="fade">
@@ -2492,6 +2491,36 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     letterSpacing: 1,
   },
+
+  mainContainer: { flex: 1, backgroundColor: '#0B132B' },
+  safeArea: { flex: 1, paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 24) + 6 : 6 },
+  premiumTopBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, marginTop: 10 },
+  topBarLeft: { flexDirection: 'row', alignItems: 'center' },
+  settingsBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#1E293B', alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: '#475569', marginRight: 10 },
+  signalBars: { flexDirection: 'row', alignItems: 'flex-end', height: 18, gap: 2 },
+  signalBar: { width: 4, backgroundColor: '#22C55E', borderRadius: 2 },
+  prizePoolBadge: { alignItems: 'center', backgroundColor: '#0F172A', paddingHorizontal: 20, paddingVertical: 8, borderRadius: 16, borderWidth: 1.5, borderColor: '#F59E0B' },
+  prizePoolTitle: { fontSize: 10, color: '#FCD34D', fontWeight: '800', letterSpacing: 1 },
+  premiumPrizePoolValue: { fontSize: 18, color: '#FFFFFF', fontWeight: '900', marginTop: 2 },
+  matchTimerCapsule: { backgroundColor: '#166534', paddingHorizontal: 16, paddingVertical: 6, borderRadius: 20, borderWidth: 2, borderColor: '#22C55E' },
+  matchTimerText: { color: '#FFFFFF', fontWeight: '900', fontSize: 14, letterSpacing: 1 },
+  arenaContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', position: 'relative' },
+  topRightPlayerWrapper: { position: 'absolute', top: 30, right: 10, zIndex: 100 },
+  bottomLeftPlayerWrapper: { position: 'absolute', bottom: 30, left: 10, zIndex: 100 },
+  diagonalCardContainer: { alignItems: 'center' },
+  nameBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, marginBottom: 4 },
+  nameBadgeText: { color: '#FFF', fontSize: 10, fontWeight: '900', letterSpacing: 0.5 },
+  avatarDiceRow: { flexDirection: 'row', alignItems: 'center' },
+  
+  
+  
+  bubblePointer: { position: 'absolute', width: 10, height: 10 },
+  
+  
+
+  avatarBorderContainer: { width: 68, height: 68, borderRadius: 34, borderWidth: 3.5, alignItems: 'center', justifyContent: 'center', backgroundColor: '#0F172A', overflow: 'hidden', marginHorizontal: 4 },
+  avatarImageLarge: { width: 60, height: 60, borderRadius: 30 },
+  diceBoxWrapper: { width: 80, height: 80, borderRadius: 20, alignItems: 'center', justifyContent: 'center', position: 'relative', marginHorizontal: 8, backgroundColor: 'rgba(15, 23, 42, 0.95)' },
 });
 
 export default GameScreen;
