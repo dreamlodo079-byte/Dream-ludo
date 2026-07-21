@@ -180,5 +180,6 @@ export const useSocket = (userId: string | null) => {
     sendReadyToEnter,
     clearMatchFoundData,
     clearHandshakeTimeoutData,
+    setWinnerInfo,
   };
 };

@@ -56,6 +56,7 @@ interface GameScreenProps {
   requestMove: (roomId: string, tokenIndex: number) => void;
   requestForfeit?: (roomId: string) => void;
   isConnected: boolean;
+  setWinnerInfo: (info: any) => void;
 }
 
 // ============ BOLD PREMIUM COLOR PALETTE ============
@@ -426,6 +427,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   requestMove,
   requestForfeit,
   isConnected,
+  setWinnerInfo,
 }) => {
   const { width, height } = useWindowDimensions();
   const MAX_BOARD_WIDTH = Math.min(width - 20, 500);
@@ -662,9 +664,18 @@ export const GameScreen: React.FC<GameScreenProps> = ({
     };
 
     const stacking = getStackingInfo(playerIndex, tokenIndex, pos);
+    const finalX = basePos.x + stacking.subX;
+    const finalY = basePos.y + stacking.subY;
+
+    // Safety edge clamping to prevent pawns from overflowing the board boundaries
+    const minX = 2;
+    const maxX = BOARD_SIZE - CELL_SIZE - 2;
+    const minY = 2;
+    const maxY = BOARD_SIZE - CELL_SIZE * 1.15 - 2;
+
     return {
-      x: basePos.x + stacking.subX,
-      y: basePos.y + stacking.subY,
+      x: Math.max(minX, Math.min(maxX, finalX)),
+      y: Math.max(minY, Math.min(maxY, finalY)),
     };
   };
 
@@ -983,9 +994,15 @@ export const GameScreen: React.FC<GameScreenProps> = ({
     setShowExitConfirm(false);
     if (requestForfeit) {
       requestForfeit(roomId);
-    } else {
-      onLeaveMatch();
     }
+    
+    // Instantly display Defeat banner and play loss sound locally
+    const opponent = matchState?.players?.find((p: any) => p.id !== currentUser._id);
+    setWinnerInfo({
+      winnerId: opponent?.id || 'opponent',
+      winnerUsername: opponent?.username || 'Opponent',
+      winnings: 0,
+    });
   };
 
   const rotZInterpolate = diceRotZ.interpolate({
@@ -1055,9 +1072,11 @@ export const GameScreen: React.FC<GameScreenProps> = ({
         />
       </View>
 
-      {/* ========== BOARD ========== */}
-      <View style={[styles.boardWrapper, { width: BOARD_SIZE, height: BOARD_SIZE }]}>
-        <Svg width={BOARD_SIZE} height={BOARD_SIZE} style={styles.boardSvg}>
+      {/* ========== BOARD CONTAINER (OUTER) ========== */}
+      <View style={{ position: 'relative', width: BOARD_SIZE, height: BOARD_SIZE }}>
+        {/* Board Background wrapper (clips sharp SVG corners) */}
+        <View style={[styles.boardWrapper, { width: BOARD_SIZE, height: BOARD_SIZE, overflow: 'hidden' }]}>
+          <Svg width={BOARD_SIZE} height={BOARD_SIZE} style={styles.boardSvg}>
           <Defs>
             <LinearGradient id="redGrad" x1="0" y1="0" x2="1" y2="1">
               <Stop offset="0" stopColor={COLORS.red.gradient1} />
@@ -1406,34 +1425,25 @@ export const GameScreen: React.FC<GameScreenProps> = ({
             />
           ))}
         </Svg>
+      </View>
 
-        {/* ============ PAWNS LAYER ============ */}
+      {/* ============ PAWNS LAYER (OUTSIDE CLIPPING VIEW) ============ */}
+      <View style={[StyleSheet.absoluteFill, { zIndex: 10, elevation: 10 }]} pointerEvents="box-none">
         {matchState.players.map((player: any, pIdx: number) => {
-          // Group tokens of the same player that occupy the same cell index.
-          // Tokens still in the yard (-1) or goal (56) are rendered individually.
-          const groupsMap = new Map<string, number[]>();
-          player.tokens.forEach((pos: number, tIdx: number) => {
-            if (pos === -1) {
-              groupsMap.set(`yard_${tIdx}`, [tIdx]);
-            } else if (pos === 56) {
-              groupsMap.set(`goal_${tIdx}`, [tIdx]);
-            } else {
-              const key = `track_${pos}`;
-              if (!groupsMap.has(key)) {
-                groupsMap.set(key, []);
-              }
-              groupsMap.get(key)!.push(tIdx);
-            }
-          });
+          // Render each token individually to allow getStackingInfo to position them side-by-side
+          const tokensList = player.tokens.map((pos: number, tIdx: number) => ({
+            tIdxs: [tIdx],
+            representativeTIdx: tIdx,
+            pos,
+          }));
 
-          return Array.from(groupsMap.values()).map((tIdxs) => {
-            const representativeTIdx = tIdxs[0];
+          return tokensList.map(({ tIdxs, representativeTIdx, pos }: { tIdxs: number[]; representativeTIdx: number; pos: number }) => {
             const tokenIdx = pIdx * 4 + representativeTIdx;
             const isUserToken = player.id === currentUser._id;
             const hasRollVal = matchState.diceRoll !== null;
 
             // The stack can be clicked to move if any token in it has a valid move
-            const moveableTokenIndex = tIdxs.find((tIdx) => {
+            const moveableTokenIndex = tIdxs.find((tIdx: number) => {
               const currentPos = player.tokens[tIdx];
               const roll = matchState.diceRoll;
               if (roll === null) return false;
@@ -1448,7 +1458,14 @@ export const GameScreen: React.FC<GameScreenProps> = ({
             const stacking = getStackingInfo(pIdx, representativeTIdx, currentPos);
             // Dynamic scale: if animating/pulse apply it, otherwise use stacking scale.
             // When in goal (56), use stacking.scale directly (it's between 0.60 and 1.0)
-            const sizeMultiplier = currentPos === 56 ? stacking.scale : (canMoveToken ? tokenPulseAnim : stacking.scale);
+            const sizeMultiplier = currentPos === 56 
+              ? stacking.scale 
+              : (canMoveToken 
+                  ? tokenPulseAnim.interpolate({
+                      inputRange: [1.0, 1.15],
+                      outputRange: [stacking.scale, stacking.scale * 1.15],
+                    }) 
+                  : stacking.scale);
             const isInYard = currentPos === -1;
 
             const handlePress = () => {
@@ -1531,6 +1548,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
           });
         })}
       </View>
+    </View>
 
 
 

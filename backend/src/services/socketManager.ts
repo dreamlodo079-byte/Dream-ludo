@@ -297,6 +297,7 @@ export const initializeSocketIO = async (server: any): Promise<Server> => {
 
       try {
         const { executeMove, rotateTurn } = require('./gameEngine');
+        const roll = state.diceRoll || 1;
         const { capturedToken, getsBonusRoll } = executeMove(state, tokenIndex);
         state.transitionPending = true;
         await cacheRoomState(roomId, state);
@@ -308,8 +309,12 @@ export const initializeSocketIO = async (server: any): Promise<Server> => {
           state,
         });
 
-        // Delay switching to give clients time to animate the move
-        const transitionDelay = capturedToken ? 1800 : 1200;
+        // Delay switching dynamically to give clients time to animate the move
+        let transitionDelay = roll * 280 + 350;
+        if (capturedToken) {
+          transitionDelay += 950;
+        }
+        
         setTimeout(async () => {
           try {
             const latestState: MatchState | null = await getRoomState(roomId);

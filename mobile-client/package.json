@@ -3,6 +3,10 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
+    "prestart": "node scripts/update-env-ip.js",
+    "preandroid": "node scripts/update-env-ip.js",
+    "preios": "node scripts/update-env-ip.js",
+    "preweb": "node scripts/update-env-ip.js",
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { SafeAreaView, StyleSheet, StatusBar, View, Text, TouchableOpacity, Platform } from 'react-native';
 import axios from 'axios';
 import { useOTAUpdates } from './src/hooks/useOTAUpdates';
@@ -62,6 +62,7 @@ function AppContent() {
     sendReadyToEnter,
     clearMatchFoundData,
     clearHandshakeTimeoutData,
+    setWinnerInfo,
   } = useSocket(currentUser ? currentUser._id : null);
 
   const [showOverlay, setShowOverlay] = useState(false);
@@ -116,7 +117,17 @@ function AppContent() {
 
   // Listen to active MatchState status transitions
   useEffect(() => {
-    if (matchState && matchState.roomId && !matchState.isTerminated) {
+    if (matchState && matchState.roomId) {
+      if (matchState.isTerminated) {
+        if (view !== 'game') {
+          setShowOverlay(false);
+          setMatchedOpponent(null);
+          clearMatchFoundData();
+          resetMatchState();
+        }
+        return;
+      }
+
       if (matchState.status === 'ACTIVE') {
         if (showOverlay) {
           // Handshake succeeded! Reveal opponent details inside overlay first
@@ -129,9 +140,9 @@ function AppContent() {
         }
       }
     }
-  }, [matchState, showOverlay, currentUser]);
+  }, [matchState, showOverlay, currentUser, view]);
 
-  const handleOverlayComplete = () => {
+  const handleOverlayComplete = useCallback(() => {
     setShowOverlay(false);
     setMatchedOpponent(null);
     clearMatchFoundData();
@@ -139,9 +150,9 @@ function AppContent() {
       setActiveRoomId(matchState.roomId);
       setView('game');
     }
-  };
+  }, [matchState, clearMatchFoundData]);
 
-  const handleOverlayCancel = async () => {
+  const handleOverlayCancel = useCallback(async () => {
     setShowOverlay(false);
     setMatchedOpponent(null);
     const tempRoom = matchFoundData;
@@ -156,7 +167,7 @@ function AppContent() {
         console.warn('Failed to cancel matchmaking from overlay:', err);
       }
     }
-  };
+  }, [matchFoundData, currentUser, clearMatchFoundData]);
 
   // 4. Refetch wallet balance when game ends
   useEffect(() => {
@@ -246,6 +257,7 @@ function AppContent() {
             requestMove={requestMove}
             requestForfeit={requestForfeit}
             isConnected={isConnected}
+            setWinnerInfo={setWinnerInfo}
           />
         )}
 

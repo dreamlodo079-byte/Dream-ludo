@@ -240,6 +240,11 @@ export const MatchmakingCardOverlay: React.FC<MatchmakingCardOverlayProps> = ({
   }, [secondsLeft, visible, opponent, isSuccess]);
 
   // ─── 3. Match Secured Split-Snap VS Reveal ─
+  const onAnimCompleteRef = useRef(onAnimationComplete);
+  useEffect(() => {
+    onAnimCompleteRef.current = onAnimationComplete;
+  }, [onAnimationComplete]);
+
   useEffect(() => {
     if (opponent) {
       setIsSuccess(true);
@@ -258,12 +263,12 @@ export const MatchmakingCardOverlay: React.FC<MatchmakingCardOverlayProps> = ({
 
       // Hold visual for 1200ms before unmounting to launch GameScreen
       const holdTimer = setTimeout(() => {
-        onAnimationComplete();
+        onAnimCompleteRef.current();
       }, 1200);
 
       return () => clearTimeout(holdTimer);
     }
-  }, [opponent, onAnimationComplete]);
+  }, [opponent]);
 
   // Handle Cancel Button Tap with Slide-Down Exit
   const handleCancelTap = () => {
