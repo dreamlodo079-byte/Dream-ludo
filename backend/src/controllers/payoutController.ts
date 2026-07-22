@@ -37,10 +37,6 @@ payoutRouter.post('/withdraw', async (req: Request, res: Response) => {
     if (!userCheck) {
       return res.status(404).json({ error: 'User not found' });
     }
-    if (!userCheck.isKycVerified) {
-      return res.status(400).json({ error: 'KYC_REQUIRED' });
-    }
-
     const referenceId = `payout_${Date.now()}_${userId}_${Math.floor(Math.random() * 1000)}`;
 
     // 1. Double-Entry ledger validation and locking funds
@@ -50,17 +46,21 @@ payoutRouter.post('/withdraw', async (req: Request, res: Response) => {
         throw new Error('User not found');
       }
 
-      if (!user.isKycVerified) {
-        throw new Error('KYC verification is required before initiating withdrawals');
+      // Check withdrawable balance: deposits + winnings (bonus balance is excluded and cannot be withdrawn)
+      const currentWinnings = user.winningsBalance || 0;
+      const currentDeposits = user.depositBalance || 0;
+      const withdrawableBalance = Math.round((currentWinnings + currentDeposits) * 100) / 100;
+
+      if (withdrawableBalance < withdrawAmount) {
+        throw new Error(`Insufficient withdrawable balance. Available: ₹${withdrawableBalance.toFixed(2)}. Bonus cash (₹10 welcome & referral bonuses) cannot be withdrawn.`);
       }
 
-      // Restrict withdrawal requests strictly to winningsBalance pool only
-      if ((user.winningsBalance || 0) < withdrawAmount) {
-        throw new Error('Insufficient winnings balance to perform withdrawal');
-      }
+      // Deduct immediately inside session: prioritize winningsBalance, then depositBalance
+      const winningsDec = Math.min(currentWinnings, withdrawAmount);
+      const depositDec = Math.round((withdrawAmount - winningsDec) * 100) / 100;
 
-      // Deduct immediately inside session to prevent double spend
-      user.winningsBalance = Math.round((user.winningsBalance - withdrawAmount) * 100) / 100;
+      user.winningsBalance = Math.round((currentWinnings - winningsDec) * 100) / 100;
+      user.depositBalance = Math.round((currentDeposits - depositDec) * 100) / 100;
       await user.save({ session });
 
       // Compute 30% TDS Tax (Section 194BA)

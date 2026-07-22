@@ -8,8 +8,7 @@ export const useOTAUpdates = () => {
   const [isUpdateFetched, setIsUpdateFetched] = useState(false);
 
   const checkAndFetchUpdatesSilently = async () => {
-    if (__DEV__) {
-      console.log('Expo Updates are disabled in development mode');
+    if (__DEV__ || !Updates.isEnabled) {
       return;
     }
 
@@ -19,12 +18,9 @@ export const useOTAUpdates = () => {
 
       if (update.isAvailable) {
         setUpdateAvailable(true);
-        console.log('New update manifest found! Fetching silently in background...');
-        
         const fetchResult = await Updates.fetchUpdateAsync();
         if (fetchResult.isNew) {
           setIsUpdateFetched(true);
-          console.log('New bundle version downloaded. Application is ready to update on next background transition.');
         }
       }
     } catch (error) {
@@ -35,10 +31,8 @@ export const useOTAUpdates = () => {
   };
 
   useEffect(() => {
-    // 1. Check for manifest sync immediately on startup
     checkAndFetchUpdatesSilently();
 
-    // 2. Add foreground change listener to check for updates
     const stateSubscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
       if (nextAppState === 'active') {
         checkAndFetchUpdatesSilently();
@@ -50,12 +44,10 @@ export const useOTAUpdates = () => {
     };
   }, []);
 
-  // 3. Add background transition listener to cleanly swap versions when user background idle
   useEffect(() => {
     const bgSubscription = AppState.addEventListener('change', async (nextAppState: AppStateStatus) => {
-      if (nextAppState === 'background' && isUpdateFetched) {
+      if (nextAppState === 'background' && isUpdateFetched && Updates.isEnabled) {
         try {
-          console.log('App is backgrounded. Triggering silent application reload for OTA update deployment...');
           await Updates.reloadAsync();
         } catch (err) {
           console.warn('Failed to cleanly reload updates during background cycle:', err);

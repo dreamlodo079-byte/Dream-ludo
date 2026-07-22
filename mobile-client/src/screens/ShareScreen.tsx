@@ -26,10 +26,11 @@ export const ShareScreen: React.FC<ShareScreenProps> = ({ currentUser, onBack })
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
 
-  const referralCode = currentUser?.referralCode || 'SEXUS50SEXUS';
+  const rawReferralCode = currentUser?.referralCode || 'DREAM50LUDO';
+  const referralCode = rawReferralCode.replace(/^SEXUS/i, 'DREAM');
   const friendsJoined = currentUser?.friendsJoined || 0;
   const totalCashEarned = friendsJoined * 100;
-  const referralUrl = `https://sexus.platform/signup?ref=${referralCode}`;
+  const referralUrl = `https://dreamludo.com/signup?ref=${referralCode}`;
 
   const handleCopyCode = () => {
     Clipboard.setString(referralCode);
@@ -46,7 +47,7 @@ export const ShareScreen: React.FC<ShareScreenProps> = ({ currentUser, onBack })
   };
 
   const handleWhatsAppShare = async () => {
-    const message = `🎮 Play Sexus Ludo & win real cash! Sign up using my referral code *${referralCode}* to claim instant ₹10 bonus cash: ${referralUrl}`;
+    const message = `🎮 Play Dream Ludo & win real cash! Sign up using my referral code *${referralCode}* to claim instant ₹10 bonus cash: ${referralUrl}`;
     
     try {
       const whatsappUrl = `whatsapp://send?text=${encodeURIComponent(message)}`;
@@ -57,7 +58,7 @@ export const ShareScreen: React.FC<ShareScreenProps> = ({ currentUser, onBack })
       } else {
         await Share.share({
           message,
-          title: 'Invite Friends to Sexus Ludo',
+          title: 'Invite Friends to Dream Ludo',
         });
       }
     } catch (error: any) {

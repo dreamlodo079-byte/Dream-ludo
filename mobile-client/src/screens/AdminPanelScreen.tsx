@@ -960,7 +960,7 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({ onBack }) =>
                 <Text style={styles.modalLabel}>Tournament Title</Text>
                 <TextInput
                   style={styles.modalInput}
-                  placeholder="e.g. Nexus Blast"
+                  placeholder="e.g. Dream Blast"
                   placeholderTextColor="#94A3B8"
                   value={formTitle}
                   onChangeText={setFormTitle}

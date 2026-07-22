@@ -40,8 +40,9 @@ async function checkUpcomingTournaments(): Promise<void> {
   for (const tour of upcomingTournaments) {
     console.log(`Starting tournament: ${tour.title} (${tour._id})`);
     
-    if (tour.registeredCount < 2) {
-      console.log(`Tournament ${tour.title} has insufficient players (${tour.registeredCount}). Concluding with refunds.`);
+    const actualUsersCount = (tour.registeredUsers || []).length;
+    if (actualUsersCount < 2) {
+      console.log(`Tournament ${tour.title} has insufficient registered users (${actualUsersCount}). Concluding with refunds.`);
       await refundTournamentRegistrants(tour);
       continue;
     }
@@ -145,6 +146,18 @@ export async function initializeTournamentRound(tour: any, roundNumber: number):
     if (prevRound) {
       activePlayerIds = prevRound.matches.map((m: any) => m.winnerId).filter(Boolean);
     }
+  }
+
+  // Check minimum player requirement
+  if (activePlayerIds.length < 2) {
+    console.log(`Tournament ${tour.title} has fewer than 2 active players (${activePlayerIds.length}) in round ${roundNumber}. Concluding.`);
+    if (roundNumber === 1) {
+      await refundTournamentRegistrants(tour);
+    } else {
+      tour.status = TournamentStatus.CONCLUDED;
+      await tour.save();
+    }
+    return;
   }
 
   // Shuffle players

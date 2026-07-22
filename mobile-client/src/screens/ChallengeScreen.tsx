@@ -111,7 +111,7 @@ export const ChallengeScreen: React.FC<ChallengeScreenProps> = ({ userId, onBack
             <View style={styles.taskCard}>
               <View style={styles.taskHeader}>
                 <View style={styles.taskTitleCol}>
-                  <Text style={styles.taskTitle}>Sexus Arena Marathon</Text>
+                  <Text style={styles.taskTitle}>Dream Ludo Arena Marathon</Text>
                   <Text style={styles.taskSub}>Play 10 matches qualifying for ₹10+ entry games</Text>
                 </View>
                 {/* Cash Badge Reward */}

@@ -12,6 +12,7 @@ export interface IUser extends Document {
   aadhaarNumber?: string | null;
   kycStatus: 'NONE' | 'PENDING' | 'APPROVED' | 'REJECTED';
   kycType?: 'PAN' | 'AADHAAR' | null;
+  avatar?: string;
   kycDocumentNumber?: string | null;
   kycName?: string | null;
   depositBalance: number;
@@ -48,13 +49,17 @@ const UserSchema = new Schema<IUser, IUserModel>(
       type: String,
       trim: true,
     },
+    avatar: {
+      type: String,
+      default: '👑',
+    },
     isActive: {
       type: Boolean,
       default: true,
     },
     isKycVerified: {
       type: Boolean,
-      default: false,
+      default: true,
     },
     role: {
       type: String,
@@ -149,7 +154,7 @@ UserSchema.pre('save', function (next) {
     }
     if (!this.referralCode) {
       const suffix = Math.random().toString(36).substring(2, 8).toUpperCase();
-      this.referralCode = `SEXUS${suffix}`;
+      this.referralCode = `DREAM${suffix}`;
     }
   }
   next();

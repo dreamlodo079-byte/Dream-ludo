@@ -20,10 +20,21 @@ import { useWallet } from '../hooks/useWallet';
 
 const API_SERVER_URL = process.env.EXPO_PUBLIC_SERVER_URL || 'http://localhost:5000';
 
+export const AVATARS_100 = [
+  '👑', '🤴', '👸', '💎', '🏆', '🎩', '🪞', '💍', '⚜️', '🏰', '🧿', '🔮',
+  '🥷', '🤖', '👾', '🎭', '💀', '🪖', '🎯', '⚔️', '🛡️', '🪓', '🧙‍♂️', '🧛‍♂️', '🧜‍♂️', '🧞‍♂️', '🛸',
+  '🦁', '🐯', '🐺', '🦅', '🦈', '🐻', '🦊', '🐉', '🐊', '🦍', '🦏', '🐂', '🐆', '🐍', '🦂', '🦉', '🦣', '🦕',
+  '😎', '🤩', '🤑', '🤠', '🤯', '😈', '🔥', '⚡', '🚀', '💫', '💥', '🧠', '👀', '👽', '🎃',
+  '🎮', '🎲', '♟️', '🎱', '🃏', '🥇', '🥈', '🥉', '⚽', '🏀', '🏈', '🥊', '🏎️', '🏍️',
+  '🐶', '🐱', '🐼', '🐨', '🐰', '🐹', '🐻‍❄️', '🦝', '🦥', '🦦', '🦨', '🦘', '🦡', '🦩', '🦚', '🦜', '🐢', '🐬', '🐳', '🦔',
+  '✨', '🌌', '☄️', '🪐', '☀️', '🚩', '💰', '💵', '🎖️', '🎗️'
+];
+
 interface UserProfile {
   _id: string;
   phone: string;
   username: string;
+  avatar?: string;
   isKycVerified?: boolean;
   kycStatus?: 'NONE' | 'PENDING' | 'APPROVED' | 'REJECTED';
   kycType?: 'PAN' | 'AADHAAR' | null;
@@ -108,6 +119,15 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
   const [referredByCode, setReferredByCode] = useState('');
   const [isFocusedRefCode, setIsFocusedRefCode] = useState(false);
   const [isRefClaimed, setIsRefClaimed] = useState(false);
+  // Forgot Password States
+  const [isForgotPasswordMode, setIsForgotPasswordMode] = useState(false);
+  const [forgotStep, setForgotStep] = useState<'SEND_OTP' | 'RESET_PASSWORD'>('SEND_OTP');
+  const [forgotOtp, setForgotOtp] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [isSubmittingForgot, setIsSubmittingForgot] = useState(false);
+  const [isFocusedForgotOtp, setIsFocusedForgotOtp] = useState(false);
+  const [isFocusedNewPass, setIsFocusedNewPass] = useState(false);
 
   // Focus rings tracking
   const [isFocusedPhone, setIsFocusedPhone] = useState(false);
@@ -133,13 +153,41 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
   const [kycDocNum, setKycDocNum] = useState('');
   const [isSubmittingKyc, setIsSubmittingKyc] = useState(false);
 
-  const referralCode = currentUser?.referralCode || 'SEXUS50SEXUS';
+  const rawReferralCode = currentUser?.referralCode || 'DREAM50LUDO';
+  const referralCode = rawReferralCode.replace(/^SEXUS/i, 'DREAM');
   const friendsJoined = currentUser?.friendsJoined || 0;
   const totalCashEarned = friendsJoined * 100;
-  const referralUrl = `https://sexus.platform/signup?ref=${referralCode}`;
+  const referralUrl = `https://dreamludo.com/signup?ref=${referralCode}`;
 
   const [isHistoryExpanded, setIsHistoryExpanded] = useState(false);
   const [activePolicy, setActivePolicy] = useState<string | null>(null);
+
+  const [showAvatarPicker, setShowAvatarPicker] = useState(false);
+  const [selectedAvatar, setSelectedAvatar] = useState(currentUser?.avatar || '👑');
+  const [isUpdatingAvatar, setIsUpdatingAvatar] = useState(false);
+
+  const handleSaveAvatar = async (newAvatar: string) => {
+    setSelectedAvatar(newAvatar);
+    if (!currentUser) return;
+    setIsUpdatingAvatar(true);
+    try {
+      const response = await axios.post(`${API_SERVER_URL}/api/users/update-avatar`, {
+        userId: currentUser._id,
+        avatar: newAvatar,
+      });
+      if (response.data.success) {
+        if (onUserUpdate) {
+          onUserUpdate({ ...currentUser, avatar: newAvatar });
+        }
+        showCustomAlert('Avatar Updated! ✨', 'Your profile avatar has been updated across all game screens.', 'success');
+        setShowAvatarPicker(false);
+      }
+    } catch (err: any) {
+      showCustomAlert('Avatar Error', err.response?.data?.error || err.message || 'Failed to update avatar.', 'error');
+    } finally {
+      setIsUpdatingAvatar(false);
+    }
+  };
 
   const [customAlert, setCustomAlert] = useState<{ visible: boolean; title: string; message: string; type: 'success' | 'error' | 'info' }>({
     visible: false,
@@ -380,11 +428,6 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
   const handleWithdrawal = async () => {
     if (!currentUser) return;
 
-    if (!currentUser.isKycVerified) {
-      showCustomAlert('KYC Required', 'You must complete your KYC verification below before you can withdraw winnings.', 'info');
-      return;
-    }
-
     const amount = Number(withdrawAmount);
     if (isNaN(amount) || amount <= 0) {
       showCustomAlert('Withdrawal Error', 'Please enter a valid amount.', 'error');
@@ -395,13 +438,102 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
       return;
     }
 
+    const withdrawableBalance = Math.round(((balances.winnings || 0) + (balances.deposits || 0)) * 100) / 100;
+    if (amount > withdrawableBalance) {
+      showCustomAlert(
+        'Withdrawal Error',
+        `Insufficient withdrawable balance. Available: ₹${withdrawableBalance.toFixed(2)}. Bonus cash (₹10 welcome bonus & referral rewards) cannot be withdrawn and is strictly for playing matches.`,
+        'error'
+      );
+      return;
+    }
+
     const result = await withdrawWinnings(currentUser._id, amount, upiId);
     if (result.success) {
-      showCustomAlert('Withdrawal Successful', 'IMPS transfer completed. Winnings balance locked and settled.', 'success');
+      showCustomAlert('Withdrawal Successful', 'IMPS transfer completed. Balance locked and settled.', 'success');
       setWithdrawAmount('');
       setUpiId('');
     } else {
       showCustomAlert('Withdrawal Failed', result.error || 'Server rejected payout', 'error');
+    }
+  };
+
+  const handleOpenWhatsAppSupport = async () => {
+    const phone = '919343544331';
+    const text = encodeURIComponent('Hello Dream Ludo Support, I need assistance with my account.');
+    const whatsappUrl = `whatsapp://send?phone=${phone}&text=${text}`;
+    const webUrl = `https://wa.me/${phone}?text=${text}`;
+    try {
+      const supported = await Linking.canOpenURL(whatsappUrl);
+      if (supported) {
+        await Linking.openURL(whatsappUrl);
+      } else {
+        await Linking.openURL(webUrl);
+      }
+    } catch (err) {
+      Linking.openURL(webUrl);
+    }
+  };
+
+  const handleSendForgotOtp = async () => {
+    if (!phone || phone.trim().length < 10) {
+      showCustomAlert('Forgot Password', 'Please enter your registered 10-digit mobile number.', 'error');
+      return;
+    }
+    setIsSubmittingForgot(true);
+    try {
+      const response = await axios.post(`${API_SERVER_URL}/api/users/forgot-password/send-otp`, {
+        phone: phone.trim(),
+      });
+      if (response.data.success) {
+        setForgotStep('RESET_PASSWORD');
+        showCustomAlert(
+          'OTP Sent 📩',
+          `Verification OTP sent to +91 ${phone.trim().slice(-10)}.${response.data.otp ? '\nTest OTP: ' + response.data.otp : ''}`,
+          'success'
+        );
+      }
+    } catch (err: any) {
+      showCustomAlert('Forgot Password', err.response?.data?.error || err.message || 'Failed to send OTP.', 'error');
+    } finally {
+      setIsSubmittingForgot(false);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (!phone || phone.trim().length < 10) {
+      showCustomAlert('Reset Password', 'Please enter your registered 10-digit mobile number.', 'error');
+      return;
+    }
+    if (!forgotOtp || forgotOtp.trim().length < 4) {
+      showCustomAlert('Reset Password', 'Please enter the 6-digit OTP received via SMS.', 'error');
+      return;
+    }
+    if (!newPassword || newPassword.trim().length < 4) {
+      showCustomAlert('Reset Password', 'New password must be at least 4 characters long.', 'error');
+      return;
+    }
+
+    setIsSubmittingForgot(true);
+    try {
+      const response = await axios.post(`${API_SERVER_URL}/api/users/forgot-password/reset`, {
+        phone: phone.trim(),
+        otp: forgotOtp.trim(),
+        newPassword: newPassword.trim(),
+      });
+      if (response.data.success) {
+        setPassword(newPassword.trim());
+        setIsForgotPasswordMode(false);
+        setForgotStep('SEND_OTP');
+        setForgotOtp('');
+        setNewPassword('');
+        setIsLoginMode(true);
+        showCustomAlert('Success! 🎉', 'Password reset successfully! Log in with your new password.', 'success');
+      }
+    } catch (err: any) {
+      showCustomAlert('Reset Error', err.response?.data?.error || err.message || 'Failed to reset password.', 'error');
+    } finally {
+      setIsSubmittingForgot(false);
     }
   };
 
@@ -427,7 +559,7 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
 
   const handleWhatsAppShare = async () => {
     try {
-      const text = encodeURIComponent(`🎲 Play Sexus and Earn Cash! Join using my referral code: ${referralCode}\nSignup URL: ${referralUrl}`);
+      const text = encodeURIComponent(`🎲 Play Dream Ludo and Earn Cash! Join using my referral code: ${referralCode}\nSignup URL: ${referralUrl}`);
       const url = `whatsapp://send?text=${text}`;
       const supported = await Linking.canOpenURL(url);
       if (supported) {
@@ -458,11 +590,10 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
                 <Text style={styles.authLogoEmoji}>🎲</Text>
               </View>
             </View>
-            <Text style={styles.heading}>SEXUS</Text>
-            <Text style={styles.subheading}>Real-Money Mobile Portal</Text>
+            <Text style={styles.heading}>DREAM LUDO</Text>
 
             {/* Premium Pill Tab Switcher */}
-            {!otpSent && (
+            {!otpSent && !isForgotPasswordMode && (
               <View style={styles.authTabRow}>
                 <TouchableOpacity
                   style={[styles.authTab, isLoginMode && styles.authTabActive]}
@@ -481,7 +612,121 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
               </View>
             )}
 
-            {!otpSent ? (
+            {isForgotPasswordMode ? (
+              <View style={{ width: '100%' }}>
+                <View style={{ backgroundColor: '#EEF2FF', padding: 14, borderRadius: 12, marginBottom: 16, borderLeftWidth: 4, borderLeftColor: '#4F46E5' }}>
+                  <Text style={{ fontSize: 16, fontWeight: '800', color: '#1E1B4B' }}>
+                    {forgotStep === 'SEND_OTP' ? '🔑 RESET YOUR PASSWORD' : '🔐 CREATE NEW PASSWORD'}
+                  </Text>
+                  <Text style={{ fontSize: 12, color: '#4338CA', marginTop: 4, lineHeight: 16 }}>
+                    {forgotStep === 'SEND_OTP'
+                      ? 'Enter your registered 10-digit mobile number. We will send a 6-digit OTP to verify your identity.'
+                      : `Enter the 6-digit OTP sent to +91 ${phone.slice(-10)} and choose a new password.`}
+                  </Text>
+                </View>
+
+                {forgotStep === 'SEND_OTP' ? (
+                  <View>
+                    <View style={[styles.inputWrapper, isFocusedPhone && styles.inputWrapperFocused]}>
+                      <Text style={styles.inputIconEmoji}>📱</Text>
+                      <TextInput
+                        style={styles.inputInner}
+                        placeholder="Registered Phone (+91)"
+                        placeholderTextColor="#94A3B8"
+                        keyboardType="phone-pad"
+                        value={phone}
+                        onChangeText={(text) => setPhone(text.replace(/[^0-9]/g, ''))}
+                        onFocus={() => setIsFocusedPhone(true)}
+                        onBlur={() => setIsFocusedPhone(false)}
+                        autoCorrect={false}
+                      />
+                    </View>
+                    <TouchableOpacity
+                      style={styles.authButton}
+                      onPress={handleSendForgotOtp}
+                      disabled={isSubmittingForgot}
+                      activeOpacity={0.85}
+                    >
+                      {isSubmittingForgot ? (
+                        <ActivityIndicator color="#fff" />
+                      ) : (
+                        <Text style={styles.authButtonText}>SEND RESET OTP</Text>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <View>
+                    <View style={[styles.inputWrapper, isFocusedForgotOtp && styles.inputWrapperFocused]}>
+                      <Text style={styles.inputIconEmoji}>🔑</Text>
+                      <TextInput
+                        style={styles.inputInner}
+                        placeholder="6-Digit OTP"
+                        placeholderTextColor="#94A3B8"
+                        keyboardType="number-pad"
+                        maxLength={6}
+                        value={forgotOtp}
+                        onChangeText={setForgotOtp}
+                        onFocus={() => setIsFocusedForgotOtp(true)}
+                        onBlur={() => setIsFocusedForgotOtp(false)}
+                      />
+                    </View>
+                    <View style={[styles.inputWrapper, isFocusedNewPass && styles.inputWrapperFocused]}>
+                      <Text style={styles.inputIconEmoji}>🔒</Text>
+                      <TextInput
+                        style={styles.inputInner}
+                        placeholder="New Password"
+                        placeholderTextColor="#94A3B8"
+                        secureTextEntry={!showNewPassword}
+                        value={newPassword}
+                        onChangeText={setNewPassword}
+                        onFocus={() => setIsFocusedNewPass(true)}
+                        onBlur={() => setIsFocusedNewPass(false)}
+                        autoCorrect={false}
+                      />
+                      <TouchableOpacity
+                        style={styles.eyeBtn}
+                        onPress={() => setShowNewPassword(!showNewPassword)}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={{ fontSize: 16 }}>{showNewPassword ? '🙈' : '👁️'}</Text>
+                      </TouchableOpacity>
+                    </View>
+                    <TouchableOpacity
+                      style={styles.authButton}
+                      onPress={handleResetPassword}
+                      disabled={isSubmittingForgot}
+                      activeOpacity={0.85}
+                    >
+                      {isSubmittingForgot ? (
+                        <ActivityIndicator color="#fff" />
+                      ) : (
+                        <Text style={styles.authButtonText}>RESET PASSWORD NOW</Text>
+                      )}
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={{ alignSelf: 'center', marginTop: 10 }}
+                      onPress={handleSendForgotOtp}
+                      disabled={isSubmittingForgot}
+                    >
+                      <Text style={{ fontSize: 13, color: '#4F46E5', fontWeight: '700' }}>Resend OTP</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+
+                <TouchableOpacity
+                  style={{ alignSelf: 'center', marginTop: 16, paddingVertical: 10, paddingHorizontal: 20 }}
+                  onPress={() => {
+                    setIsForgotPasswordMode(false);
+                    setForgotStep('SEND_OTP');
+                    setIsLoginMode(true);
+                  }}
+                  activeOpacity={0.7}
+                  hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
+                >
+                  <Text style={{ fontSize: 14, color: '#4F46E5', fontWeight: '800' }}>← Back to Login</Text>
+                </TouchableOpacity>
+              </View>
+            ) : !otpSent ? (
               <View style={{ width: '100%' }}>
                 {!isLoginMode && (
                   <View style={[styles.inputWrapper, isFocusedUsername && styles.inputWrapperFocused]}>
@@ -545,6 +790,19 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
                     <Text style={{ fontSize: 16 }}>{showPassword ? '🙈' : '👁️'}</Text>
                   </TouchableOpacity>
                 </View>
+
+                {isLoginMode && (
+                  <TouchableOpacity
+                    style={{ alignSelf: 'flex-end', marginTop: 2, marginBottom: 12 }}
+                    onPress={() => {
+                      setIsForgotPasswordMode(true);
+                      setForgotStep('SEND_OTP');
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={{ fontSize: 13, color: '#4F46E5', fontWeight: '700' }}>Forgot Password?</Text>
+                  </TouchableOpacity>
+                )}
 
                 {!isLoginMode && (
                   <View style={{ marginBottom: 12 }}>
@@ -787,139 +1045,54 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
   );
 
   const renderKycCard = () => {
-    if (currentUser.isKycVerified) {
-      return (
-        <View style={[styles.actionCard, styles.verifiedKycCard]}>
-          <Text style={styles.cardHeader}>🔒 ACCOUNT VERIFIED</Text>
-          <Text style={styles.verifiedKycText}>✓ Your identity is verified successfully.</Text>
-          <View style={styles.kycDetailsRow}>
-            <Text style={styles.kycDetailLabel}>Verification Mode</Text>
-            <Text style={styles.kycDetailVal}>{currentUser.kycType === 'PAN' ? 'PAN Card' : 'Aadhaar Card'}</Text>
-          </View>
-          <View style={styles.kycDetailsRow}>
-            <Text style={styles.kycDetailLabel}>Document Number</Text>
-            <Text style={styles.kycDetailVal}>
-              {currentUser.kycType === 'PAN'
-                ? `${currentUser.kycDocumentNumber?.slice(0, 5)}XXXXX${currentUser.kycDocumentNumber?.slice(-1)}`
-                : `XXXX-XXXX-${currentUser.kycDocumentNumber?.slice(-4)}`}
-            </Text>
-          </View>
-          <View style={styles.kycDetailsRow}>
-            <Text style={styles.kycDetailLabel}>Full Legal Name</Text>
-            <Text style={styles.kycDetailVal}>{currentUser.kycName}</Text>
-          </View>
-        </View>
-      );
-    }
-
-    return (
-      <View style={[styles.actionCard, styles.pendingKycCard]}>
-        <Text style={styles.cardHeader}>🛡️ ID VERIFICATION REQUIRED</Text>
-        <Text style={styles.kycPromptText}>
-          Verify your PAN or Aadhaar card details to unlock instant cash withdrawals.
-        </Text>
-
-        <View style={styles.kycTabSelector}>
-          <TouchableOpacity
-            style={[styles.kycTabBtn, kycType === 'PAN' && styles.kycTabBtnActive]}
-            onPress={() => setKycType('PAN')}
-            activeOpacity={0.7}
-          >
-            <Text style={[styles.kycTabBtnText, kycType === 'PAN' && styles.kycTabBtnTextActive]}>PAN CARD</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.kycTabBtn, kycType === 'AADHAAR' && styles.kycTabBtnActive]}
-            onPress={() => setKycType('AADHAAR')}
-            activeOpacity={0.7}
-          >
-            <Text style={[styles.kycTabBtnText, kycType === 'AADHAAR' && styles.kycTabBtnTextActive]}>AADHAAR CARD</Text>
-          </TouchableOpacity>
-        </View>
-
-        <TextInput
-          style={[styles.input, isFocusedKycName && styles.inputFocused]}
-          placeholder="Full Legal Name"
-          placeholderTextColor="#94A3B8"
-          value={kycName}
-          onChangeText={setKycName}
-          autoCapitalize="characters"
-          onFocus={() => setIsFocusedKycName(true)}
-          onBlur={() => setIsFocusedKycName(false)}
-        />
-
-        <TextInput
-          style={[styles.input, isFocusedKycDoc && styles.inputFocused]}
-          placeholder={kycType === 'PAN' ? 'PAN Number (e.g., ABCDE1234F)' : 'Aadhaar Number (12 digits)'}
-          placeholderTextColor="#94A3B8"
-          value={kycDocNum}
-          onChangeText={setKycDocNum}
-          autoCapitalize={kycType === 'PAN' ? 'characters' : 'none'}
-          keyboardType={kycType === 'AADHAAR' ? 'numeric' : 'default'}
-          onFocus={() => setIsFocusedKycDoc(true)}
-          onBlur={() => setIsFocusedKycDoc(false)}
-        />
-
-        <TouchableOpacity style={styles.kycSubmitBtn} onPress={handleSubmitKyc} disabled={isSubmittingKyc} activeOpacity={0.8}>
-          {isSubmittingKyc ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.actionBtnText}>VERIFY ID NOW</Text>
-          )}
-        </TouchableOpacity>
-      </View>
-    );
+    return null;
   };
 
   const renderWithdrawCard = () => {
-    const isLocked = !currentUser.isKycVerified;
+    const withdrawableBalance = Math.round(((balances.winnings || 0) + (balances.deposits || 0)) * 100) / 100;
 
     return (
-      <View style={[styles.premiumWithdrawCard, isLocked && styles.withdrawCardLocked]}>
+      <View style={styles.premiumWithdrawCard}>
         <View style={styles.withdrawHeaderRow}>
-          <Text style={[styles.cardHeader, { color: isLocked ? '#94A3B8' : '#0F172A' }]}>SEND WINNINGS TO BANK</Text>
-          {isLocked && (
-            <View style={styles.lockBadge}>
-              <Text style={styles.lockBadgeText}>🔒 VERIFY ID TO UNLOCK</Text>
-            </View>
-          )}
+          <Text style={[styles.cardHeader, { color: '#0F172A' }]}>WITHDRAW MONEY TO BANK</Text>
         </View>
 
-        {isLocked ? (
-          <View style={styles.lockedContainer}>
-            <Text style={styles.lockedText}>
-              Winnings withdrawals are locked. Please complete your ID verification to link your bank account.
+        <View>
+          <View style={{ backgroundColor: '#F8FAFC', padding: 10, borderRadius: 8, marginBottom: 12, borderWidth: 1, borderColor: '#E2E8F0' }}>
+            <Text style={{ fontSize: 13, fontWeight: '700', color: '#1E293B' }}>
+              Available to Withdraw: <Text style={{ color: '#16A34A', fontSize: 14 }}>₹{withdrawableBalance.toFixed(2)}</Text>
+            </Text>
+            <Text style={{ fontSize: 11, color: '#64748B', marginTop: 4, lineHeight: 15 }}>
+              💡 Note: Bonus Cash (₹10 Welcome Bonus & Referral Rewards) cannot be withdrawn and can only be used to play matches.
             </Text>
           </View>
-        ) : (
-          <View>
-            <View style={styles.inputContainerWrapper}>
-              <Text style={styles.inputCurrencySymbol}>₹</Text>
-              <TextInput
-                style={[styles.premiumInput, isFocusedWithdraw && styles.inputFocused]}
-                placeholder="Withdraw Amount (INR)"
-                placeholderTextColor="#94A3B8"
-                keyboardType="numeric"
-                value={withdrawAmount}
-                onChangeText={setWithdrawAmount}
-                onFocus={() => setIsFocusedWithdraw(true)}
-                onBlur={() => setIsFocusedWithdraw(false)}
-              />
-            </View>
+          <View style={styles.inputContainerWrapper}>
+            <Text style={styles.inputCurrencySymbol}>₹</Text>
             <TextInput
-              style={[styles.input, isFocusedUpi && styles.inputFocused, { marginTop: 12 }]}
-              placeholder="Enter your UPI ID (e.g. name@upi)"
+              style={[styles.premiumInput, isFocusedWithdraw && styles.inputFocused]}
+              placeholder="Withdraw Amount (INR)"
               placeholderTextColor="#94A3B8"
-              value={upiId}
-              onChangeText={setUpiId}
-              autoCapitalize="none"
-              onFocus={() => setIsFocusedUpi(true)}
-              onBlur={() => setIsFocusedUpi(false)}
+              keyboardType="numeric"
+              value={withdrawAmount}
+              onChangeText={setWithdrawAmount}
+              onFocus={() => setIsFocusedWithdraw(true)}
+              onBlur={() => setIsFocusedWithdraw(false)}
             />
-            <TouchableOpacity style={styles.premiumWithdrawBtn} onPress={handleWithdrawal} disabled={loading} activeOpacity={0.8}>
-              <Text style={styles.actionBtnText}>WITHDRAW MONEY NOW</Text>
-            </TouchableOpacity>
           </View>
-        )}
+          <TextInput
+            style={[styles.input, isFocusedUpi && styles.inputFocused, { marginTop: 12 }]}
+            placeholder="Enter your UPI ID (e.g. name@upi)"
+            placeholderTextColor="#94A3B8"
+            value={upiId}
+            onChangeText={setUpiId}
+            autoCapitalize="none"
+            onFocus={() => setIsFocusedUpi(true)}
+            onBlur={() => setIsFocusedUpi(false)}
+          />
+          <TouchableOpacity style={styles.premiumWithdrawBtn} onPress={handleWithdrawal} disabled={loading} activeOpacity={0.8}>
+            <Text style={styles.actionBtnText}>WITHDRAW MONEY NOW</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   };
@@ -1064,11 +1237,61 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
         </View>
       </TouchableOpacity>
       {activePolicy === 'support' && (
-        <View style={styles.policyDetailCard}>
-          <Text style={styles.policyDetailTitle}>Customer Support</Text>
-          <Text style={styles.policyDetailText}>✉️ Email Support: support@sexusplatform.com</Text>
-          <Text style={styles.policyDetailText}>💬 Live Chat: Connect with our support team 24/7 on WhatsApp or in-app chat.</Text>
-          <Text style={styles.policyDetailText}>⏱️ Typical Response Time: Under 10 minutes.</Text>
+        <View style={styles.supportDetailCard}>
+          <View style={styles.supportHeaderRow}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Text style={{ fontSize: 22, marginRight: 8 }}>🎧</Text>
+              <Text style={styles.supportTitle}>Customer Support</Text>
+            </View>
+            <View style={styles.supportOnlineBadge}>
+              <View style={styles.greenDot} />
+              <Text style={styles.supportOnlineText}>24/7 LIVE</Text>
+            </View>
+          </View>
+
+          {/* WhatsApp Direct Action Card */}
+          <TouchableOpacity 
+            style={styles.whatsappCardBtn} 
+            onPress={handleOpenWhatsAppSupport} 
+            activeOpacity={0.85}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <View style={styles.whatsappIconCircle}>
+                <Text style={{ fontSize: 24 }}>💬</Text>
+              </View>
+              <View style={{ marginLeft: 12, flex: 1 }}>
+                <Text style={styles.whatsappCardTitle}>Chat on WhatsApp</Text>
+                <Text style={styles.whatsappCardNumber}>+91 9343544331</Text>
+              </View>
+              <Text style={styles.whatsappArrow}>➔</Text>
+            </View>
+          </TouchableOpacity>
+
+          {/* Email Support Action Card */}
+          <TouchableOpacity 
+            style={styles.emailCardBtn}
+            onPress={() => Linking.openURL('mailto:dreamlodo079@gmail.com')} 
+            activeOpacity={0.8}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <View style={styles.emailIconCircle}>
+                <Text style={{ fontSize: 20 }}>✉️</Text>
+              </View>
+              <View style={{ marginLeft: 12, flex: 1 }}>
+                <Text style={styles.emailCardLabel}>Email Support Desk</Text>
+                <Text style={styles.emailCardValue}>dreamlodo079@gmail.com</Text>
+              </View>
+              <Text style={styles.emailCardLink}>SEND ➔</Text>
+            </View>
+          </TouchableOpacity>
+
+          {/* Response Time & Guarantee Pill */}
+          <View style={styles.responseTimeBanner}>
+            <Text style={{ fontSize: 14, marginRight: 6 }}>⏱️</Text>
+            <Text style={styles.responseTimeText}>
+              Typical Response Time: <Text style={{ fontWeight: '900', color: '#059669' }}>Under 10 minutes</Text> (24/7 Dedicated Support).
+            </Text>
+          </View>
         </View>
       )}
 
@@ -1084,10 +1307,105 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
       </TouchableOpacity>
       {activePolicy === 'terms' && (
         <View style={styles.policyDetailCard}>
-          <Text style={styles.policyDetailTitle}>Terms of Service Summary</Text>
-          <Text style={styles.policyDetailText}>⚖️ Eligibility: Users must be 18 years or older to register and play cash games.</Text>
-          <Text style={styles.policyDetailText}>🚫 Fair Play Policy: Use of duplicate accounts, scripts, or cheating tools will result in permanent ban and forfeiture of funds.</Text>
-          <Text style={styles.policyDetailText}>🏦 Account Balance: All deposit and winning balances are held securely.</Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <Text style={styles.policyDetailTitle}>Terms of Service</Text>
+            <Text style={{ fontSize: 11, fontWeight: '700', color: '#4F46E5', backgroundColor: '#EEF2FF', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 }}>📜 Scroll to read all 13 points</Text>
+          </View>
+          <ScrollView nestedScrollEnabled={true} style={{ maxHeight: 450, paddingRight: 6 }} showsVerticalScrollIndicator={true}>
+            <Text style={{ fontSize: 11, color: '#94A3B8', marginBottom: 10 }}>Last Updated: May 2025</Text>
+
+            <Text style={{ fontSize: 13, fontWeight: '800', color: '#0F172A', marginTop: 6 }}>1. Acceptance of Terms</Text>
+            <Text style={{ fontSize: 12, color: '#475569', marginTop: 4, lineHeight: 17 }}>
+              By downloading, installing, or using Dream Ludo ("App", "Platform", "Service"), you agree to be bound by these Terms of Service. If you do not agree to these terms, do not use the App. These Terms constitute a legally binding agreement between you and Dream Ludo.
+            </Text>
+
+            <Text style={{ fontSize: 13, fontWeight: '800', color: '#0F172A', marginTop: 10 }}>2. Eligibility</Text>
+            <Text style={{ fontSize: 12, color: '#475569', marginTop: 4, lineHeight: 17 }}>
+              You must be at least 18 years of age to use this platform. By registering, you confirm that:
+              {'\n'}• You are 18 years or older
+              {'\n'}• You are a resident of India in a state where skill-based gaming is legally permitted
+              {'\n'}• You are not a resident of Assam, Odisha, Telangana, Andhra Pradesh, Nagaland, Sikkim, or any other state where online gaming for money is prohibited
+              {'\n'}• You are playing voluntarily and using your own funds
+              {'\n'}• You have not been previously banned from our platform
+            </Text>
+
+            <Text style={{ fontSize: 13, fontWeight: '800', color: '#0F172A', marginTop: 10 }}>3. Nature of Games</Text>
+            <Text style={{ fontSize: 12, color: '#475569', marginTop: 4, lineHeight: 17 }}>
+              Dream Ludo is a skill-based gaming platform. Ludo involves elements of strategy, decision-making, and skill. The outcome is not purely based on chance. Real money can be won or lost. This is NOT gambling — it is a game of skill, recognized under Indian law. However, results are not guaranteed, and you may lose your deposited funds.
+            </Text>
+
+            <Text style={{ fontSize: 13, fontWeight: '800', color: '#0F172A', marginTop: 10 }}>4. Account Registration</Text>
+            <Text style={{ fontSize: 12, color: '#475569', marginTop: 4, lineHeight: 17 }}>
+              • You must register with a valid Indian mobile number
+              {'\n'}• One account per person — multiple accounts are strictly prohibited
+              {'\n'}• You are responsible for maintaining the security of your account
+              {'\n'}• Provide accurate and truthful information during registration
+            </Text>
+
+            <Text style={{ fontSize: 13, fontWeight: '800', color: '#0F172A', marginTop: 10 }}>5. Deposits and Withdrawals</Text>
+            <Text style={{ fontSize: 12, color: '#475569', marginTop: 4, lineHeight: 17 }}>
+              • Minimum deposit: ₹10 | Minimum withdrawal: ₹100
+              {'\n'}• Deposits are made via PhonePe/UPI payment gateway
+              {'\n'}• Withdrawals are processed to your registered UPI ID or bank account
+              {'\n'}• Only "Winning Balance" and "Deposit Balance" are withdrawable — "Bonus Balance" cannot be directly withdrawn
+              {'\n'}• Withdrawals are subject to TDS (Tax Deducted at Source) @ 30% as per Section 194BA of the Income Tax Act, 1961
+              {'\n'}• Withdrawal processing time: 10–60 minutes during business hours
+              {'\n'}• We reserve the right to hold withdrawals for fraud verification
+            </Text>
+
+            <Text style={{ fontSize: 13, fontWeight: '800', color: '#0F172A', marginTop: 10 }}>6. Tax Deducted at Source (TDS)</Text>
+            <Text style={{ fontSize: 12, color: '#475569', marginTop: 4, lineHeight: 17 }}>
+              As per the Income Tax Act (Section 194BA, effective April 1, 2023), 30% TDS is deducted on net winnings from online gaming at the time of each withdrawal.
+              {'\n'}• TDS @ 30% is automatically deducted from every withdrawal
+              {'\n'}• Example: If you withdraw ₹1,000, TDS of ₹300 is deducted, and ₹700 is credited to your account
+              {'\n'}• TDS certificates (Form 16A) will be available upon request
+              {'\n'}• Users are responsible for filing their own income tax returns
+            </Text>
+
+            <Text style={{ fontSize: 13, fontWeight: '800', color: '#0F172A', marginTop: 10 }}>7. Fair Play and Prohibited Conduct</Text>
+            <Text style={{ fontSize: 12, color: '#475569', marginTop: 4, lineHeight: 17 }}>
+              The following are strictly prohibited:
+              {'\n'}• Using bots, scripts, or automated tools
+              {'\n'}• Collusion with other players
+              {'\n'}• Creating multiple accounts
+              {'\n'}• Exploiting bugs or glitches
+              {'\n'}• Fraudulent payment activity
+              {'\n'}• Any form of cheating or unfair play
+              {'\n'}Violation of these rules will result in immediate account suspension and forfeiture of all balances.
+            </Text>
+
+            <Text style={{ fontSize: 13, fontWeight: '800', color: '#0F172A', marginTop: 10 }}>8. Responsible Gaming</Text>
+            <Text style={{ fontSize: 12, color: '#475569', marginTop: 4, lineHeight: 17 }}>
+              We are committed to responsible gaming. You can set deposit limits, loss limits, and self-exclusion periods from the Responsible Gaming section in your account settings. If you feel you have a gambling problem, please contact a helpline or self-exclude immediately.
+            </Text>
+
+            <Text style={{ fontSize: 13, fontWeight: '800', color: '#0F172A', marginTop: 10 }}>9. Intellectual Property</Text>
+            <Text style={{ fontSize: 12, color: '#475569', marginTop: 4, lineHeight: 17 }}>
+              All content, design, graphics, logos, and software on the Dream Ludo platform are the exclusive property of Dream Ludo. Unauthorized reproduction, distribution, or modification is prohibited.
+            </Text>
+
+            <Text style={{ fontSize: 13, fontWeight: '800', color: '#0F172A', marginTop: 10 }}>10. Limitation of Liability</Text>
+            <Text style={{ fontSize: 12, color: '#475569', marginTop: 4, lineHeight: 17 }}>
+              Dream Ludo shall not be liable for any indirect, incidental, or consequential damages. Our maximum liability to you shall not exceed the balance in your account at the time of the dispute. We are not responsible for losses due to network issues, server downtime, or third-party payment failures.
+            </Text>
+
+            <Text style={{ fontSize: 13, fontWeight: '800', color: '#0F172A', marginTop: 10 }}>11. Termination</Text>
+            <Text style={{ fontSize: 12, color: '#475569', marginTop: 4, lineHeight: 17 }}>
+              We reserve the right to suspend or terminate any account at any time for violation of these terms, fraudulent activity, or at our discretion. Upon termination, remaining balance may be refunded at our discretion after due diligence.
+            </Text>
+
+            <Text style={{ fontSize: 13, fontWeight: '800', color: '#0F172A', marginTop: 10 }}>12. Governing Law</Text>
+            <Text style={{ fontSize: 12, color: '#475569', marginTop: 4, lineHeight: 17 }}>
+              These Terms are governed by the laws of India. Any disputes shall be subject to the exclusive jurisdiction of courts in Hyderabad, Telangana.
+            </Text>
+
+            <Text style={{ fontSize: 13, fontWeight: '800', color: '#0F172A', marginTop: 10 }}>13. Contact Us</Text>
+            <Text style={{ fontSize: 12, color: '#475569', marginTop: 4, lineHeight: 17, marginBottom: 12 }}>
+              For any questions about these Terms, contact us:
+              {'\n'}• Support: Available through in-app Support Chat / WhatsApp (+91 9343544331)
+              {'\n'}• Email: dreamlodo079@gmail.com
+            </Text>
+          </ScrollView>
         </View>
       )}
       
@@ -1103,10 +1421,111 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
       </TouchableOpacity>
       {activePolicy === 'privacy' && (
         <View style={styles.policyDetailCard}>
-          <Text style={styles.policyDetailTitle}>Data & Privacy Control</Text>
-          <Text style={styles.policyDetailText}>🔒 Secure Encryption: All personal details, KYC document files, and transaction records are fully encrypted.</Text>
-          <Text style={styles.policyDetailText}>🚫 No Third-Party Sharing: Your data is confidential and never sold to third parties.</Text>
-          <Text style={styles.policyDetailText}>🛡️ Mapped Compliance Keys: Built to fully satisfy RBI guidelines and local data protection regulations.</Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <Text style={styles.policyDetailTitle}>Privacy Policy</Text>
+            <Text style={{ fontSize: 11, fontWeight: '700', color: '#4F46E5', backgroundColor: '#EEF2FF', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 }}>📜 Scroll to read all 11 points</Text>
+          </View>
+          <ScrollView nestedScrollEnabled={true} style={{ maxHeight: 450, paddingRight: 6 }} showsVerticalScrollIndicator={true}>
+            <Text style={{ fontSize: 11, color: '#94A3B8', marginBottom: 10 }}>Last Updated: May 2025</Text>
+
+            <Text style={{ fontSize: 13, fontWeight: '800', color: '#0F172A', marginTop: 6 }}>1. Introduction</Text>
+            <Text style={{ fontSize: 12, color: '#475569', marginTop: 4, lineHeight: 17 }}>
+              Dream Ludo ("we", "us", "our") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, store, and share your personal information when you use our application and services. By using our platform, you agree to the terms of this policy.
+            </Text>
+
+            <Text style={{ fontSize: 13, fontWeight: '800', color: '#0F172A', marginTop: 10 }}>2. Information We Collect</Text>
+            <Text style={{ fontSize: 12, color: '#475569', marginTop: 4, lineHeight: 17 }}>
+              We collect the following information:
+              {'\n\n'}<Text style={{ fontWeight: '700' }}>Personal Information:</Text>
+              {'\n'}• Mobile phone number (for registration and OTP verification)
+              {'\n'}• Name (provided during profile setup)
+              {'\n'}• Profile avatar / photo (optional)
+              {'\n\n'}<Text style={{ fontWeight: '700' }}>Financial Information:</Text>
+              {'\n'}• UPI ID or bank account details (for withdrawals)
+              {'\n'}• Transaction history
+              {'\n\n'}<Text style={{ fontWeight: '700' }}>Technical Information:</Text>
+              {'\n'}• Device information (model, OS version)
+              {'\n'}• IP address and location (for fraud prevention)
+              {'\n'}• App usage patterns and game history
+            </Text>
+
+            <Text style={{ fontSize: 13, fontWeight: '800', color: '#0F172A', marginTop: 10 }}>3. How We Use Your Information</Text>
+            <Text style={{ fontSize: 12, color: '#475569', marginTop: 4, lineHeight: 17 }}>
+              We use your information to:
+              {'\n'}• Create and manage your account
+              {'\n'}• Process deposits and withdrawals
+              {'\n'}• Send OTP verification via SMS
+              {'\n'}• Detect and prevent fraud and abuse
+              {'\n'}• Comply with legal and regulatory requirements (including TDS reporting)
+              {'\n'}• Send important account notifications
+              {'\n'}• Improve our services and user experience
+              {'\n'}• Resolve disputes and provide customer support
+            </Text>
+
+            <Text style={{ fontSize: 13, fontWeight: '800', color: '#0F172A', marginTop: 10 }}>4. Data Sharing</Text>
+            <Text style={{ fontSize: 12, color: '#475569', marginTop: 4, lineHeight: 17 }}>
+              We do not sell your personal data to third parties. We may share your information with:
+              {'\n'}• Payment processors (PhonePe) for transaction processing
+              {'\n'}• SMS service providers (SMS India Hub) for OTP delivery
+              {'\n'}• Government authorities when required by law (e.g., TDS reporting to Income Tax Department)
+              {'\n'}• Legal authorities in response to court orders or legal processes
+            </Text>
+
+            <Text style={{ fontSize: 13, fontWeight: '800', color: '#0F172A', marginTop: 10 }}>5. Data Security</Text>
+            <Text style={{ fontSize: 12, color: '#475569', marginTop: 4, lineHeight: 17 }}>
+              We implement industry-standard security measures to protect your data:
+              {'\n'}• All data transmitted using HTTPS/TLS encryption
+              {'\n'}• Passwords stored using secure hashing (bcrypt)
+              {'\n'}• Session tokens with expiry and rotation
+              {'\n'}• Rate limiting to prevent brute force attacks
+              {'\n'}• Regular security audits
+            </Text>
+
+            <Text style={{ fontSize: 13, fontWeight: '800', color: '#0F172A', marginTop: 10 }}>6. Data Retention</Text>
+            <Text style={{ fontSize: 12, color: '#475569', marginTop: 4, lineHeight: 17 }}>
+              • Account data: Retained for the duration of your account plus 7 years after closure (for legal compliance)
+              {'\n'}• Transaction records: Retained for 7 years for tax compliance
+              {'\n'}• Chat/support messages: Retained for 1 year
+            </Text>
+
+            <Text style={{ fontSize: 13, fontWeight: '800', color: '#0F172A', marginTop: 10 }}>7. Your Rights</Text>
+            <Text style={{ fontSize: 12, color: '#475569', marginTop: 4, lineHeight: 17 }}>
+              You have the right to:
+              {'\n'}• Access your personal data
+              {'\n'}• Correct inaccurate data
+              {'\n'}• Request account deletion (subject to legal retention requirements)
+              {'\n'}• Withdraw consent for marketing communications
+              {'\n'}• Receive your data in a portable format
+              {'\n\n'}To exercise these rights, contact us via in-app Support Chat or WhatsApp (+91 9343544331).
+            </Text>
+
+            <Text style={{ fontSize: 13, fontWeight: '800', color: '#0F172A', marginTop: 10 }}>8. Cookies and Tracking</Text>
+            <Text style={{ fontSize: 12, color: '#475569', marginTop: 4, lineHeight: 17 }}>
+              We use session storage and local storage on your device to:
+              {'\n'}• Maintain your login session
+              {'\n'}• Remember your preferences
+              {'\n'}• Improve app performance
+              {'\n\n'}We do not use third-party advertising cookies.
+            </Text>
+
+            <Text style={{ fontSize: 13, fontWeight: '800', color: '#0F172A', marginTop: 10 }}>9. Children's Privacy</Text>
+            <Text style={{ fontSize: 12, color: '#475569', marginTop: 4, lineHeight: 17 }}>
+              Our services are strictly for users aged 18 and above. We do not knowingly collect data from minors. If we discover that a user is under 18, we will immediately terminate their account and delete their data.
+            </Text>
+
+            <Text style={{ fontSize: 13, fontWeight: '800', color: '#0F172A', marginTop: 10 }}>10. Changes to This Policy</Text>
+            <Text style={{ fontSize: 12, color: '#475569', marginTop: 4, lineHeight: 17 }}>
+              We may update this Privacy Policy from time to time. We will notify you of significant changes through the app. Continued use of the app after changes constitutes acceptance of the updated policy.
+            </Text>
+
+            <Text style={{ fontSize: 13, fontWeight: '800', color: '#0F172A', marginTop: 10 }}>11. Contact Us</Text>
+            <Text style={{ fontSize: 12, color: '#475569', marginTop: 4, lineHeight: 17, marginBottom: 12 }}>
+              For privacy-related inquiries:
+              {'\n'}• Support: Available through in-app Support Chat / WhatsApp (+91 9343544331)
+              {'\n'}• Email: dreamlodo079@gmail.com
+              {'\n'}• Website: dreamludo.com
+            </Text>
+          </ScrollView>
         </View>
       )}
 
@@ -1122,10 +1541,76 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
       </TouchableOpacity>
       {activePolicy === 'refund' && (
         <View style={styles.policyDetailCard}>
-          <Text style={styles.policyDetailTitle}>Refund & Settlement Terms</Text>
-          <Text style={styles.policyDetailText}>🎲 Game Cancellations: If a game gets canceled due to server or technical errors, your entry fee will be refunded to your wallet instantly.</Text>
-          <Text style={styles.policyDetailText}>🚫 Player Disconnections: If you leave the match or disconnect during gameplay, your entry fee is forfeited.</Text>
-          <Text style={styles.policyDetailText}>⏱️ Withdrawal Settlements: Approved cash withdrawals settle in your bank account in 2 to 24 hours.</Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <Text style={styles.policyDetailTitle}>Refund Policy</Text>
+            <Text style={{ fontSize: 11, fontWeight: '700', color: '#4F46E5', backgroundColor: '#EEF2FF', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 }}>📜 Scroll to read all 7 points</Text>
+          </View>
+          <ScrollView nestedScrollEnabled={true} style={{ maxHeight: 450, paddingRight: 6 }} showsVerticalScrollIndicator={true}>
+            <Text style={{ fontSize: 11, color: '#94A3B8', marginBottom: 10 }}>Last Updated: May 2025</Text>
+
+            <Text style={{ fontSize: 13, fontWeight: '800', color: '#0F172A', marginTop: 6 }}>💳 1. Deposit Refunds</Text>
+            <Text style={{ fontSize: 12, color: '#475569', marginTop: 4, lineHeight: 17 }}>
+              Deposits made to Dream Ludo are generally non-refundable once credited to your account. However, refunds will be processed in the following cases:
+              {'\n'}• Amount deducted but not credited to your account within 24 hours
+              {'\n'}• Duplicate transaction (same amount deducted twice)
+              {'\n'}• Technical error on our payment gateway's end
+              {'\n\n'}To claim a deposit refund, raise a support ticket within 7 days with:
+              {'\n'}• Transaction ID / UTR number
+              {'\n'}• Screenshot of bank deduction
+              {'\n'}• Date and amount
+            </Text>
+
+            <Text style={{ fontSize: 13, fontWeight: '800', color: '#0F172A', marginTop: 10 }}>🎲 2. Entry Fee Refunds</Text>
+            <Text style={{ fontSize: 12, color: '#475569', marginTop: 4, lineHeight: 17 }}>
+              Entry fees for games may be refunded in the following cases:
+              {'\n'}• Game cancelled due to technical failure before the game begins
+              {'\n'}• Opponent does not join within the waiting time
+              {'\n'}• Server error that prevents the game from starting properly
+              {'\n\n'}<Text style={{ fontWeight: '700', color: '#DC2626' }}>Entry fees are NOT refunded if:</Text>
+              {'\n'}• You forfeit or leave a game voluntarily
+              {'\n'}• You lose a fairly completed game
+              {'\n'}• You violate fair play rules
+            </Text>
+
+            <Text style={{ fontSize: 13, fontWeight: '800', color: '#0F172A', marginTop: 10 }}>🏦 3. Withdrawal Refunds</Text>
+            <Text style={{ fontSize: 12, color: '#475569', marginTop: 4, lineHeight: 17 }}>
+              Withdrawal requests cannot be cancelled once submitted. If a withdrawal fails (payment rejected, wrong UPI ID, etc.):
+              {'\n'}• The amount will be credited back to your Winning Balance within 1–24 hours
+              {'\n'}• You can re-submit the withdrawal with correct details
+              {'\n'}• TDS already deducted on a failed withdrawal will be refunded along with the principal amount
+            </Text>
+
+            <Text style={{ fontSize: 13, fontWeight: '800', color: '#0F172A', marginTop: 10 }}>📜 4. TDS Refund</Text>
+            <Text style={{ fontSize: 12, color: '#475569', marginTop: 4, lineHeight: 17 }}>
+              TDS (Tax Deducted at Source) deducted on withdrawals is deposited with the Government of India and CANNOT be refunded by Dream Ludo. You may claim TDS credit while filing your Income Tax Return (ITR). Form 16A / TDS certificate will be provided upon request.
+            </Text>
+
+            <Text style={{ fontSize: 13, fontWeight: '800', color: '#0F172A', marginTop: 10 }}>🔒 5. Account Closure Refunds</Text>
+            <Text style={{ fontSize: 12, color: '#475569', marginTop: 4, lineHeight: 17 }}>
+              If you choose to close your account:
+              {'\n'}• Remaining Winning Balance will be refunded after verification and fraud checks
+              {'\n'}• Deposit Balance will be refunded within 7–14 business days
+              {'\n'}• Bonus/referral credits are non-refundable and will be forfeited
+              {'\n'}• Accounts under investigation or ban will not receive refunds
+            </Text>
+
+            <Text style={{ fontSize: 13, fontWeight: '800', color: '#0F172A', marginTop: 10 }}>📩 6. How to Request a Refund</Text>
+            <Text style={{ fontSize: 12, color: '#475569', marginTop: 4, lineHeight: 17 }}>
+              1. Open the app and go to Account → Support Chat / WhatsApp
+              {'\n'}2. Describe your issue with transaction details
+              {'\n'}3. Our team will respond within 24–48 hours
+              {'\n'}4. Valid refunds are processed within 5–7 business days
+              {'\n\n'}Refunds are credited to the original payment source (UPI/bank account used for deposit) or to your Dream Ludo wallet balance.
+            </Text>
+
+            <Text style={{ fontSize: 13, fontWeight: '800', color: '#0F172A', marginTop: 10 }}>📞 7. Contact Us</Text>
+            <Text style={{ fontSize: 12, color: '#475569', marginTop: 4, lineHeight: 17, marginBottom: 12 }}>
+              For refund-related queries:
+              {'\n'}• Support: Available through in-app Support Chat / WhatsApp (+91 9343544331)
+              {'\n'}• Email: dreamlodo079@gmail.com
+              {'\n'}• Website: dreamludo.com
+            </Text>
+          </ScrollView>
         </View>
       )}
 
@@ -1147,19 +1632,27 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
       <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
         {/* Premium Profile Section */}
         <View style={styles.profileCard}>
-          <View style={styles.avatarContainer}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarEmoji}>👤</Text>
+          <TouchableOpacity 
+            style={styles.avatarContainer}
+            onPress={() => setShowAvatarPicker(true)}
+            activeOpacity={0.85}
+          >
+            <View style={[styles.avatar, { backgroundColor: '#EEF2FF', borderColor: '#4F46E5', borderWidth: 3, borderRadius: 44, width: 88, height: 88, alignItems: 'center', justifyContent: 'center' }]}>
+              <Text style={{ fontSize: 48 }}>{currentUser?.avatar || selectedAvatar || '👑'}</Text>
             </View>
-            <TouchableOpacity 
-              style={styles.cameraOverlay}
-              onPress={() => showCustomAlert('Avatar Editor', 'Profile avatar changes are saved locally.', 'info')}
-            >
-              <Text style={styles.cameraOverlayText}>📸</Text>
-            </TouchableOpacity>
-          </View>
+            <View style={{ position: 'absolute', bottom: -2, right: -2, backgroundColor: '#4F46E5', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 14, borderWidth: 2, borderColor: '#FFFFFF' }}>
+              <Text style={{ fontSize: 11, fontWeight: '900', color: '#FFFFFF' }}>🎨 EDIT</Text>
+            </View>
+          </TouchableOpacity>
           <Text style={styles.usernameHeader}>{currentUser.username}</Text>
           <Text style={styles.phoneSub}>{currentUser.phone}</Text>
+          <TouchableOpacity 
+            style={{ marginTop: 10, backgroundColor: '#EEF2FF', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: '#C7D2FE' }}
+            onPress={() => setShowAvatarPicker(true)}
+            activeOpacity={0.8}
+          >
+            <Text style={{ fontSize: 12, fontWeight: '800', color: '#4F46E5' }}>🎨 Pick From 100+ Avatars</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Hidden Super-Admin Telemetry Dashboard Mounting Switch */}
@@ -1237,6 +1730,59 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
                 activeOpacity={0.8}
               >
                 <Text style={styles.alertButtonText}>Got It</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+      )}
+
+      {/* 100+ Avatar Picker Modal */}
+      {showAvatarPicker && (
+        <Modal visible={true} transparent animationType="slide" onRequestClose={() => setShowAvatarPicker(false)}>
+          <View style={styles.alertOverlay}>
+            <View style={[styles.alertCard, { maxWidth: 360, width: '92%', maxHeight: 540, padding: 20 }]}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%', marginBottom: 14 }}>
+                <View>
+                  <Text style={{ fontSize: 18, fontWeight: '900', color: '#0F172A' }}>🎨 Choose Profile Avatar</Text>
+                  <Text style={{ fontSize: 12, color: '#64748B', marginTop: 2 }}>Tap any avatar from 100+ collection to select</Text>
+                </View>
+                <TouchableOpacity onPress={() => setShowAvatarPicker(false)} style={{ padding: 6, backgroundColor: '#F1F5F9', borderRadius: 16 }}>
+                  <Text style={{ fontSize: 16, fontWeight: '800', color: '#64748B' }}>✕</Text>
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView style={{ width: '100%', maxHeight: 390 }} showsVerticalScrollIndicator={false}>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 10, paddingVertical: 8 }}>
+                  {AVATARS_100.map((emoji, index) => {
+                    const isSelected = (currentUser?.avatar || selectedAvatar) === emoji;
+                    return (
+                      <TouchableOpacity
+                        key={index}
+                        style={{
+                          width: 52,
+                          height: 52,
+                          borderRadius: 26,
+                          backgroundColor: isSelected ? '#EEF2FF' : '#F8FAFC',
+                          borderWidth: isSelected ? 3 : 1,
+                          borderColor: isSelected ? '#4F46E5' : '#E2E8F0',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                        onPress={() => handleSaveAvatar(emoji)}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={{ fontSize: 28 }}>{emoji}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </ScrollView>
+
+              <TouchableOpacity
+                style={{ marginTop: 14, backgroundColor: '#F1F5F9', paddingVertical: 12, borderRadius: 12, alignItems: 'center', width: '100%' }}
+                onPress={() => setShowAvatarPicker(false)}
+              >
+                <Text style={{ fontSize: 13, fontWeight: '700', color: '#475569' }}>Close</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -1867,6 +2413,136 @@ const styles = StyleSheet.create({
   chevron: {
     color: '#94A3B8',
     fontSize: 11,
+  },
+  supportDetailCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 22,
+    padding: 18,
+    marginTop: 8,
+    marginBottom: 12,
+    borderWidth: 1.5,
+    borderColor: '#E0E7FF',
+    shadowColor: '#4F46E5',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 4,
+  },
+  supportHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  supportTitle: {
+    fontSize: 15,
+    fontWeight: '900',
+    color: '#0F172A',
+    letterSpacing: 0.3,
+  },
+  supportOnlineBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+  },
+  greenDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: '#10B981',
+    marginRight: 6,
+  },
+  supportOnlineText: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#047857',
+    letterSpacing: 0.5,
+  },
+  whatsappCardBtn: {
+    backgroundColor: '#25D366',
+    borderRadius: 18,
+    padding: 14,
+    marginBottom: 10,
+    shadowColor: '#25D366',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 5,
+  },
+  whatsappIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  whatsappCardTitle: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#FFFFFF',
+  },
+  whatsappCardNumber: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: 'rgba(255, 255, 255, 0.95)',
+    marginTop: 1,
+  },
+  whatsappArrow: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#FFFFFF',
+  },
+  emailCardBtn: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 16,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginBottom: 12,
+  },
+  emailIconCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#EEF2FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emailCardLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  emailCardValue: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#4F46E5',
+    marginTop: 1,
+  },
+  emailCardLink: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: '#4F46E5',
+  },
+  responseTimeBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F1F5F9',
+    padding: 10,
+    borderRadius: 14,
+  },
+  responseTimeText: {
+    fontSize: 11,
+    color: '#475569',
+    fontWeight: '600',
+    flex: 1,
+    lineHeight: 16,
   },
   policyDetailCard: {
     backgroundColor: '#EEF2FF',

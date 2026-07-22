@@ -4,7 +4,7 @@ import { User } from '../models/User';
 
 dotenv.config();
 
-const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/sexus_rmg';
+const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/dream_ludo_rmg';
 
 async function run() {
   console.log('Connecting to database...');

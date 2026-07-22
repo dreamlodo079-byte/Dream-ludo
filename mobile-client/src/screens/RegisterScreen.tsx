@@ -60,7 +60,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
           axios.defaults.headers.common['x-auth-token'] = response.data.token;
           axios.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`;
         }
-        Alert.alert('Welcome to Sexus Ludo!', 'Account created successfully with ₹10 Welcome Bonus.');
+        Alert.alert('Welcome to Dream Ludo!', 'Account created successfully with ₹10 Welcome Bonus.');
         onSuccess(response.data.user, response.data.token);
       } else {
         Alert.alert('Registration Failed', response.data.error || 'Failed to create account.');
@@ -81,7 +81,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Luxury Header Branding */}
         <View style={styles.brandingHeader}>
-          <Text style={styles.logoTitle}>SEXUS RMG</Text>
+          <Text style={styles.logoTitle}>DREAM LUDO</Text>
           <Text style={styles.logoSubtitle}>Create Account & Claim ₹10 Instant Welcome Bonus</Text>
         </View>
 
@@ -142,7 +142,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
             <Text style={styles.referralPrefixIcon}>🎁</Text>
             <TextInput
               style={[styles.input, styles.referralInput]}
-              placeholder="e.g. SEXUS50SEXUS"
+              placeholder="e.g. DREAM50LUDO"
               placeholderTextColor="#94A3B8"
               autoCapitalize="characters"
               value={referredByCode}

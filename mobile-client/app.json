@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Sexus",
+    "name": "Dream Ludo",
     "slug": "sexus-platform",
     "newArchEnabled": true,
     "version": "1.0.0",
@@ -20,27 +20,21 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#121214"
       },
-      "package": "com.sexus.realmoney"
+      "package": "com.dreamludo.realmoney"
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "updates": {
-      "url": "https://u.expo.dev/mock-project-id",
-      "enabled": true,
-      "checkAutomatically": "ON_LOAD",
-      "fallbackToCacheTimeout": 3000
+      "enabled": false
     },
-    "runtimeVersion": {
-      "policy": "sdkVersion"
+    "extra": {
+      "eas": {
+        "projectId": "8932f8d6-ef15-4a4a-b03c-c28a63335775"
+      }
     },
     "plugins": [
-      [
-        "expo-updates",
-        {
-          "username": "sexus"
-        }
-      ]
+      "expo-asset"
     ]
   }
 }

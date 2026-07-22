@@ -1,7 +1,7 @@
 module.exports = {
   apps: [
     {
-      name: 'sexus-backend-cluster',
+      name: 'dream-ludo-backend-cluster',
       script: './dist/server.js',
       instances: 'max',
       exec_mode: 'cluster',
