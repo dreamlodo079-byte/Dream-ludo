@@ -46,21 +46,16 @@ payoutRouter.post('/withdraw', async (req: Request, res: Response) => {
         throw new Error('User not found');
       }
 
-      // Check withdrawable balance: deposits + winnings (bonus balance is excluded and cannot be withdrawn)
+      // Check withdrawable balance: ONLY winningsBalance can be withdrawn (deposit cash and bonus cash cannot be withdrawn)
       const currentWinnings = user.winningsBalance || 0;
-      const currentDeposits = user.depositBalance || 0;
-      const withdrawableBalance = Math.round((currentWinnings + currentDeposits) * 100) / 100;
+      const withdrawableBalance = Math.round(currentWinnings * 100) / 100;
 
       if (withdrawableBalance < withdrawAmount) {
-        throw new Error(`Insufficient withdrawable balance. Available: ₹${withdrawableBalance.toFixed(2)}. Bonus cash (₹10 welcome & referral bonuses) cannot be withdrawn.`);
+        throw new Error(`Only winning balance can be withdrawn. Available winnings: ₹${withdrawableBalance.toFixed(2)}. Deposit cash and bonus cash (₹10 sign-up & ₹50 referral bonuses) cannot be withdrawn.`);
       }
 
-      // Deduct immediately inside session: prioritize winningsBalance, then depositBalance
-      const winningsDec = Math.min(currentWinnings, withdrawAmount);
-      const depositDec = Math.round((withdrawAmount - winningsDec) * 100) / 100;
-
-      user.winningsBalance = Math.round((currentWinnings - winningsDec) * 100) / 100;
-      user.depositBalance = Math.round((currentDeposits - depositDec) * 100) / 100;
+      // Deduct immediately inside session from winningsBalance
+      user.winningsBalance = Math.round((currentWinnings - withdrawAmount) * 100) / 100;
       await user.save({ session });
 
       // Compute 30% TDS Tax (Section 194BA)

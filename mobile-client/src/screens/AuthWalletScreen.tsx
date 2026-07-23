@@ -438,11 +438,11 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
       return;
     }
 
-    const withdrawableBalance = Math.round(((balances.winnings || 0) + (balances.deposits || 0)) * 100) / 100;
+    const withdrawableBalance = Math.round((balances.winnings || 0) * 100) / 100;
     if (amount > withdrawableBalance) {
       showCustomAlert(
         'Withdrawal Error',
-        `Insufficient withdrawable balance. Available: ₹${withdrawableBalance.toFixed(2)}. Bonus cash (₹10 welcome bonus & referral rewards) cannot be withdrawn and is strictly for playing matches.`,
+        `Only Winnings Balance can be withdrawn. Available winnings: ₹${withdrawableBalance.toFixed(2)}. Bonus cash (₹10 sign-up bonus & ₹50 referral bonus) and deposit cash cannot be withdrawn and are strictly for playing matches.`,
         'error'
       );
       return;
@@ -1049,7 +1049,7 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
   };
 
   const renderWithdrawCard = () => {
-    const withdrawableBalance = Math.round(((balances.winnings || 0) + (balances.deposits || 0)) * 100) / 100;
+    const withdrawableBalance = Math.round((balances.winnings || 0) * 100) / 100;
 
     return (
       <View style={styles.premiumWithdrawCard}>
@@ -1060,10 +1060,10 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
         <View>
           <View style={{ backgroundColor: '#F8FAFC', padding: 10, borderRadius: 8, marginBottom: 12, borderWidth: 1, borderColor: '#E2E8F0' }}>
             <Text style={{ fontSize: 13, fontWeight: '700', color: '#1E293B' }}>
-              Available to Withdraw: <Text style={{ color: '#16A34A', fontSize: 14 }}>₹{withdrawableBalance.toFixed(2)}</Text>
+              Available Winnings to Withdraw: <Text style={{ color: '#16A34A', fontSize: 14 }}>₹{withdrawableBalance.toFixed(2)}</Text>
             </Text>
             <Text style={{ fontSize: 11, color: '#64748B', marginTop: 4, lineHeight: 15 }}>
-              💡 Note: Bonus Cash (₹10 Welcome Bonus & Referral Rewards) cannot be withdrawn and can only be used to play matches.
+              💡 Note: Only Winnings Balance can be withdrawn. Deposit cash & Bonus cash (₹10 Sign-Up & ₹50 Referral Bonus) cannot be withdrawn and are used to play matches.
             </Text>
           </View>
           <View style={styles.inputContainerWrapper}>

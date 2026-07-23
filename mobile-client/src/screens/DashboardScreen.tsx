@@ -897,7 +897,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                       >
                         <Text style={[styles.tierFeeText, selectedTier === fee && styles.selectedText]}>₹{fee}</Text>
                         <View style={styles.winBadge}>
-                          <Text style={styles.winBadgeText}>💰 WIN ₹{(fee * 1.8).toFixed(0)}</Text>
+                          <Text style={styles.winBadgeText}>💰 WIN ₹{(fee * 1.7).toFixed(0)}</Text>
                         </View>
                       </AnimatedPressable>
                     ))}
