@@ -28,6 +28,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [referredByCode, setReferredByCode] = useState('');
+  const [agreedTerms, setAgreedTerms] = useState(true);
   const [loading, setLoading] = useState(false);
 
   const [isFocusedPhone, setIsFocusedPhone] = useState(false);
@@ -43,6 +44,11 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
 
     if (phone.trim().length < 10) {
       Alert.alert('Validation Error', 'Please enter a valid 10-digit mobile number.');
+      return;
+    }
+
+    if (!agreedTerms) {
+      Alert.alert('Terms Agreement Required', 'Please accept the Terms of Service & Privacy Policy to create your account.');
       return;
     }
 
@@ -154,6 +160,20 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
           <Text style={styles.referralHint}>
             💡 Have a friend's referral code? Enter it to get ₹10 bonus & credit them ₹50 bonus cash!
           </Text>
+
+          {/* Interactive Terms & Policy Agreement Checkbox */}
+          <TouchableOpacity
+            style={styles.checkboxRow}
+            onPress={() => setAgreedTerms(!agreedTerms)}
+            activeOpacity={0.8}
+          >
+            <View style={[styles.checkboxBox, agreedTerms && styles.checkboxBoxChecked]}>
+              {agreedTerms && <Text style={styles.checkmarkIcon}>✓</Text>}
+            </View>
+            <Text style={styles.checkboxLabel}>
+              I agree to the <Text style={styles.policyLink} onPress={() => Alert.alert('Terms & Privacy Policy', 'By creating an account on Dream Ludo, you agree to our Terms of Service, Privacy Policy, and Refund Policy. Real cash battles are subject to skill-gaming regulations.')}>Terms of Service & Privacy Policy</Text> of Dream Ludo.
+            </Text>
+          </TouchableOpacity>
 
           {/* Action Submit Button */}
           <TouchableOpacity
@@ -275,6 +295,45 @@ const styles = StyleSheet.create({
     color: '#6366F1',
     marginTop: 6,
     lineHeight: 14,
+  },
+  checkboxRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 14,
+    marginBottom: 4,
+    paddingHorizontal: 2,
+  },
+  checkboxBox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: '#94A3B8',
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  checkboxBoxChecked: {
+    backgroundColor: '#4F46E5',
+    borderColor: '#4F46E5',
+  },
+  checkmarkIcon: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  checkboxLabel: {
+    fontSize: 12,
+    color: '#475569',
+    fontWeight: '600',
+    flex: 1,
+    lineHeight: 17,
+  },
+  policyLink: {
+    color: '#4F46E5',
+    fontWeight: '800',
+    textDecorationLine: 'underline',
   },
   submitBtn: {
     backgroundColor: '#4F46E5',
