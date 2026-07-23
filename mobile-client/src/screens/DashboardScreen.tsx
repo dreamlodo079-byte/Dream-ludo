@@ -205,8 +205,8 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   const [customTimer, setCustomTimer] = useState<number>(15);
   const [isJoiningLobby, setIsJoiningLobby] = useState(false);
   const [customFeeText, setCustomFeeText] = useState('');
-  // Dedicated Mode Modal state ('QUICK' | 'REGULAR' | 'ROOMS' | 'TOURNAMENTS' | null)
-  const [selectedModeModal, setSelectedModeModal] = useState<'QUICK' | 'REGULAR' | 'ROOMS' | 'TOURNAMENTS' | null>(null);
+  // Dedicated Mode Modal state ('QUICK' | 'REGULAR' | 'ROOMS' | 'TOURNAMENTS' | 'SELECT_ALL' | null)
+  const [selectedModeModal, setSelectedModeModal] = useState<'QUICK' | 'REGULAR' | 'ROOMS' | 'TOURNAMENTS' | 'SELECT_ALL' | null>(null);
 
   // Active Tournaments
   const [tournamentsList, setTournamentsList] = useState<any[]>([]);
@@ -614,7 +614,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
               <Animated.View style={{ transform: [{ scale: ctaPulse }] }}>
                 <TouchableOpacity
                   style={styles.heroPlayNowBtn}
-                  onPress={() => setSelectedModeModal('QUICK')}
+                  onPress={() => setSelectedModeModal('SELECT_ALL')}
                   activeOpacity={0.85}
                 >
                   <Text style={styles.heroPlayNowText}>▶ SELECT MODE & PLAY</Text>
@@ -867,23 +867,153 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             <View style={styles.modalHeaderRow}>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <Text style={{ fontSize: 26, marginRight: 10 }}>
-                  {selectedModeModal === 'QUICK' ? '⚡' : selectedModeModal === 'REGULAR' ? '👑' : selectedModeModal === 'ROOMS' ? '🔐' : '🥇'}
+                  {selectedModeModal === 'SELECT_ALL' ? '🎮' : selectedModeModal === 'QUICK' ? '⚡' : selectedModeModal === 'REGULAR' ? '👑' : selectedModeModal === 'ROOMS' ? '🔐' : '🥇'}
                 </Text>
                 <View>
                   <Text style={styles.modalTitleText}>
-                    {selectedModeModal === 'QUICK' ? 'Quick Match (5 Min)' : selectedModeModal === 'REGULAR' ? 'Regular Match (8 Min)' : selectedModeModal === 'ROOMS' ? 'Private Room' : 'Live Tournaments'}
+                    {selectedModeModal === 'SELECT_ALL' ? 'Select Game Mode' : selectedModeModal === 'QUICK' ? 'Quick Match (5 Min)' : selectedModeModal === 'REGULAR' ? 'Regular Match (8 Min)' : selectedModeModal === 'ROOMS' ? 'Private Room' : 'Live Tournaments'}
                   </Text>
                   <Text style={styles.modalSubText}>
-                    {selectedModeModal === 'QUICK' ? 'Speed 2-Player Battle' : selectedModeModal === 'REGULAR' ? 'Classic 4-Pawn Strategy' : selectedModeModal === 'ROOMS' ? 'Play With Friends Code' : 'Pool & Bracket Competitions'}
+                    {selectedModeModal === 'SELECT_ALL' ? 'Choose your preferred battle arena' : selectedModeModal === 'QUICK' ? 'Speed 2-Player Battle' : selectedModeModal === 'REGULAR' ? 'Classic 4-Pawn Strategy' : selectedModeModal === 'ROOMS' ? 'Play With Friends Code' : 'Pool & Bracket Competitions'}
                   </Text>
                 </View>
               </View>
-              <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setSelectedModeModal(null)}>
-                <Text style={styles.modalCloseText}>✕</Text>
-              </TouchableOpacity>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                {selectedModeModal !== 'SELECT_ALL' && (
+                  <TouchableOpacity 
+                    style={[styles.modalCloseBtn, { marginRight: 8, width: 'auto', paddingHorizontal: 10 }]} 
+                    onPress={() => setSelectedModeModal('SELECT_ALL')}
+                  >
+                    <Text style={[styles.modalCloseText, { fontSize: 11 }]}>◀ All Modes</Text>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setSelectedModeModal(null)}>
+                  <Text style={styles.modalCloseText}>✕</Text>
+                </TouchableOpacity>
+              </View>
             </View>
 
             <ScrollView style={{ paddingVertical: 12 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+              {selectedModeModal === 'SELECT_ALL' && (
+                <View style={{ paddingBottom: 16 }}>
+                  <Text style={styles.sectionHeader}>CHOOSE A GAME MODE TO PLAY</Text>
+                  
+                  {/* Option 1: Quick Match */}
+                  <TouchableOpacity
+                    style={styles.modeOptionCard}
+                    onPress={() => setSelectedModeModal('QUICK')}
+                    activeOpacity={0.85}
+                  >
+                    <View style={styles.modeOptionHeader}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <View style={[styles.modeOptionIconBg, { backgroundColor: '#ECFDF5' }]}>
+                          <Text style={{ fontSize: 24 }}>⚡</Text>
+                        </View>
+                        <View style={{ marginLeft: 12 }}>
+                          <Text style={styles.modeOptionTitle}>Quick Match (5 Min)</Text>
+                          <Text style={styles.modeOptionSub}>Speed 2-Player Battle • 2 Pawns Home</Text>
+                        </View>
+                      </View>
+                      <View style={[styles.modeOptionBadge, { backgroundColor: '#D1FAE5' }]}>
+                        <Text style={[styles.modeOptionBadgeText, { color: '#047857' }]}>FAST</Text>
+                      </View>
+                    </View>
+                    <View style={[styles.modeOptionActionBtn, { backgroundColor: '#059669' }]}>
+                      <Text style={styles.modeOptionActionText}>SELECT QUICK MATCH ➔</Text>
+                    </View>
+                  </TouchableOpacity>
+
+                  {/* Option 2: Regular Match */}
+                  <TouchableOpacity
+                    style={styles.modeOptionCard}
+                    onPress={() => setSelectedModeModal('REGULAR')}
+                    activeOpacity={0.85}
+                  >
+                    <View style={styles.modeOptionHeader}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <View style={[styles.modeOptionIconBg, { backgroundColor: '#EEF2FF' }]}>
+                          <Text style={{ fontSize: 24 }}>👑</Text>
+                        </View>
+                        <View style={{ marginLeft: 12 }}>
+                          <Text style={styles.modeOptionTitle}>Regular Match (8 Min)</Text>
+                          <Text style={styles.modeOptionSub}>Classic 4-Pawn Strategic Ludo Showdown</Text>
+                        </View>
+                      </View>
+                      <View style={[styles.modeOptionBadge, { backgroundColor: '#E0E7FF' }]}>
+                        <Text style={[styles.modeOptionBadgeText, { color: '#4338CA' }]}>CLASSIC</Text>
+                      </View>
+                    </View>
+                    <View style={[styles.modeOptionActionBtn, { backgroundColor: '#4F46E5' }]}>
+                      <Text style={styles.modeOptionActionText}>SELECT REGULAR MATCH ➔</Text>
+                    </View>
+                  </TouchableOpacity>
+
+                  {/* Option 3: Private Room */}
+                  <TouchableOpacity
+                    style={styles.modeOptionCard}
+                    onPress={() => setSelectedModeModal('ROOMS')}
+                    activeOpacity={0.85}
+                  >
+                    <View style={styles.modeOptionHeader}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <View style={[styles.modeOptionIconBg, { backgroundColor: '#EFF6FF' }]}>
+                          <Text style={{ fontSize: 24 }}>🔐</Text>
+                        </View>
+                        <View style={{ marginLeft: 12 }}>
+                          <Text style={styles.modeOptionTitle}>Private Room</Text>
+                          <Text style={styles.modeOptionSub}>Play with Friends using 6-digit Code</Text>
+                        </View>
+                      </View>
+                      <View style={[styles.modeOptionBadge, { backgroundColor: '#DBEAFE' }]}>
+                        <Text style={[styles.modeOptionBadgeText, { color: '#1D4ED8' }]}>FRIENDS</Text>
+                      </View>
+                    </View>
+                    <View style={[styles.modeOptionActionBtn, { backgroundColor: '#2563EB' }]}>
+                      <Text style={styles.modeOptionActionText}>CREATE OR JOIN ROOM ➔</Text>
+                    </View>
+                  </TouchableOpacity>
+
+                  {/* Option 4: Live Tournaments */}
+                  <TouchableOpacity
+                    style={styles.modeOptionCard}
+                    onPress={() => {
+                      if (tournamentsList.length === 0) {
+                        setCustomAlert({
+                          visible: true,
+                          title: 'Tournaments Coming Soon',
+                          message: 'Live pool tournaments are announced daily. Check back soon!',
+                          type: 'info',
+                        });
+                      } else {
+                        setSelectedModeModal('TOURNAMENTS');
+                      }
+                    }}
+                    activeOpacity={0.85}
+                  >
+                    <View style={styles.modeOptionHeader}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <View style={[styles.modeOptionIconBg, { backgroundColor: '#FFFBEB' }]}>
+                          <Text style={{ fontSize: 24 }}>🥇</Text>
+                        </View>
+                        <View style={{ marginLeft: 12 }}>
+                          <Text style={styles.modeOptionTitle}>Live Tournaments</Text>
+                          <Text style={styles.modeOptionSub}>
+                            {tournamentsList.length > 0 ? `${tournamentsList.length} Pool Tournaments Active!` : 'Pool & Bracket Tournaments'}
+                          </Text>
+                        </View>
+                      </View>
+                      <View style={[styles.modeOptionBadge, { backgroundColor: '#FEF3C7' }]}>
+                        <Text style={[styles.modeOptionBadgeText, { color: '#B45309' }]}>POOLS</Text>
+                      </View>
+                    </View>
+                    <View style={[styles.modeOptionActionBtn, { backgroundColor: '#D97706' }]}>
+                      <Text style={styles.modeOptionActionText}>
+                        {tournamentsList.length > 0 ? 'VIEW TOURNAMENTS ➔' : 'COMING SOON 🔒'}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                </View>
+              )}
               {(selectedModeModal === 'QUICK' || selectedModeModal === 'REGULAR') && (
                 <View style={{ paddingBottom: 10 }}>
                   <Text style={styles.sectionHeader}>SELECT ENTRY FEE TIER</Text>
@@ -1185,6 +1315,65 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
     color: '#64748B',
+  },
+  modeOptionCard: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: 14,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  modeOptionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  modeOptionIconBg: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modeOptionTitle: {
+    fontSize: 15,
+    fontWeight: '900',
+    color: '#0F172A',
+  },
+  modeOptionSub: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#64748B',
+    marginTop: 2,
+  },
+  modeOptionBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  modeOptionBadgeText: {
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  modeOptionActionBtn: {
+    borderRadius: 14,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modeOptionActionText: {
+    fontSize: 13,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    letterSpacing: 0.8,
   },
   dailyGiftBtn: {
     flexDirection: 'row',
