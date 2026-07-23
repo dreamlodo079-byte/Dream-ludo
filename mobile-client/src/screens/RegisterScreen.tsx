@@ -10,6 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Modal,
 } from 'react-native';
 import axios from 'axios';
 
@@ -28,7 +29,8 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [referredByCode, setReferredByCode] = useState('');
-  const [agreedTerms, setAgreedTerms] = useState(true);
+  const [agreedTerms, setAgreedTerms] = useState(false);
+  const [showPolicyModal, setShowPolicyModal] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const [isFocusedPhone, setIsFocusedPhone] = useState(false);
@@ -171,21 +173,23 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
               {agreedTerms && <Text style={styles.checkmarkIcon}>✓</Text>}
             </View>
             <Text style={styles.checkboxLabel}>
-              I agree to the <Text style={styles.policyLink} onPress={() => Alert.alert('Terms & Privacy Policy', 'By creating an account on Dream Ludo, you agree to our Terms of Service, Privacy Policy, and Refund Policy. Real cash battles are subject to skill-gaming regulations.')}>Terms of Service & Privacy Policy</Text> of Dream Ludo.
+              I agree to the <Text style={styles.policyLink} onPress={() => setShowPolicyModal(true)}>Terms of Service & Privacy Policy</Text> of Dream Ludo.
             </Text>
           </TouchableOpacity>
 
           {/* Action Submit Button */}
           <TouchableOpacity
-            style={[styles.submitBtn, loading && styles.disabledBtn]}
+            style={[styles.submitBtn, (loading || !agreedTerms) && styles.disabledBtn]}
             onPress={handleRegister}
-            disabled={loading}
+            disabled={loading || !agreedTerms}
             activeOpacity={0.85}
           >
             {loading ? (
               <ActivityIndicator color="#FFFFFF" />
             ) : (
-              <Text style={styles.submitBtnText}>CREATE ACCOUNT NOW</Text>
+              <Text style={styles.submitBtnText}>
+                {agreedTerms ? 'CREATE ACCOUNT NOW' : '🔒 TICK BOX TO UNLOCK REGISTER'}
+              </Text>
             )}
           </TouchableOpacity>
 
@@ -194,6 +198,64 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* Terms & Privacy Policy Full Content Modal */}
+      {showPolicyModal && (
+        <Modal
+          visible={true}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => setShowPolicyModal(false)}
+        >
+          <View style={{ flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.75)', justifyContent: 'flex-end' }}>
+            <View style={{ backgroundColor: '#FFFFFF', borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 20, maxHeight: '88%' }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 12, borderBottomWidth: 1, borderColor: '#F1F5F9' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Text style={{ fontSize: 24, marginRight: 8 }}>📜</Text>
+                  <Text style={{ fontSize: 18, fontWeight: '900', color: '#0F172A' }}>Terms of Service & Privacy Policy</Text>
+                </View>
+                <TouchableOpacity 
+                  style={{ backgroundColor: '#F1F5F9', width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' }} 
+                  onPress={() => setShowPolicyModal(false)}
+                >
+                  <Text style={{ fontSize: 16, fontWeight: '800', color: '#64748B' }}>✕</Text>
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView style={{ paddingVertical: 12 }} showsVerticalScrollIndicator={true}>
+                <Text style={{ fontSize: 11, color: '#94A3B8', marginBottom: 10 }}>Last Updated: May 2025</Text>
+                
+                <Text style={{ fontSize: 14, fontWeight: '800', color: '#0F172A', marginTop: 6 }}>1. Acceptance & Skill-Based Gaming</Text>
+                <Text style={{ fontSize: 12, color: '#475569', marginTop: 4, lineHeight: 18 }}>
+                  By registering on Dream Ludo, you confirm that you are at least 18 years of age and reside in an Indian state where skill gaming is legal (excluding Assam, Odisha, Telangana, Andhra Pradesh, Nagaland, and Sikkim).
+                </Text>
+
+                <Text style={{ fontSize: 14, fontWeight: '800', color: '#0F172A', marginTop: 12 }}>2. Wallet & Cash Distribution</Text>
+                <Text style={{ fontSize: 12, color: '#475569', marginTop: 4, lineHeight: 18 }}>
+                  • Only Winnings Balance is eligible for instant IMPS bank withdrawal.
+                  {'\n'}• Deposit & Bonus balances (₹10 welcome bonus & ₹10 referral reward) are non-withdrawable.
+                  {'\n'}• 15% platform commission is charged on game prize pools.
+                </Text>
+
+                <Text style={{ fontSize: 14, fontWeight: '800', color: '#0F172A', marginTop: 12 }}>3. Fair Play & Security</Text>
+                <Text style={{ fontSize: 12, color: '#475569', marginTop: 4, lineHeight: 18 }}>
+                  Zero tolerance for bots, multi-accounting, or cheating. Violations lead to account termination.
+                </Text>
+              </ScrollView>
+
+              <TouchableOpacity 
+                style={{ backgroundColor: '#4F46E5', borderRadius: 14, paddingVertical: 14, alignItems: 'center', marginTop: 12 }} 
+                onPress={() => {
+                  setAgreedTerms(true);
+                  setShowPolicyModal(false);
+                }}
+              >
+                <Text style={{ fontSize: 13, fontWeight: '900', color: '#FFFFFF', letterSpacing: 0.8 }}>AGREE & UNLOCK REGISTER</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+      )}
     </KeyboardAvoidingView>
   );
 };

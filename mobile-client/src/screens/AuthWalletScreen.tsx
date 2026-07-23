@@ -225,7 +225,8 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
     }
   }, [currentUser?._id, fetchWallet]);
 
-  const [agreedTerms, setAgreedTerms] = useState(true);
+  const [agreedTerms, setAgreedTerms] = useState(false);
+  const [legalModalType, setLegalModalType] = useState<'terms' | 'privacy' | null>(null);
 
   const handleSendOtp = async () => {
     if (!phone) {
@@ -868,23 +869,26 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
                         {agreedTerms && <Text style={styles.authCheckmarkIcon}>✓</Text>}
                       </View>
                       <Text style={styles.authCheckboxLabel}>
-                        I agree to the <Text style={styles.authPolicyLink} onPress={() => showCustomAlert('Terms & Privacy Policy', 'By signing up on Dream Ludo, you agree to our Terms of Service, Privacy Policy, and Refund Policy.', 'info')}>Terms of Service & Privacy Policy</Text> of Dream Ludo.
+                        I agree to the <Text style={styles.authPolicyLink} onPress={() => setLegalModalType('terms')}>Terms of Service & Privacy Policy</Text> of Dream Ludo.
                       </Text>
                     </TouchableOpacity>
                   </View>
                 )}
 
                 <TouchableOpacity
-                  style={styles.authButton}
+                  style={[
+                    styles.authButton,
+                    (!isLoginMode && !agreedTerms) && styles.authButtonLocked
+                  ]}
                   onPress={handleSendOtp}
-                  disabled={isLoggingIn}
+                  disabled={isLoggingIn || (!isLoginMode && !agreedTerms)}
                   activeOpacity={0.85}
                 >
                   {isLoggingIn ? (
                     <ActivityIndicator color="#fff" />
                   ) : (
                     <Text style={styles.authButtonText}>
-                      {isLoginMode ? 'SEND OTP & LOGIN' : 'SEND OTP & REGISTER'}
+                      {isLoginMode ? 'SEND OTP & LOGIN' : (!agreedTerms ? '🔒 TICK BOX TO UNLOCK REGISTER' : 'SEND OTP & REGISTER')}
                     </Text>
                   )}
                 </TouchableOpacity>
@@ -965,6 +969,73 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
             </TouchableOpacity>
           </View>
         </ScrollView>
+
+        {/* Full Legal Terms & Privacy Policy Modal */}
+        {legalModalType !== null && (
+          <Modal
+            visible={true}
+            animationType="slide"
+            transparent={true}
+            onRequestClose={() => setLegalModalType(null)}
+          >
+            <View style={{ flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.75)', justifyContent: 'flex-end' }}>
+              <View style={{ backgroundColor: '#FFFFFF', borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 20, maxHeight: '88%' }}>
+                {/* Header */}
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 12, borderBottomWidth: 1, borderColor: '#F1F5F9' }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Text style={{ fontSize: 24, marginRight: 8 }}>📜</Text>
+                    <Text style={{ fontSize: 18, fontWeight: '900', color: '#0F172A' }}>
+                      {legalModalType === 'terms' ? 'Terms of Service & Privacy Policy' : 'Privacy Policy'}
+                    </Text>
+                  </View>
+                  <TouchableOpacity 
+                    style={{ backgroundColor: '#F1F5F9', width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' }} 
+                    onPress={() => setLegalModalType(null)}
+                  >
+                    <Text style={{ fontSize: 16, fontWeight: '800', color: '#64748B' }}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Policy Body */}
+                <ScrollView style={{ paddingVertical: 12 }} showsVerticalScrollIndicator={true}>
+                  <Text style={{ fontSize: 11, color: '#94A3B8', marginBottom: 10 }}>Last Updated: May 2025</Text>
+                  
+                  <Text style={{ fontSize: 14, fontWeight: '800', color: '#0F172A', marginTop: 6 }}>1. Acceptance & Eligibility</Text>
+                  <Text style={{ fontSize: 12, color: '#475569', marginTop: 4, lineHeight: 18 }}>
+                    By registering on Dream Ludo, you confirm that you are at least 18 years of age and reside in a state where skill-based cash gaming is legally permitted. Residents of Assam, Odisha, Telangana, Andhra Pradesh, Nagaland, and Sikkim are prohibited.
+                  </Text>
+
+                  <Text style={{ fontSize: 14, fontWeight: '800', color: '#0F172A', marginTop: 12 }}>2. Real-Money Wallet & Winnings</Text>
+                  <Text style={{ fontSize: 12, color: '#475569', marginTop: 4, lineHeight: 18 }}>
+                    • Only Winnings Balance can be withdrawn via bank IMPS/UPI.
+                    {'\n'}• Added deposit cash & bonus cash (₹10 sign-up bonus & ₹10 referral bonus) are non-withdrawable and strictly reserved for entering matches.
+                    {'\n'}• 15% platform profit commission is deducted from total prize pools upon match completion.
+                  </Text>
+
+                  <Text style={{ fontSize: 14, fontWeight: '800', color: '#0F172A', marginTop: 12 }}>3. Fair Play & Anti-Cheating</Text>
+                  <Text style={{ fontSize: 12, color: '#475569', marginTop: 4, lineHeight: 18 }}>
+                    We enforce zero tolerance for fraudulent activity, multi-accounting, bots, or match fixing. Accounts violating fair play will be permanently suspended.
+                  </Text>
+
+                  <Text style={{ fontSize: 14, fontWeight: '800', color: '#0F172A', marginTop: 12 }}>4. Data Privacy & Security</Text>
+                  <Text style={{ fontSize: 12, color: '#475569', marginTop: 4, lineHeight: 18 }}>
+                    Your personal information and transaction logs are protected using 256-bit SSL encryption and strict privacy protocols.
+                  </Text>
+                </ScrollView>
+
+                <TouchableOpacity 
+                  style={{ backgroundColor: '#4F46E5', borderRadius: 14, paddingVertical: 14, alignItems: 'center', marginTop: 12 }} 
+                  onPress={() => {
+                    setAgreedTerms(true);
+                    setLegalModalType(null);
+                  }}
+                >
+                  <Text style={{ fontSize: 13, fontWeight: '900', color: '#FFFFFF', letterSpacing: 0.8 }}>AGREE & UNLOCK REGISTER</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </Modal>
+        )}
 
         {/* Premium Custom Alert Modal */}
         {customAlert.visible && (
@@ -2987,6 +3058,12 @@ const styles = StyleSheet.create({
     color: '#4F46E5',
     fontWeight: '800',
     textDecorationLine: 'underline',
+  },
+  authButtonLocked: {
+    backgroundColor: '#94A3B8',
+    opacity: 0.65,
+    elevation: 0,
+    shadowOpacity: 0,
   },
 });
 export default AuthWalletScreen;
