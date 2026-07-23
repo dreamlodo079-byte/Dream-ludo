@@ -29,7 +29,7 @@ import { MatchmakingCardOverlay } from '../components/MatchmakingCardOverlay';
 import { CustomAlertModal, CustomAlertOptions } from '../components/CustomAlertModal';
 
 const API_SERVER_URL = process.env.EXPO_PUBLIC_SERVER_URL || 'http://localhost:5000';
-const ENTRY_FEES = [50, 100, 500, 1000];
+const ENTRY_FEES = [0, 50, 100, 500, 1000];
 
 const formatDateTime = (dateStr: string) => {
   if (!dateStr) return 'N/A';
@@ -337,7 +337,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
       return;
     }
 
-    if (balances.total < selectedTier) {
+    if (selectedTier > 0 && balances.total < selectedTier) {
       showCustomAlert(
         'Insufficient Wallet Balance',
         `Your balance is ₹${balances.total.toFixed(2)}. Entry fee is ₹${selectedTier}. Please add cash or claim rewards to play!`,
@@ -897,7 +897,34 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
               {selectedModeModal === 'SELECT_ALL' && (
                 <View style={{ paddingBottom: 16 }}>
                   <Text style={styles.sectionHeader}>CHOOSE A GAME MODE TO PLAY</Text>
-                  
+                  {/* Option 0: Free Practice Mode */}
+                  <TouchableOpacity
+                    style={[styles.modeOptionCard, { borderColor: '#10B981', backgroundColor: '#F0FDF4' }]}
+                    onPress={() => {
+                      setSelectedTier(0);
+                      setSelectedModeModal('QUICK');
+                    }}
+                    activeOpacity={0.85}
+                  >
+                    <View style={styles.modeOptionHeader}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 8 }}>
+                        <View style={[styles.modeOptionIconBg, { backgroundColor: '#D1FAE5' }]}>
+                          <Text style={{ fontSize: 24 }}>🎮</Text>
+                        </View>
+                        <View style={{ marginLeft: 10, flex: 1 }}>
+                          <Text style={[styles.modeOptionTitle, { color: '#065F46' }]} numberOfLines={1}>Free Practice Mode (₹0)</Text>
+                          <Text style={[styles.modeOptionSub, { color: '#047857' }]} numberOfLines={1}>Unlimited Free Battles • No Balance Required</Text>
+                        </View>
+                      </View>
+                      <View style={[styles.modeOptionBadge, { backgroundColor: '#10B981' }]}>
+                        <Text style={[styles.modeOptionBadgeText, { color: '#FFFFFF' }]}>FREE PLAY</Text>
+                      </View>
+                    </View>
+                    <View style={[styles.modeOptionActionBtn, { backgroundColor: '#059669' }]}>
+                      <Text style={styles.modeOptionActionText}>PLAY FREE PRACTICE MATCH ➔</Text>
+                    </View>
+                  </TouchableOpacity>
+
                   {/* Option 1: Quick Match */}
                   <TouchableOpacity
                     style={styles.modeOptionCard}
@@ -1021,13 +1048,21 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                     {ENTRY_FEES.map((fee) => (
                       <AnimatedPressable
                         key={fee}
-                        style={[styles.tierCard, selectedTier === fee && styles.selectedTierCard]}
+                        style={[
+                          styles.tierCard,
+                          selectedTier === fee && styles.selectedTierCard,
+                          fee === 0 && { borderColor: '#10B981', backgroundColor: selectedTier === 0 ? '#ECFDF5' : '#F0FDF4' }
+                        ]}
                         onPress={() => { setSelectedTier(fee); setCustomFeeText(''); }}
                         disabled={isSearching}
                       >
-                        <Text style={[styles.tierFeeText, selectedTier === fee && styles.selectedText]}>₹{fee}</Text>
-                        <View style={styles.winBadge}>
-                          <Text style={styles.winBadgeText}>💰 WIN ₹{(fee * 1.7).toFixed(0)}</Text>
+                        <Text style={[styles.tierFeeText, selectedTier === fee && styles.selectedText, fee === 0 && { color: '#047857' }]}>
+                          {fee === 0 ? '🆓 FREE' : `₹${fee}`}
+                        </Text>
+                        <View style={[styles.winBadge, fee === 0 && { backgroundColor: '#10B981' }]}>
+                          <Text style={styles.winBadgeText}>
+                            {fee === 0 ? '🏆 PRACTICE' : `💰 WIN ₹${(fee * 1.7).toFixed(0)}`}
+                          </Text>
                         </View>
                       </AnimatedPressable>
                     ))}
@@ -1054,14 +1089,17 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   </View>
 
                   <AnimatedPressable
-                    style={[styles.primaryActionBtn, { backgroundColor: selectedModeModal === 'QUICK' ? '#059669' : '#4F46E5', marginTop: 16 }]}
+                    style={[styles.primaryActionBtn, { backgroundColor: selectedTier === 0 ? '#059669' : (selectedModeModal === 'QUICK' ? '#059669' : '#4F46E5'), marginTop: 16 }]}
                     onPress={() => {
                       setSelectedModeModal(null);
                       handleJoinMatchmaking();
                     }}
                   >
                     <Text style={styles.primaryActionText}>
-                      {selectedModeModal === 'QUICK' ? `⚡ FIND QUICK MATCH (₹${selectedTier})` : `🎲 START REGULAR MATCH (₹${selectedTier})`}
+                      {selectedTier === 0
+                        ? (selectedModeModal === 'QUICK' ? '⚡ FIND FREE QUICK MATCH (₹0)' : '🎲 START FREE MATCH (₹0)')
+                        : (selectedModeModal === 'QUICK' ? `⚡ FIND QUICK MATCH (₹${selectedTier})` : `🎲 START REGULAR MATCH (₹${selectedTier})`)
+                      }
                     </Text>
                   </AnimatedPressable>
                 </View>

@@ -548,6 +548,10 @@ async function deductEntryFee(
   roomId: string,
   session: any
 ): Promise<void> {
+  if (entryFee === 0) {
+    return; // Free mode - no wallet balance debit
+  }
+
   const user = await User.findById(userId).session(session);
   if (!user) {
     throw new Error(`User not found: ${userId}`);
