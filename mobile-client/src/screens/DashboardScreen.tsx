@@ -29,7 +29,7 @@ import { MatchmakingCardOverlay } from '../components/MatchmakingCardOverlay';
 import { CustomAlertModal, CustomAlertOptions } from '../components/CustomAlertModal';
 
 const API_SERVER_URL = process.env.EXPO_PUBLIC_SERVER_URL || 'http://localhost:5000';
-const ENTRY_FEES = [0, 50, 100, 500, 1000];
+const ENTRY_FEES = [50, 100, 500, 1000, 0];
 
 const formatDateTime = (dateStr: string) => {
   if (!dateStr) return 'N/A';
@@ -897,33 +897,6 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
               {selectedModeModal === 'SELECT_ALL' && (
                 <View style={{ paddingBottom: 16 }}>
                   <Text style={styles.sectionHeader}>CHOOSE A GAME MODE TO PLAY</Text>
-                  {/* Option 0: Free Practice Mode */}
-                  <TouchableOpacity
-                    style={[styles.modeOptionCard, { borderColor: '#10B981', backgroundColor: '#F0FDF4' }]}
-                    onPress={() => {
-                      setSelectedTier(0);
-                      setSelectedModeModal('QUICK');
-                    }}
-                    activeOpacity={0.85}
-                  >
-                    <View style={styles.modeOptionHeader}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 8 }}>
-                        <View style={[styles.modeOptionIconBg, { backgroundColor: '#D1FAE5' }]}>
-                          <Text style={{ fontSize: 24 }}>🎮</Text>
-                        </View>
-                        <View style={{ marginLeft: 10, flex: 1 }}>
-                          <Text style={[styles.modeOptionTitle, { color: '#065F46' }]} numberOfLines={1}>Free Practice Mode (₹0)</Text>
-                          <Text style={[styles.modeOptionSub, { color: '#047857' }]} numberOfLines={1}>Unlimited Free Battles • No Balance Required</Text>
-                        </View>
-                      </View>
-                      <View style={[styles.modeOptionBadge, { backgroundColor: '#10B981' }]}>
-                        <Text style={[styles.modeOptionBadgeText, { color: '#FFFFFF' }]}>FREE PLAY</Text>
-                      </View>
-                    </View>
-                    <View style={[styles.modeOptionActionBtn, { backgroundColor: '#059669' }]}>
-                      <Text style={styles.modeOptionActionText}>PLAY FREE PRACTICE MATCH ➔</Text>
-                    </View>
-                  </TouchableOpacity>
 
                   {/* Option 1: Quick Match */}
                   <TouchableOpacity
@@ -1039,6 +1012,34 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                       </Text>
                     </View>
                   </TouchableOpacity>
+
+                  {/* Option 5: Free Practice Mode (Normal Unhighlighted Card at the End) */}
+                  <TouchableOpacity
+                    style={styles.modeOptionCard}
+                    onPress={() => {
+                      setSelectedTier(0);
+                      setSelectedModeModal('QUICK');
+                    }}
+                    activeOpacity={0.85}
+                  >
+                    <View style={styles.modeOptionHeader}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 8 }}>
+                        <View style={[styles.modeOptionIconBg, { backgroundColor: '#F1F5F9' }]}>
+                          <Text style={{ fontSize: 24 }}>🎮</Text>
+                        </View>
+                        <View style={{ marginLeft: 10, flex: 1 }}>
+                          <Text style={styles.modeOptionTitle} numberOfLines={1}>Free Practice Mode</Text>
+                          <Text style={styles.modeOptionSub} numberOfLines={1}>Unlimited Free Battles • No Balance Required</Text>
+                        </View>
+                      </View>
+                      <View style={[styles.modeOptionBadge, { backgroundColor: '#F1F5F9' }]}>
+                        <Text style={[styles.modeOptionBadgeText, { color: '#475569' }]}>FREE</Text>
+                      </View>
+                    </View>
+                    <View style={[styles.modeOptionActionBtn, { backgroundColor: '#475569' }]}>
+                      <Text style={styles.modeOptionActionText}>PLAY FREE PRACTICE ➔</Text>
+                    </View>
+                  </TouchableOpacity>
                 </View>
               )}
               {(selectedModeModal === 'QUICK' || selectedModeModal === 'REGULAR') && (
@@ -1051,15 +1052,14 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                         style={[
                           styles.tierCard,
                           selectedTier === fee && styles.selectedTierCard,
-                          fee === 0 && { borderColor: '#10B981', backgroundColor: selectedTier === 0 ? '#ECFDF5' : '#F0FDF4' }
                         ]}
                         onPress={() => { setSelectedTier(fee); setCustomFeeText(''); }}
                         disabled={isSearching}
                       >
-                        <Text style={[styles.tierFeeText, selectedTier === fee && styles.selectedText, fee === 0 && { color: '#047857' }]}>
-                          {fee === 0 ? '🆓 FREE' : `₹${fee}`}
+                        <Text style={[styles.tierFeeText, selectedTier === fee && styles.selectedText]}>
+                          {fee === 0 ? 'FREE' : `₹${fee}`}
                         </Text>
-                        <View style={[styles.winBadge, fee === 0 && { backgroundColor: '#10B981' }]}>
+                        <View style={styles.winBadge}>
                           <Text style={styles.winBadgeText}>
                             {fee === 0 ? '🏆 PRACTICE' : `💰 WIN ₹${(fee * 1.8).toFixed(0)}`}
                           </Text>
