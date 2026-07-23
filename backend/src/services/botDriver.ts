@@ -329,7 +329,7 @@ const handleBotMatchTermination = async (roomId: string, state: MatchState): Pro
   if (!state.winnerId || !winner) return;
 
   const totalPrizePool = state.entryFee * 2;
-  const commissionRate = 0.15; // 15% platform profit commission
+  const commissionRate = 0.10; // 10% platform profit commission
   const commissionAmount = totalPrizePool * commissionRate;
   const winningsAmount = totalPrizePool - commissionAmount;
 

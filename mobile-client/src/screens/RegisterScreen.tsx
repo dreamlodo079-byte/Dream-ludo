@@ -234,7 +234,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                 <Text style={{ fontSize: 12, color: '#475569', marginTop: 4, lineHeight: 18 }}>
                   • Only Winnings Balance is eligible for instant IMPS bank withdrawal.
                   {'\n'}• Deposit & Bonus balances (₹10 welcome bonus & ₹10 referral reward) are non-withdrawable.
-                  {'\n'}• 15% platform commission is charged on game prize pools.
+                  {'\n'}• 10% platform commission is charged on game prize pools.
                 </Text>
 
                 <Text style={{ fontSize: 14, fontWeight: '800', color: '#0F172A', marginTop: 12 }}>3. Fair Play & Security</Text>

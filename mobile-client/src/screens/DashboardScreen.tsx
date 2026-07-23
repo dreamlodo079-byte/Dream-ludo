@@ -1061,7 +1061,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                         </Text>
                         <View style={[styles.winBadge, fee === 0 && { backgroundColor: '#10B981' }]}>
                           <Text style={styles.winBadgeText}>
-                            {fee === 0 ? '🏆 PRACTICE' : `💰 WIN ₹${(fee * 1.7).toFixed(0)}`}
+                            {fee === 0 ? '🏆 PRACTICE' : `💰 WIN ₹${(fee * 1.8).toFixed(0)}`}
                           </Text>
                         </View>
                       </AnimatedPressable>

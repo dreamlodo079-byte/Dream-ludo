@@ -1009,7 +1009,7 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
                   <Text style={{ fontSize: 12, color: '#475569', marginTop: 4, lineHeight: 18 }}>
                     • Only Winnings Balance can be withdrawn via bank IMPS/UPI.
                     {'\n'}• Added deposit cash & bonus cash (₹10 sign-up bonus & ₹10 referral bonus) are non-withdrawable and strictly reserved for entering matches.
-                    {'\n'}• 15% platform profit commission is deducted from total prize pools upon match completion.
+                    {'\n'}• 10% platform profit commission is deducted from total prize pools upon match completion.
                   </Text>
 
                   <Text style={{ fontSize: 14, fontWeight: '800', color: '#0F172A', marginTop: 12 }}>3. Fair Play & Anti-Cheating</Text>

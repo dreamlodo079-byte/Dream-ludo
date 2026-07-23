@@ -32,14 +32,14 @@ interface TierInfo {
 }
 
 const TIER_CONFIGS: TierInfo[] = [
-  { tier: 3, timeout: 13, prize: 5.1 },
-  { tier: 5, timeout: 13, prize: 8.5 },
-  { tier: 10, timeout: 13, prize: 17 },
-  { tier: 25, timeout: 13, prize: 42.5 },
-  { tier: 50, timeout: 13, prize: 85 },
-  { tier: 100, timeout: 13, prize: 170 },
-  { tier: 250, timeout: 13, prize: 425 },
-  { tier: 500, timeout: 13, prize: 850 },
+  { tier: 3, timeout: 13, prize: 5.4 },
+  { tier: 5, timeout: 13, prize: 9.0 },
+  { tier: 10, timeout: 13, prize: 18 },
+  { tier: 25, timeout: 13, prize: 45 },
+  { tier: 50, timeout: 13, prize: 90 },
+  { tier: 100, timeout: 13, prize: 180 },
+  { tier: 250, timeout: 13, prize: 450 },
+  { tier: 500, timeout: 13, prize: 900 },
 ];
 
 export const LiveArenaScreen: React.FC<LiveArenaScreenProps> = ({
@@ -309,8 +309,8 @@ export const LiveArenaScreen: React.FC<LiveArenaScreenProps> = ({
               <Text style={styles.prizeValue}>Rs. {item.tier * 2}</Text>
             </View>
             <View style={[styles.prizeRow, styles.commissionRow]}>
-              <Text style={styles.prizeLabel}>Platform Fee (15%):</Text>
-              <Text style={styles.prizeValue}>- Rs. {(item.tier * 2 * 0.15).toFixed(1)}</Text>
+              <Text style={styles.prizeLabel}>Platform Fee (10%):</Text>
+              <Text style={styles.prizeValue}>- Rs. {(item.tier * 2 * 0.10).toFixed(1)}</Text>
             </View>
             <View style={[styles.prizeRow, styles.netWinningsRow]}>
               <Text style={styles.netWinningsLabel}>Winner Payout:</Text>
