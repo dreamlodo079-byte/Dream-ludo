@@ -865,15 +865,15 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           <KeyboardAvoidingView style={styles.modalContentContainer} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
             {/* Modal Header */}
             <View style={styles.modalHeaderRow}>
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <Text style={{ fontSize: 26, marginRight: 10 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 8 }}>
+                <Text style={{ fontSize: 24, marginRight: 8 }}>
                   {selectedModeModal === 'SELECT_ALL' ? '🎮' : selectedModeModal === 'QUICK' ? '⚡' : selectedModeModal === 'REGULAR' ? '👑' : selectedModeModal === 'ROOMS' ? '🔐' : '🥇'}
                 </Text>
-                <View>
-                  <Text style={styles.modalTitleText}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.modalTitleText} numberOfLines={1}>
                     {selectedModeModal === 'SELECT_ALL' ? 'Select Game Mode' : selectedModeModal === 'QUICK' ? 'Quick Match (5 Min)' : selectedModeModal === 'REGULAR' ? 'Regular Match (8 Min)' : selectedModeModal === 'ROOMS' ? 'Private Room' : 'Live Tournaments'}
                   </Text>
-                  <Text style={styles.modalSubText}>
+                  <Text style={styles.modalSubText} numberOfLines={1}>
                     {selectedModeModal === 'SELECT_ALL' ? 'Choose your preferred battle arena' : selectedModeModal === 'QUICK' ? 'Speed 2-Player Battle' : selectedModeModal === 'REGULAR' ? 'Classic 4-Pawn Strategy' : selectedModeModal === 'ROOMS' ? 'Play With Friends Code' : 'Pool & Bracket Competitions'}
                   </Text>
                 </View>
@@ -881,13 +881,13 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 {selectedModeModal !== 'SELECT_ALL' && (
                   <TouchableOpacity 
-                    style={[styles.modalCloseBtn, { marginRight: 8, width: 'auto', paddingHorizontal: 10 }]} 
+                    style={[styles.modalCloseBtn, { marginRight: 6, width: 'auto', paddingHorizontal: 10, height: 32, borderRadius: 16 }]} 
                     onPress={() => setSelectedModeModal('SELECT_ALL')}
                   >
-                    <Text style={[styles.modalCloseText, { fontSize: 11 }]}>◀ All Modes</Text>
+                    <Text style={[styles.modalCloseText, { fontSize: 11 }]}>◀ Modes</Text>
                   </TouchableOpacity>
                 )}
-                <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setSelectedModeModal(null)}>
+                <TouchableOpacity style={[styles.modalCloseBtn, { width: 32, height: 32, borderRadius: 16 }]} onPress={() => setSelectedModeModal(null)}>
                   <Text style={styles.modalCloseText}>✕</Text>
                 </TouchableOpacity>
               </View>
@@ -905,13 +905,13 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                     activeOpacity={0.85}
                   >
                     <View style={styles.modeOptionHeader}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 8 }}>
                         <View style={[styles.modeOptionIconBg, { backgroundColor: '#ECFDF5' }]}>
                           <Text style={{ fontSize: 24 }}>⚡</Text>
                         </View>
-                        <View style={{ marginLeft: 12 }}>
-                          <Text style={styles.modeOptionTitle}>Quick Match (5 Min)</Text>
-                          <Text style={styles.modeOptionSub}>Speed 2-Player Battle • 2 Pawns Home</Text>
+                        <View style={{ marginLeft: 10, flex: 1 }}>
+                          <Text style={styles.modeOptionTitle} numberOfLines={1}>Quick Match (5 Min)</Text>
+                          <Text style={styles.modeOptionSub} numberOfLines={1}>Speed 2-Player Battle • 2 Pawns Home</Text>
                         </View>
                       </View>
                       <View style={[styles.modeOptionBadge, { backgroundColor: '#D1FAE5' }]}>
@@ -930,13 +930,13 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                     activeOpacity={0.85}
                   >
                     <View style={styles.modeOptionHeader}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 8 }}>
                         <View style={[styles.modeOptionIconBg, { backgroundColor: '#EEF2FF' }]}>
                           <Text style={{ fontSize: 24 }}>👑</Text>
                         </View>
-                        <View style={{ marginLeft: 12 }}>
-                          <Text style={styles.modeOptionTitle}>Regular Match (8 Min)</Text>
-                          <Text style={styles.modeOptionSub}>Classic 4-Pawn Strategic Ludo Showdown</Text>
+                        <View style={{ marginLeft: 10, flex: 1 }}>
+                          <Text style={styles.modeOptionTitle} numberOfLines={1}>Regular Match (8 Min)</Text>
+                          <Text style={styles.modeOptionSub} numberOfLines={1}>Classic 4-Pawn Strategic Ludo Showdown</Text>
                         </View>
                       </View>
                       <View style={[styles.modeOptionBadge, { backgroundColor: '#E0E7FF' }]}>
@@ -955,13 +955,13 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                     activeOpacity={0.85}
                   >
                     <View style={styles.modeOptionHeader}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 8 }}>
                         <View style={[styles.modeOptionIconBg, { backgroundColor: '#EFF6FF' }]}>
                           <Text style={{ fontSize: 24 }}>🔐</Text>
                         </View>
-                        <View style={{ marginLeft: 12 }}>
-                          <Text style={styles.modeOptionTitle}>Private Room</Text>
-                          <Text style={styles.modeOptionSub}>Play with Friends using 6-digit Code</Text>
+                        <View style={{ marginLeft: 10, flex: 1 }}>
+                          <Text style={styles.modeOptionTitle} numberOfLines={1}>Private Room</Text>
+                          <Text style={styles.modeOptionSub} numberOfLines={1}>Play with Friends using 6-digit Code</Text>
                         </View>
                       </View>
                       <View style={[styles.modeOptionBadge, { backgroundColor: '#DBEAFE' }]}>
@@ -991,13 +991,13 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                     activeOpacity={0.85}
                   >
                     <View style={styles.modeOptionHeader}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 8 }}>
                         <View style={[styles.modeOptionIconBg, { backgroundColor: '#FFFBEB' }]}>
                           <Text style={{ fontSize: 24 }}>🥇</Text>
                         </View>
-                        <View style={{ marginLeft: 12 }}>
-                          <Text style={styles.modeOptionTitle}>Live Tournaments</Text>
-                          <Text style={styles.modeOptionSub}>
+                        <View style={{ marginLeft: 10, flex: 1 }}>
+                          <Text style={styles.modeOptionTitle} numberOfLines={1}>Live Tournaments</Text>
+                          <Text style={styles.modeOptionSub} numberOfLines={1}>
                             {tournamentsList.length > 0 ? `${tournamentsList.length} Pool Tournaments Active!` : 'Pool & Bracket Tournaments'}
                           </Text>
                         </View>
