@@ -158,7 +158,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
             />
           </View>
           <Text style={styles.referralHint}>
-            💡 Have a friend's referral code? Enter it to get ₹10 bonus & credit them ₹50 bonus cash!
+            💡 Have a friend's referral code? Enter it to get ₹10 bonus & credit them ₹10 bonus cash!
           </Text>
 
           {/* Interactive Terms & Policy Agreement Checkbox */}

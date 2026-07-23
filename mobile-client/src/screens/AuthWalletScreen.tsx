@@ -156,7 +156,7 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
   const rawReferralCode = currentUser?.referralCode || 'DREAM50LUDO';
   const referralCode = rawReferralCode.replace(/^SEXUS/i, 'DREAM');
   const friendsJoined = currentUser?.friendsJoined || 0;
-  const totalCashEarned = friendsJoined * 100;
+  const totalCashEarned = friendsJoined * 10;
   const referralUrl = `https://dreamludo.com/signup?ref=${referralCode}`;
 
   const [isHistoryExpanded, setIsHistoryExpanded] = useState(false);
@@ -225,6 +225,8 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
     }
   }, [currentUser?._id, fetchWallet]);
 
+  const [agreedTerms, setAgreedTerms] = useState(true);
+
   const handleSendOtp = async () => {
     if (!phone) {
       showCustomAlert('Authentication Error', 'Please enter your phone number.', 'error');
@@ -244,6 +246,11 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
 
     if (!password) {
       showCustomAlert('Authentication Error', 'Please enter a password.', 'error');
+      return;
+    }
+
+    if (!isLoginMode && !agreedTerms) {
+      showCustomAlert('Terms Agreement Required', 'Please accept the Terms of Service & Privacy Policy to register.', 'error');
       return;
     }
 
@@ -850,6 +857,20 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
                         ? '✨ Referral bonus unlocked! Complete signup to receive ₹10 bonus cash.'
                         : '💡 Have a friend\'s code? Type it & tap CLAIM for ₹10 bonus cash!'}
                     </Text>
+
+                    {/* Interactive Terms & Policy Agreement Checkbox */}
+                    <TouchableOpacity
+                      style={styles.authCheckboxRow}
+                      onPress={() => setAgreedTerms(!agreedTerms)}
+                      activeOpacity={0.8}
+                    >
+                      <View style={[styles.authCheckboxBox, agreedTerms && styles.authCheckboxBoxChecked]}>
+                        {agreedTerms && <Text style={styles.authCheckmarkIcon}>✓</Text>}
+                      </View>
+                      <Text style={styles.authCheckboxLabel}>
+                        I agree to the <Text style={styles.authPolicyLink} onPress={() => showCustomAlert('Terms & Privacy Policy', 'By signing up on Dream Ludo, you agree to our Terms of Service, Privacy Policy, and Refund Policy.', 'info')}>Terms of Service & Privacy Policy</Text> of Dream Ludo.
+                      </Text>
+                    </TouchableOpacity>
                   </View>
                 )}
 
@@ -2927,6 +2948,45 @@ const styles = StyleSheet.create({
     color: '#6366F1',
     marginTop: 4,
     marginLeft: 12,
+  },
+  authCheckboxRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 12,
+    marginBottom: 4,
+    paddingHorizontal: 4,
+  },
+  authCheckboxBox: {
+    width: 20,
+    height: 20,
+    borderRadius: 5,
+    borderWidth: 2,
+    borderColor: '#94A3B8',
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+  },
+  authCheckboxBoxChecked: {
+    backgroundColor: '#4F46E5',
+    borderColor: '#4F46E5',
+  },
+  authCheckmarkIcon: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  authCheckboxLabel: {
+    fontSize: 11,
+    color: '#475569',
+    fontWeight: '600',
+    flex: 1,
+    lineHeight: 16,
+  },
+  authPolicyLink: {
+    color: '#4F46E5',
+    fontWeight: '800',
+    textDecorationLine: 'underline',
   },
 });
 export default AuthWalletScreen;

@@ -160,14 +160,14 @@ UserSchema.pre('save', function (next) {
   next();
 });
 
-// Static method: append 50.00 to referrer's bonusBalance
+// Static method: append 10.00 to referrer's bonusBalance
 UserSchema.statics.handleReferralSuccess = async function (
   referrerId: string | Types.ObjectId,
   session?: any
 ): Promise<void> {
   const user = await this.findById(referrerId).session(session);
   if (user) {
-    user.bonusBalance = Math.round(((user.bonusBalance || 0) + 50.00) * 100) / 100;
+    user.bonusBalance = Math.round(((user.bonusBalance || 0) + 10.00) * 100) / 100;
     await user.save({ session });
   }
 };

@@ -51,7 +51,7 @@ payoutRouter.post('/withdraw', async (req: Request, res: Response) => {
       const withdrawableBalance = Math.round(currentWinnings * 100) / 100;
 
       if (withdrawableBalance < withdrawAmount) {
-        throw new Error(`Only winning balance can be withdrawn. Available winnings: ₹${withdrawableBalance.toFixed(2)}. Deposit cash and bonus cash (₹10 sign-up & ₹50 referral bonuses) cannot be withdrawn.`);
+        throw new Error(`Only winning balance can be withdrawn. Available winnings: ₹${withdrawableBalance.toFixed(2)}. Deposit cash and bonus cash (₹10 sign-up & ₹10 referral bonuses) cannot be withdrawn.`);
       }
 
       // Deduct immediately inside session from winningsBalance

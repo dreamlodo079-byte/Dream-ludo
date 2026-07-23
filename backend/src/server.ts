@@ -294,15 +294,15 @@ async function processSignupWithReferral(
       if (referrer) {
         validReferralCode = referrer.referralCode;
 
-        // 2. Referrer Reward Allocation: Increment friendsJoined by 1 & credit 50.00 to bonusBalance
+        // 2. Referrer Reward Allocation: Increment friendsJoined by 1 & credit 10.00 to bonusBalance
         referrer.friendsJoined = (referrer.friendsJoined || 0) + 1;
-        referrer.bonusBalance = Math.round(((referrer.bonusBalance || 0) + 50.00) * 100) / 100;
+        referrer.bonusBalance = Math.round(((referrer.bonusBalance || 0) + 10.00) * 100) / 100;
         await referrer.save({ session });
 
         // 3. Double-Entry Ledger Stamping: Append REFERRAL_BONUS_CREDIT transaction
         const refTxn = new Transaction({
           userId: referrer._id,
-          amount: 50.00,
+          amount: 10.00,
           type: TransactionType.REFERRAL_BONUS_CREDIT,
           status: TransactionStatus.SUCCESS,
           referenceId: `ref_bonus_${referrer._id}_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
