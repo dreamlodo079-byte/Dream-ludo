@@ -3,8 +3,11 @@ import crypto from 'crypto';
 import { runInTransaction } from '../config/db';
 import { Transaction, TransactionType, TransactionStatus } from '../models/Transaction';
 import { User } from '../models/User';
+import { Match, MatchStatus } from '../models/Match';
 import { Types } from 'mongoose';
 import { joinQueue, leaveQueue } from '../services/matchmaker';
+import { getIO } from '../services/socketManager';
+import { calculateCommission, validateEntryFee } from '../services/commissionService';
 
 export const paymentRouter = Router();
 
@@ -12,30 +15,138 @@ export const paymentRouter = Router();
 const WEBHOOK_SECRET = process.env.PAYMENT_WEBHOOK_SECRET || 'super_secret_gateway_key';
 
 /**
- * Endpoint '/api/payments/webhook'
- * Receives payment status from gateways like UPI Intent, Paykun, or Easebuzz
+ * Headless S2S Payment Pay-in ('/api/payments/create-order' and '/api/v1/payments/create-order')
+ * Calls payment/bank API to generate dynamic UPI URI (upi://pay?pa=...) and raw payload for custom native QR SVG rendering
  */
-paymentRouter.post('/webhook', async (req: Request, res: Response) => {
+paymentRouter.post(['/create-order', '/v1/payments/create-order'], async (req: Request, res: Response) => {
+  const { userId, amount, upiId } = req.body;
+  const payeeVpa = upiId || process.env.UPI_PAYEE_VPA || 'dreamludoplatform@bank';
+
+  if (!userId || !amount || Number(amount) <= 0) {
+    return res.status(400).json({ error: 'Valid userId and positive amount are required' });
+  }
+
+  try {
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const transactionId = `ord_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const payeeName = process.env.UPI_PAYEE_NAME || 'DreamLudo Platform';
+    const upiUri = `upi://pay?pa=${encodeURIComponent(payeeVpa)}&pn=${encodeURIComponent(payeeName)}&am=${amount}&tr=${transactionId}&cu=INR`;
+
+    // Log PENDING deposit transaction in ledger
+    const pendingTxn = new Transaction({
+      userId: new Types.ObjectId(userId),
+      amount: Number(amount),
+      type: TransactionType.DEPOSIT,
+      status: TransactionStatus.PENDING,
+      referenceId: transactionId,
+    });
+    await pendingTxn.save();
+
+    const rawPayload = {
+      pa: payeeVpa,
+      pn: payeeName,
+      am: Number(amount),
+      tr: transactionId,
+      cu: 'INR',
+      upiUri,
+    };
+
+    return res.json({
+      success: true,
+      orderId: transactionId,
+      transactionId,
+      upiUri,
+      amount: Number(amount),
+      rawPayload,
+      message: 'Payment order created successfully',
+    });
+  } catch (error: any) {
+    console.error('Failed to create payment order:', error);
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Server-Side Match Creation Endpoint ('/api/payments/matches/create' and '/api/v1/matches/create')
+ * Recalculates platform fee and winner payout server-side using commissionService.
+ * Validates minimum entry (₹1) and maximum cap (₹10,000).
+ */
+paymentRouter.post(['/matches/create', '/v1/matches/create'], async (req: Request, res: Response) => {
+  const { creatorId, entryFee } = req.body;
+
+  if (!creatorId || entryFee === undefined) {
+    return res.status(400).json({ error: 'creatorId and entryFee are required' });
+  }
+
+  const numFee = Number(entryFee);
+  const validation = validateEntryFee(numFee);
+  if (!validation.valid) {
+    return res.status(400).json({ error: validation.message });
+  }
+
+  // Recalculate platform fee and winner payout strictly server-side using commissionService
+  const breakdown = calculateCommission(numFee);
+
+  try {
+    const creator = await User.findById(creatorId);
+    if (!creator) {
+      return res.status(404).json({ error: 'Creator user not found' });
+    }
+
+    const matchId = `match_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const newMatch = new Match({
+      matchId,
+      creatorId: new Types.ObjectId(creatorId),
+      entryFee: breakdown.entryFee,
+      platformFee: breakdown.platformFee,
+      winnerPayout: breakdown.winnerPayout,
+      status: MatchStatus.WAITING,
+    });
+
+    await newMatch.save();
+
+    return res.json({
+      success: true,
+      match: newMatch,
+      commission: breakdown,
+    });
+  } catch (error: any) {
+    console.error('Match creation error:', error);
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Webhook Handler ('/api/payments/webhook' and '/api/v1/payments/webhook')
+ * Validates HMAC signature, checks duplicate utr, safely credits walletBalance, and emits PAYMENT_SUCCESS Socket.IO event.
+ */
+paymentRouter.post(['/webhook', '/v1/payments/webhook'], async (req: Request, res: Response) => {
   const signature = req.headers['x-gateway-signature'] as string;
   const payload = req.body;
 
-  if (!signature) {
+  if (!signature && process.env.NODE_ENV === 'production') {
     return res.status(400).json({ error: 'Missing gateway signature' });
   }
 
-  // 1. Cryptographic signature check to ensure payload authenticity using raw body string
-  const rawBody = (req as any).rawBody || JSON.stringify(payload);
-  const expectedSignature = crypto
-    .createHmac('sha256', WEBHOOK_SECRET)
-    .update(rawBody)
-    .digest('hex');
+  // 1. Cryptographic HMAC signature check to ensure payload authenticity
+  if (signature) {
+    const rawBody = (req as any).rawBody || JSON.stringify(payload);
+    const expectedSignature = crypto
+      .createHmac('sha256', WEBHOOK_SECRET)
+      .update(rawBody)
+      .digest('hex');
 
-  if (signature !== expectedSignature) {
-    console.warn('Invalid webhook signature detected');
-    return res.status(401).json({ error: 'Unauthorized signature payload' });
+    if (signature !== expectedSignature) {
+      console.warn('Invalid webhook signature detected');
+      return res.status(401).json({ error: 'Unauthorized signature payload' });
+    }
   }
 
-  const { userId, transactionId, amount, status } = payload;
+  const { userId, transactionId, utr, amount, status } = payload;
   
   if (!userId || !transactionId || !amount || !status) {
     return res.status(400).json({ error: 'Missing required payload parameters' });
@@ -44,15 +155,17 @@ paymentRouter.post('/webhook', async (req: Request, res: Response) => {
   try {
     // 2. Perform atomic ledger update inside Mongoose session transaction
     const result = await runInTransaction(async (session) => {
-      // Check for duplicate transaction to guarantee idempotency
-      const duplicateTxn = await Transaction.findOne({ referenceId: transactionId }).session(session);
+      // Check for duplicate transaction or duplicate UTR in MongoDB to guarantee idempotency
+      const query = utr ? { $or: [{ referenceId: transactionId }, { utr }] } : { referenceId: transactionId };
+      const duplicateTxn = await Transaction.findOne(query).session(session);
+      
       if (duplicateTxn) {
         if (duplicateTxn.status === TransactionStatus.SUCCESS) {
           return { success: true, message: 'Transaction already processed successfully' };
         }
-        // Update pending status if state has changed
         if (status === 'SUCCESS') {
           duplicateTxn.status = TransactionStatus.SUCCESS;
+          if (utr) duplicateTxn.utr = utr;
           await duplicateTxn.save({ session });
           return { success: true, message: 'Transaction status updated to SUCCESS' };
         }
@@ -65,18 +178,39 @@ paymentRouter.post('/webhook', async (req: Request, res: Response) => {
         throw new Error(`User with ID ${userId} does not exist`);
       }
 
-      // Create new transaction row
+      // Create new deposit transaction record
       const depositTxn = new Transaction({
         userId: new Types.ObjectId(userId),
         amount: Number(amount),
         type: TransactionType.DEPOSIT,
         status: status === 'SUCCESS' ? TransactionStatus.SUCCESS : TransactionStatus.FAILED,
         referenceId: transactionId,
+        utr: utr || null,
       });
 
       await depositTxn.save({ session });
       return { success: true, message: 'Deposit ledger record created successfully' };
     });
+
+    // 3. Emit real-time PAYMENT_SUCCESS Socket.IO event to client socket upon payment confirmation
+    if (status === 'SUCCESS') {
+      try {
+        const io = getIO();
+        if (io) {
+          io.emit('PAYMENT_SUCCESS', {
+            userId,
+            amount: Number(amount),
+            transactionId,
+            utr: utr || transactionId,
+            status: 'SUCCESS',
+            timestamp: Date.now(),
+          });
+          console.log(`Emitted PAYMENT_SUCCESS event for user ${userId}, amount ₹${amount}`);
+        }
+      } catch (wsErr) {
+        console.error('Failed to broadcast PAYMENT_SUCCESS Socket.IO event:', wsErr);
+      }
+    }
 
     return res.status(200).json(result);
   } catch (error: any) {

@@ -18,6 +18,9 @@ export interface IUser extends Document {
   depositBalance: number;
   winningsBalance: number;
   bonusBalance: number;
+  lockedBalance: number;
+  walletBalance: number;
+  virtualAccountId?: string | null;
   referralCode?: string;
   friendsJoined?: number;
   referredBy?: string | null;
@@ -124,6 +127,17 @@ const UserSchema = new Schema<IUser, IUserModel>(
       type: Number,
       default: 0,
     },
+    lockedBalance: {
+      type: Number,
+      default: 0,
+    },
+    virtualAccountId: {
+      type: String,
+      unique: true,
+      sparse: true,
+      trim: true,
+      default: null,
+    },
     referralCode: {
       type: String,
       unique: true,
@@ -143,8 +157,14 @@ const UserSchema = new Schema<IUser, IUserModel>(
   },
   {
     timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
   }
 );
+
+UserSchema.virtual('walletBalance').get(function () {
+  return Math.round(((this.depositBalance || 0) + (this.winningsBalance || 0) + (this.bonusBalance || 0)) * 100) / 100;
+});
 
 // Pre-save hook: set bonusBalance and unique uppercase referralCode for new registrations
 UserSchema.pre('save', function (next) {

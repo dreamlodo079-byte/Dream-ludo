@@ -24,6 +24,7 @@ export interface ITransaction extends Document {
   type: TransactionType;
   status: TransactionStatus;
   referenceId: string; // Unique constraint to prevent double-processing (e.g. gateway txn ID, payout ref)
+  utr?: string | null; // Unique transaction reference (sparse index)
   createdAt: Date;
   updatedAt: Date;
 }
@@ -56,6 +57,13 @@ const TransactionSchema = new Schema<ITransaction>(
       required: true,
       unique: true,
       trim: true,
+    },
+    utr: {
+      type: String,
+      unique: true,
+      sparse: true,
+      trim: true,
+      default: null,
     },
   },
   {

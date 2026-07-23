@@ -20,7 +20,7 @@ const PLATFORM_USER_ID = '000000000000000000000000';
  * Endpoint '/api/payout/withdraw'
  * Single-Tap User Payout Engine
  */
-payoutRouter.post('/withdraw', async (req: Request, res: Response) => {
+payoutRouter.post(['/withdraw', '/v1/payout/withdraw'], async (req: Request, res: Response) => {
   const { userId, amount, upiId } = req.body;
 
   if (!userId || !amount || !upiId) {
@@ -54,8 +54,9 @@ payoutRouter.post('/withdraw', async (req: Request, res: Response) => {
         throw new Error(`Only winning balance can be withdrawn. Available winnings: ₹${withdrawableBalance.toFixed(2)}. Deposit cash and bonus cash (₹10 sign-up & ₹10 referral bonuses) cannot be withdrawn.`);
       }
 
-      // Deduct immediately inside session from winningsBalance
+      // Deduct immediately inside session from winningsBalance & add to lockedBalance for admin review
       user.winningsBalance = Math.round((currentWinnings - withdrawAmount) * 100) / 100;
+      user.lockedBalance = Math.round(((user.lockedBalance || 0) + withdrawAmount) * 100) / 100;
       await user.save({ session });
 
       // Compute 30% TDS Tax (Section 194BA)
