@@ -1,6 +1,7 @@
 import { Server, Socket } from 'socket.io';
 import { getRoomState, cacheRoomState, deleteRoomState, getRedisClient, createDuplicateRedisClient } from '../config/redis';
 import { createAdapter } from '@socket.io/redis-adapter';
+import { runWithRoomLock } from '../utils/mutex';
 import {
   MatchState,
   executeRoll,
@@ -198,8 +199,9 @@ export const initializeSocketIO = async (server: any): Promise<Server> => {
     });
 
     socket.on('REQUEST_ROLL', async ({ roomId }: { roomId: string }) => {
-      const userId = socketUserMap.get(socket.id);
-      if (!userId) return;
+      runWithRoomLock(roomId, async () => {
+        const userId = socketUserMap.get(socket.id);
+        if (!userId) return;
 
       const state: MatchState | null = await getRoomState(roomId);
       if (!state || state.isTerminated) return;
@@ -248,20 +250,22 @@ export const initializeSocketIO = async (server: any): Promise<Server> => {
           state.transitionPending = true;
           await cacheRoomState(roomId, state);
           
-          setTimeout(async () => {
-            try {
-              const latestState: MatchState | null = await getRoomState(roomId);
-              if (!latestState || latestState.isTerminated) return;
+          setTimeout(() => {
+            runWithRoomLock(roomId, async () => {
+              try {
+                const latestState: MatchState | null = await getRoomState(roomId);
+                if (!latestState || latestState.isTerminated) return;
 
-              const { rotateTurn } = require('./gameEngine');
-              rotateTurn(latestState);
-              latestState.transitionPending = false;
-              await cacheRoomState(roomId, latestState);
-              io.to(roomId).emit('MATCH_STATE_UPDATE', latestState);
-              checkAndTriggerBot(roomId, latestState);
-            } catch (err) {
-              console.error(`Error finalizing skipped turn for room ${roomId}:`, err);
-            }
+                const { rotateTurn } = require('./gameEngine');
+                rotateTurn(latestState);
+                latestState.transitionPending = false;
+                await cacheRoomState(roomId, latestState);
+                io.to(roomId).emit('MATCH_STATE_UPDATE', latestState);
+                checkAndTriggerBot(roomId, latestState);
+              } catch (err) {
+                console.error(`Error finalizing skipped turn for room ${roomId}:`, err);
+              }
+            });
           }, 1500);
 
         } else {
@@ -271,14 +275,16 @@ export const initializeSocketIO = async (server: any): Promise<Server> => {
             triggerBotTurn(roomId);
           }
         }
-      } catch (err: any) {
-        socket.emit('ERROR', { message: err.message });
-      }
+        } catch (err: any) {
+          socket.emit('ERROR', { message: err.message });
+        }
+      });
     });
 
     socket.on('REQUEST_MOVE', async ({ roomId, tokenIndex }: { roomId: string; tokenIndex: number }) => {
-      const userId = socketUserMap.get(socket.id);
-      if (!userId) return;
+      runWithRoomLock(roomId, async () => {
+        const userId = socketUserMap.get(socket.id);
+        if (!userId) return;
 
       const state: MatchState | null = await getRoomState(roomId);
       if (!state || state.isTerminated) return;
@@ -315,57 +321,84 @@ export const initializeSocketIO = async (server: any): Promise<Server> => {
           transitionDelay += 950;
         }
         
-        setTimeout(async () => {
-          try {
-            const latestState: MatchState | null = await getRoomState(roomId);
-            if (!latestState || latestState.isTerminated) return;
+        setTimeout(() => {
+          runWithRoomLock(roomId, async () => {
+            try {
+              const latestState: MatchState | null = await getRoomState(roomId);
+              if (!latestState || latestState.isTerminated) return;
 
-            if (latestState.winnerId) {
-              await handleMatchTermination(roomId, latestState);
-            } else {
-              latestState.transitionPending = false;
-              if (getsBonusRoll) {
-                latestState.hasRolled = false;
-                latestState.diceRoll = null;
-                latestState.turnTimer = latestState.customRules?.turnTimer || (latestState.gameMode === 'ROOMS' && latestState.customRules?.turnTimer) || 15;
+              if (latestState.winnerId) {
+                await handleMatchTermination(roomId, latestState);
               } else {
-                rotateTurn(latestState);
-              }
+                latestState.transitionPending = false;
+                if (getsBonusRoll) {
+                  latestState.hasRolled = false;
+                  latestState.diceRoll = null;
+                  latestState.turnTimer = latestState.customRules?.turnTimer || (latestState.gameMode === 'ROOMS' && latestState.customRules?.turnTimer) || 15;
+                } else {
+                  rotateTurn(latestState);
+                }
 
-              await cacheRoomState(roomId, latestState);
-              io.to(roomId).emit('MATCH_STATE_UPDATE', latestState);
-              checkAndTriggerBot(roomId, latestState);
+                await cacheRoomState(roomId, latestState);
+                io.to(roomId).emit('MATCH_STATE_UPDATE', latestState);
+                checkAndTriggerBot(roomId, latestState);
+              }
+            } catch (err) {
+              console.error(`Error finalizing delayed turn transition for room ${roomId}:`, err);
             }
-          } catch (err) {
-            console.error(`Error finalizing delayed turn transition for room ${roomId}:`, err);
-          }
+          });
         }, transitionDelay);
 
-      } catch (err: any) {
-        socket.emit('ERROR', { message: err.message });
-      }
+        } catch (err: any) {
+          socket.emit('ERROR', { message: err.message });
+        }
+      });
     });
 
     socket.on('FORFEIT_MATCH', async ({ roomId }: { roomId: string }) => {
-      const userId = socketUserMap.get(socket.id);
-      if (!userId || !roomId) return;
+      runWithRoomLock(roomId, async () => {
+        const userId = socketUserMap.get(socket.id);
+        if (!userId || !roomId) return;
 
-      console.log(`User ${userId} requested explicit forfeit for room ${roomId}`);
-      const state: MatchState | null = await getRoomState(roomId);
-      if (state && !state.isTerminated) {
-        const otherPlayerIndex = state.players.findIndex((p) => p.id !== userId);
-        const otherPlayer = state.players[otherPlayerIndex];
-        if (otherPlayer) {
-          state.winnerId = otherPlayer.id;
-          state.isTerminated = true;
-          await cacheRoomState(roomId, state);
+
+        console.log(`User ${userId} requested explicit forfeit for room ${roomId}`);
+        const state: MatchState | null = await getRoomState(roomId);
+        if (state && !state.isTerminated) {
+          const pIndex = state.players.findIndex((p) => p.id === userId);
+          if (pIndex !== -1) {
+            state.players[pIndex].hasLeft = true;
+            const activeHumans = state.players.filter((p) => !p.hasLeft && !p.isBot);
+            
+            if (activeHumans.length <= 1) {
+              state.winnerId = activeHumans.length === 1 ? activeHumans[0].id : state.players.find(p => p.id !== userId)?.id || state.players[0].id;
+              state.isTerminated = true;
+              await cacheRoomState(roomId, state);
+              userActiveRooms.delete(userId);
+              socket.leave(roomId);
+              io.to(roomId).emit('MATCH_STATE_UPDATE', state);
+              await handleMatchTermination(roomId, state);
+            } else {
+              if (state.activePlayerIndex === pIndex) {
+                const { rotateTurn } = require('./gameEngine');
+                rotateTurn(state);
+              }
+              await cacheRoomState(roomId, state);
+              userActiveRooms.delete(userId);
+              socket.leave(roomId);
+              io.to(roomId).emit('MATCH_STATE_UPDATE', state);
+              
+              const nextPlayer = state.players[state.activePlayerIndex];
+              if (nextPlayer.isBot) {
+                const { triggerBotTurn } = require('./botDriver');
+                triggerBotTurn(roomId);
+              }
+            }
+          }
+        } else {
           userActiveRooms.delete(userId);
-          io.to(roomId).emit('MATCH_STATE_UPDATE', state);
-          await handleMatchTermination(roomId, state);
+          socket.leave(roomId);
         }
-      } else {
-        userActiveRooms.delete(userId);
-      }
+      });
     });
 
     socket.on('disconnect', () => {
@@ -391,14 +424,31 @@ export const initializeSocketIO = async (server: any): Promise<Server> => {
               const latestState: MatchState | null = await getRoomState(roomId);
               if (latestState && !latestState.isTerminated) {
                 // Forfeit: The other player wins (stable userId search)
-                const otherPlayerIndex = latestState.players.findIndex((p) => p.id !== userId);
-                const otherPlayer = latestState.players[otherPlayerIndex];
-                if (otherPlayer) {
-                  latestState.winnerId = otherPlayer.id;
-                  latestState.isTerminated = true;
-                  await cacheRoomState(roomId, latestState);
-                  io.to(roomId).emit('MATCH_STATE_UPDATE', latestState);
-                  await handleMatchTermination(roomId, latestState);
+                const pIndex = latestState.players.findIndex((p) => p.id === userId);
+                if (pIndex !== -1) {
+                  latestState.players[pIndex].hasLeft = true;
+                  const activeHumans = latestState.players.filter((p) => !p.hasLeft && !p.isBot);
+                  
+                  if (activeHumans.length <= 1) {
+                    latestState.winnerId = activeHumans.length === 1 ? activeHumans[0].id : latestState.players.find(p => p.id !== userId)?.id || latestState.players[0].id;
+                    latestState.isTerminated = true;
+                    await cacheRoomState(roomId, latestState);
+                    io.to(roomId).emit('MATCH_STATE_UPDATE', latestState);
+                    await handleMatchTermination(roomId, latestState);
+                  } else {
+                    if (latestState.activePlayerIndex === pIndex) {
+                      const { rotateTurn } = require('./gameEngine');
+                      rotateTurn(latestState);
+                    }
+                    await cacheRoomState(roomId, latestState);
+                    io.to(roomId).emit('MATCH_STATE_UPDATE', latestState);
+                    
+                    const nextPlayer = latestState.players[latestState.activePlayerIndex];
+                    if (nextPlayer.isBot) {
+                      const { triggerBotTurn } = require('./botDriver');
+                      triggerBotTurn(roomId);
+                    }
+                  }
                 }
               }
             }, 60000);
@@ -431,10 +481,11 @@ export const startRoomTimer = (roomId: string): void => {
     clearInterval(turnTimerIntervals.get(roomId)!);
   }
 
-  const interval = setInterval(async () => {
-    try {
-      const state: MatchState | null = await getRoomState(roomId);
-      if (!state || state.isTerminated) {
+  const interval = setInterval(() => {
+    runWithRoomLock(roomId, async () => {
+      try {
+        const state: MatchState | null = await getRoomState(roomId);
+        if (!state || state.isTerminated) {
         clearInterval(interval);
         turnTimerIntervals.delete(roomId);
         return;
@@ -498,12 +549,13 @@ export const startRoomTimer = (roomId: string): void => {
         await cacheRoomState(roomId, state);
         io.to(roomId).emit('TURN_SKIPPED', {
           message: 'Turn skipped due to inactivity.',
-          state,
+          state: state,
         });
-
         checkAndTriggerBot(roomId, state);
       } else {
+        // Save the updated timer to Redis
         await cacheRoomState(roomId, state);
+
         io.to(roomId).emit('TIMER_TICK', {
           turnTimer: state.turnTimer,
           activePlayerIndex: state.activePlayerIndex,
@@ -514,6 +566,7 @@ export const startRoomTimer = (roomId: string): void => {
     } catch (error) {
       console.error(`Error in room timer tick for room ${roomId}:`, error);
     }
+    });
   }, 1000);
 
   turnTimerIntervals.set(roomId, interval);

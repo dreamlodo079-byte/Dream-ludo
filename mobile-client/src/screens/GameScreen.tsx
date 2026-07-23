@@ -112,11 +112,11 @@ const COMMON_TRACK_COORDS = [
 ];
 
 const SAFE_COMMON_INDICES = [1, 9, 14, 22, 27, 35, 40, 48];
-const PLAYER_START_OFFSETS = [1, 27];
+const PLAYER_START_OFFSETS = [1, 14, 27, 40];
 
 const getCommonIndex = (playerIndex: number, pos: number): number => {
   if (pos < 0 || pos > 50) return -1;
-  const startOffset = PLAYER_START_OFFSETS[playerIndex];
+  const startOffset = PLAYER_START_OFFSETS[playerIndex] || 1;
   return (startOffset + pos) % 52;
 };
 
@@ -124,19 +124,33 @@ const RED_YARD_TOKEN_COORDS = [
   { x: 1.8, y: 1.8 }, { x: 4.2, y: 1.8 },
   { x: 1.8, y: 4.2 }, { x: 4.2, y: 4.2 },
 ];
-
+const YELLOW_YARD_TOKEN_COORDS = [
+  { x: 10.8, y: 1.8 }, { x: 13.2, y: 1.8 },
+  { x: 10.8, y: 4.2 }, { x: 13.2, y: 4.2 },
+];
 const GREEN_YARD_TOKEN_COORDS = [
   { x: 10.8, y: 10.8 }, { x: 13.2, y: 10.8 },
   { x: 10.8, y: 13.2 }, { x: 13.2, y: 13.2 },
 ];
+const BLUE_YARD_TOKEN_COORDS = [
+  { x: 1.8, y: 10.8 }, { x: 4.2, y: 10.8 },
+  { x: 1.8, y: 13.2 }, { x: 4.2, y: 13.2 },
+];
+const ALL_YARDS = [RED_YARD_TOKEN_COORDS, YELLOW_YARD_TOKEN_COORDS, GREEN_YARD_TOKEN_COORDS, BLUE_YARD_TOKEN_COORDS];
 
 const RED_HOME_PATH_COORDS = [
   { x: 1, y: 7 }, { x: 2, y: 7 }, { x: 3, y: 7 }, { x: 4, y: 7 }, { x: 5, y: 7 }, { x: 6, y: 7 },
 ];
-
+const YELLOW_HOME_PATH_COORDS = [
+  { x: 7, y: 1 }, { x: 7, y: 2 }, { x: 7, y: 3 }, { x: 7, y: 4 }, { x: 7, y: 5 }, { x: 7, y: 6 },
+];
 const GREEN_HOME_PATH_COORDS = [
   { x: 13, y: 7 }, { x: 12, y: 7 }, { x: 11, y: 7 }, { x: 10, y: 7 }, { x: 9, y: 7 }, { x: 8, y: 7 },
 ];
+const BLUE_HOME_PATH_COORDS = [
+  { x: 7, y: 13 }, { x: 7, y: 12 }, { x: 7, y: 11 }, { x: 7, y: 10 }, { x: 7, y: 9 }, { x: 7, y: 8 },
+];
+const ALL_PATHS = [RED_HOME_PATH_COORDS, YELLOW_HOME_PATH_COORDS, GREEN_HOME_PATH_COORDS, BLUE_HOME_PATH_COORDS];
 
 // ============ PREMIUM 3D DICE ============
 interface DiceProps {
@@ -300,6 +314,7 @@ interface PlayerCardProps {
   onRoll: () => void;
   avatarUri: any;
   diceTransform?: any[];
+  score?: number;
 }
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);
@@ -326,6 +341,7 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
   onRoll,
   avatarUri,
   diceTransform,
+  score,
 }) => {
   const c = COLORS[color];
   const animatedRatio = useRef(new Animated.Value(turnTimer / totalTime)).current;
@@ -345,8 +361,6 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
 
   const perimeter = 259;
   
-  // At ratio=1 (start), offset=0 -> full path visible.
-  // At ratio=0 (end), offset=perimeter -> gap starts at 0, grows clockwise. Visible line shrinks towards the end of the path (which is back at the arrow).
   const animatedDashoffset = animatedRatio.interpolate({
     inputRange: [0, 1],
     outputRange: [perimeter, 0],
@@ -354,10 +368,23 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
   
   const timerColor = turnTimer <= 4 ? '#EF4444' : c.primary; 
 
+  const renderScorePill = () => (
+    <View style={[
+      styles.scorePillContainer,
+      align === 'right' ? { marginRight: 6 } : { marginLeft: 6 }
+    ]}>
+      <Text style={styles.scoreIcon}>🏆</Text>
+      <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
+        <Text style={styles.scoreValueText}>{score ?? 0}</Text>
+        <Text style={styles.scoreUnitText}> PTS</Text>
+      </View>
+    </View>
+  );
+
   const renderDiceBubble = () => {
     const isLeft = align === 'right'; 
     
-    // Custom SVG paths to start exactly at the arrow
+    // Original exact 80x80 SVG paths
     const rightAlignPath = "M 76 40 L 76 59 A 17 17 0 0 1 59 76 L 21 76 A 17 17 0 0 1 4 59 L 4 21 A 17 17 0 0 1 21 4 L 59 4 A 17 17 0 0 1 76 21 Z";
     const leftAlignPath = "M 4 40 L 4 21 A 17 17 0 0 1 21 4 L 59 4 A 17 17 0 0 1 76 21 L 76 59 A 17 17 0 0 1 59 76 L 21 76 A 17 17 0 0 1 4 59 Z";
     const pathData = isLeft ? rightAlignPath : leftAlignPath;
@@ -365,7 +392,6 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
     return (
       <View style={styles.diceBoxWrapper}>
         <Svg width={80} height={80} style={StyleSheet.absoluteFill}>
-          {/* Background Track */}
           <Path d={pathData} stroke="#334155" strokeWidth={4} fill="none" />
           {isActive && (
             <AnimatedPath
@@ -410,13 +436,16 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
   );
 
   return (
-    <View style={styles.diagonalCardContainer}>
+    <View style={[styles.diagonalCardContainer, { alignItems: align === 'right' ? 'flex-end' : 'flex-start' }]}>
       {align === 'right' && (
-        <View style={[styles.nameBadge, { backgroundColor: c.primary }]}>
-          <Text style={styles.nameBadgeText}>{username.toUpperCase()}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+          {score !== undefined && renderScorePill()}
+          <View style={[styles.nameBadge, { backgroundColor: c.primary, marginBottom: 0 }]}>
+            <Text style={styles.nameBadgeText}>{username.toUpperCase()}</Text>
+          </View>
         </View>
       )}
-      
+
       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
         {align === 'right' && renderDiceBubble()}
         {renderAvatar()}
@@ -424,8 +453,11 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
       </View>
 
       {align === 'left' && (
-        <View style={[styles.nameBadge, { backgroundColor: c.primary, marginTop: 6 }]}>
-          <Text style={styles.nameBadgeText}>{maskPhone(phone)}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+          <View style={[styles.nameBadge, { backgroundColor: c.primary }]}>
+            <Text style={styles.nameBadgeText}>{maskPhone(phone)}</Text>
+          </View>
+          {score !== undefined && renderScorePill()}
         </View>
       )}
     </View>
@@ -481,24 +513,24 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   }, []);
 
   const pawnPositions = useRef(
-    Array.from({ length: 8 }, () => new Animated.ValueXY({ x: 0, y: 0 }))
+    Array.from({ length: 16 }, () => new Animated.ValueXY({ x: 0, y: 0 }))
   ).current;
 
-  const visualPositions = useRef([-1, -1, -1, -1, -1, -1, -1, -1]);
+  const visualPositions = useRef(Array.from({ length: 16 }, () => -1));
 
   const pawnHeightOffsets = useRef(
-    Array.from({ length: 8 }, () => new Animated.Value(0))
+    Array.from({ length: 16 }, () => new Animated.Value(0))
   ).current;
 
   const pawnScaleX = useRef(
-    Array.from({ length: 8 }, () => new Animated.Value(1))
+    Array.from({ length: 16 }, () => new Animated.Value(1))
   ).current;
 
   const pawnScaleY = useRef(
-    Array.from({ length: 8 }, () => new Animated.Value(1))
+    Array.from({ length: 16 }, () => new Animated.Value(1))
   ).current;
 
-  const isTokenAnimating = useRef([false, false, false, false, false, false, false, false]);
+  const isTokenAnimating = useRef(Array.from({ length: 16 }, () => false));
 
   const toastAnim = useRef(new Animated.Value(-100)).current;
 
@@ -653,21 +685,16 @@ export const GameScreen: React.FC<GameScreenProps> = ({
     let gridY = 0;
 
     if (pos === -1) {
-      const yardCoords = playerIndex === 0 ? RED_YARD_TOKEN_COORDS : GREEN_YARD_TOKEN_COORDS;
+      const yardCoords = ALL_YARDS[playerIndex] || RED_YARD_TOKEN_COORDS;
       gridX = yardCoords[tokenIndex].x;
       gridY = yardCoords[tokenIndex].y;
     } else if (pos === 56) {
-      if (playerIndex === 0) {
-        // Red home center
-        gridX = 6.5;
-        gridY = 7.5;
-      } else {
-        // Green home center
-        gridX = 8.5;
-        gridY = 7.5;
-      }
+      if (playerIndex === 0) { gridX = 6.5; gridY = 7.5; }
+      else if (playerIndex === 1) { gridX = 7.5; gridY = 6.5; }
+      else if (playerIndex === 2) { gridX = 8.5; gridY = 7.5; }
+      else { gridX = 7.5; gridY = 8.5; }
     } else if (pos >= 51 && pos <= 55) {
-      const pathCoords = playerIndex === 0 ? RED_HOME_PATH_COORDS : GREEN_HOME_PATH_COORDS;
+      const pathCoords = ALL_PATHS[playerIndex] || RED_HOME_PATH_COORDS;
       const idx = pos - 51;
       gridX = pathCoords[idx].x + 0.5;
       gridY = pathCoords[idx].y + 0.5;
@@ -691,7 +718,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
     // Safety edge clamping to prevent pawns from overflowing the board boundaries
     const minX = 2;
     const maxX = BOARD_SIZE - CELL_SIZE - 2;
-    const minY = 2;
+    const minY = -CELL_SIZE * 0.25;
     const maxY = BOARD_SIZE - CELL_SIZE * 1.15 - 2;
 
     return {
@@ -815,7 +842,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
 
   const animateBackwardPath = async (pIdx: number, tIdx: number, start: number, end: number) => {
     const tokenIdx = pIdx * 4 + tIdx;
-    
+
     // Play pawn killed sound only for the victim player
     const myPlayerIndex = matchState?.players.findIndex((p: any) => p.id === currentUser._id);
     if (pIdx === myPlayerIndex) {
@@ -863,7 +890,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
 
   const animateStepPath = async (pIdx: number, tIdx: number, start: number, end: number) => {
     const tokenIdx = pIdx * 4 + tIdx;
-    
+
     SoundManager.playPawnHop(end - start, 280);
 
     for (let currentStep = start; currentStep < end; currentStep++) {
@@ -1008,7 +1035,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
     if (requestForfeit) {
       requestForfeit(roomId);
     }
-    
+
     // Instantly display Defeat banner and play loss sound locally
     const opponent = matchState?.players?.find((p: any) => p.id !== currentUser._id);
     setWinnerInfo({
@@ -1024,6 +1051,38 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   });
 
   const prizePool = (matchState.entryFee || 0) * 2 * 0.9;
+
+  const myColor = currentUser ? matchState?.players.find((p: any) => p.id === currentUser._id)?.color : 'blue';
+  let boardRotation = '0deg';
+  let counterRotation = '0deg';
+  if (myColor === 'red') { boardRotation = '-90deg'; counterRotation = '90deg'; }
+  else if (myColor === 'yellow') { boardRotation = '180deg'; counterRotation = '-180deg'; }
+  else if (myColor === 'green') { boardRotation = '90deg'; counterRotation = '-90deg'; }
+
+  const getScreenWrapperStyle = (playerColor: string) => {
+    if (myColor === 'red') {
+      if (playerColor === 'red') return { style: styles.bottomLeftPlayerWrapper, align: 'left' };
+      if (playerColor === 'yellow') return { style: styles.topLeftPlayerWrapper, align: 'left' };
+      if (playerColor === 'green') return { style: styles.topRightPlayerWrapper, align: 'right' };
+      if (playerColor === 'blue') return { style: styles.bottomRightPlayerWrapper, align: 'right' };
+    } else if (myColor === 'yellow') {
+      if (playerColor === 'yellow') return { style: styles.bottomLeftPlayerWrapper, align: 'left' };
+      if (playerColor === 'green') return { style: styles.topLeftPlayerWrapper, align: 'left' };
+      if (playerColor === 'blue') return { style: styles.topRightPlayerWrapper, align: 'right' };
+      if (playerColor === 'red') return { style: styles.bottomRightPlayerWrapper, align: 'right' };
+    } else if (myColor === 'green') {
+      if (playerColor === 'green') return { style: styles.bottomLeftPlayerWrapper, align: 'left' };
+      if (playerColor === 'blue') return { style: styles.topLeftPlayerWrapper, align: 'left' };
+      if (playerColor === 'red') return { style: styles.topRightPlayerWrapper, align: 'right' };
+      if (playerColor === 'yellow') return { style: styles.bottomRightPlayerWrapper, align: 'right' };
+    } else { // blue or default
+      if (playerColor === 'blue') return { style: styles.bottomLeftPlayerWrapper, align: 'left' };
+      if (playerColor === 'red') return { style: styles.topLeftPlayerWrapper, align: 'left' };
+      if (playerColor === 'yellow') return { style: styles.topRightPlayerWrapper, align: 'right' };
+      if (playerColor === 'green') return { style: styles.bottomRightPlayerWrapper, align: 'right' };
+    }
+    return { style: styles.topLeftPlayerWrapper, align: 'left' };
+  };
 
   return (
     <View style={styles.mainContainer}>
@@ -1045,13 +1104,13 @@ export const GameScreen: React.FC<GameScreenProps> = ({
         <View style={styles.premiumTopBar}>
           <View style={styles.topBarLeft}>
             <TouchableOpacity style={styles.settingsBtn} onPress={handleExitPress}>
-              <Text style={{fontSize: 18, color: '#FFFFFF', fontWeight: 'bold'}}>✕</Text>
+              <Text style={{ fontSize: 18, color: '#FFFFFF', fontWeight: 'bold' }}>✕</Text>
             </TouchableOpacity>
             <View style={styles.signalBars}>
-              <View style={[styles.signalBar, {height: 6}]} />
-              <View style={[styles.signalBar, {height: 10}]} />
-              <View style={[styles.signalBar, {height: 14}]} />
-              <View style={[styles.signalBar, {height: 18}]} />
+              <View style={[styles.signalBar, { height: 6 }]} />
+              <View style={[styles.signalBar, { height: 10 }]} />
+              <View style={[styles.signalBar, { height: 14 }]} />
+              <View style={[styles.signalBar, { height: 18 }]} />
             </View>
           </View>
 
@@ -1059,669 +1118,659 @@ export const GameScreen: React.FC<GameScreenProps> = ({
             <Text style={styles.prizePoolTitle}>🏆 PRIZE POOL 🏆</Text>
             <Text style={styles.premiumPrizePoolValue}>₹{prizePool.toFixed(0)}</Text>
           </View>
-          <View style={{width: 60}} />
+          <View style={{ width: 60 }} />
         </View>
 
-        <View style={{alignItems: 'center', marginTop: 10}}>
+        <View style={{ alignItems: 'center', marginTop: 10 }}>
           <View style={styles.matchTimerCapsule}>
-             <Text style={styles.matchTimerText}>🕒 {matchState.gameMode === 'QUICK' && matchState.matchTimer !== undefined ? `${Math.floor(matchState.matchTimer / 60)}:${String(matchState.matchTimer % 60).padStart(2, '0')}` : '04:53'}</Text>
+            <Text style={styles.matchTimerText}>🕒 {matchState.gameMode === 'QUICK' && matchState.matchTimer !== undefined ? `${Math.floor(matchState.matchTimer / 60)}:${String(matchState.matchTimer % 60).padStart(2, '0')}` : '04:53'}</Text>
           </View>
         </View>
 
         {/* ========== GAME ARENA ========== */}
         <View style={styles.arenaContainer}>
-          
-          <View style={styles.topRightPlayerWrapper}>
-            <PlayerCard
-              username={matchState.players[1]?.username || 'Player 2'}
-              color="green"
-              isActive={matchState.activePlayerIndex === 1}
-              isCurrentUser={matchState.players[1]?.id === currentUser._id}
-              turnTimer={matchState.turnTimer}
-              totalTime={15}
-              align="right"
-              diceValue={matchState.activePlayerIndex === 1 ? (diceDisplayVal || 1) : 1}
-              isDiceAnimating={matchState.activePlayerIndex === 1 && isDiceAnimating}
-              canRoll={false}
-              onRoll={() => {}}
-              avatarUri={require('../../assets/avatar.png')}
-              diceTransform={matchState.activePlayerIndex === 1 ? [{ scale: diceScale }, { rotate: rotZInterpolate }] : undefined}
-            />
-          </View>
+          <View style={{ width: BOARD_SIZE, height: BOARD_SIZE + 240, justifyContent: 'center', position: 'relative' }}>
+            {matchState.players.map((p: any, idx: number) => {
+              if (p.hasLeft) return null;
+              const { style: wrapperStyle, align } = getScreenWrapperStyle(p.color);
 
-          <View style={styles.bottomLeftPlayerWrapper}>
-             <PlayerCard
-              username={matchState.players[0]?.username || 'Player 1'}
-              phone={currentUser.phone}
-              color="red"
-              isActive={matchState.activePlayerIndex === 0}
-              isCurrentUser={matchState.players[0]?.id === currentUser._id}
-              turnTimer={matchState.turnTimer}
-              totalTime={15}
-              align="left"
-              diceValue={matchState.activePlayerIndex === 0 ? (diceDisplayVal || 1) : 1}
-              isDiceAnimating={matchState.activePlayerIndex === 0 && isDiceAnimating}
-              canRoll={isMyTurn && !matchState.hasRolled && !isDiceAnimating}
-              onRoll={handleRollDice}
-              avatarUri={require('../../assets/avatar.png')}
-              diceTransform={matchState.activePlayerIndex === 0 ? [{ scale: diceScale }, { rotate: rotZInterpolate }] : undefined}
-            />
-          </View>
-
-          {/* ========== BOARD CONTAINER (OUTER) ========== */}
-      <View style={{ position: 'relative', width: BOARD_SIZE, height: BOARD_SIZE }}>
-        {/* Board Background wrapper (clips sharp SVG corners) */}
-        <View style={[styles.boardWrapper, { width: BOARD_SIZE, height: BOARD_SIZE, overflow: 'hidden' }]}>
-          <Svg width={BOARD_SIZE} height={BOARD_SIZE} style={styles.boardSvg}>
-          <Defs>
-            <LinearGradient id="redGrad" x1="0" y1="0" x2="1" y2="1">
-              <Stop offset="0" stopColor={COLORS.red.gradient1} />
-              <Stop offset="1" stopColor={COLORS.red.gradient2} />
-            </LinearGradient>
-            <LinearGradient id="greenGrad" x1="0" y1="0" x2="1" y2="1">
-              <Stop offset="0" stopColor={COLORS.green.gradient1} />
-              <Stop offset="1" stopColor={COLORS.green.gradient2} />
-            </LinearGradient>
-            <LinearGradient id="blueGrad" x1="0" y1="0" x2="1" y2="1">
-              <Stop offset="0" stopColor={COLORS.blue.gradient1} />
-              <Stop offset="1" stopColor={COLORS.blue.gradient2} />
-            </LinearGradient>
-            <LinearGradient id="yellowGrad" x1="0" y1="0" x2="1" y2="1">
-              <Stop offset="0" stopColor={COLORS.yellow.gradient1} />
-              <Stop offset="1" stopColor={COLORS.yellow.gradient2} />
-            </LinearGradient>
-            <LinearGradient id="starGrad" x1="0" y1="0" x2="1" y2="1">
-              <Stop offset="0" stopColor="#FBBF24" />
-              <Stop offset="1" stopColor="#D97706" />
-            </LinearGradient>
-            <RadialGradient id="centerGlow" cx="50%" cy="50%" r="50%">
-              <Stop offset="0" stopColor="#FFF" stopOpacity="0.5" />
-              <Stop offset="1" stopColor="#FFF" stopOpacity="0" />
-            </RadialGradient>
-          </Defs>
-
-          {/* Board Background */}
-          <Rect x={0} y={0} width={BOARD_SIZE} height={BOARD_SIZE} fill="#FFFFFF" />
-
-          {/* ============ RED YARD (Top-Left) ============ */}
-          <Rect
-            x={0}
-            y={0}
-            width={CELL_SIZE * 6}
-            height={CELL_SIZE * 6}
-            fill="url(#redGrad)"
-          />
-          <Rect
-            x={CELL_SIZE * 0.8}
-            y={CELL_SIZE * 0.8}
-            width={CELL_SIZE * 4.4}
-            height={CELL_SIZE * 4.4}
-            fill="#FFFFFF"
-            rx={12}
-          />
-          <Rect
-            x={CELL_SIZE * 1.2}
-            y={CELL_SIZE * 1.2}
-            width={CELL_SIZE * 3.6}
-            height={CELL_SIZE * 3.6}
-            fill="#FFFFFF"
-            rx={8}
-          />
-          {RED_YARD_TOKEN_COORDS.map((coord, i) => (
-            <G key={`red_yard_${i}`}>
-              <Circle
-                cx={coord.x * CELL_SIZE}
-                cy={coord.y * CELL_SIZE}
-                r={CELL_SIZE * 0.45}
-                fill={COLORS.red.light}
-              />
-            </G>
-          ))}
-
-          {/* ============ YELLOW YARD (Top-Right) ============ */}
-          <Rect
-            x={CELL_SIZE * 9}
-            y={0}
-            width={CELL_SIZE * 6}
-            height={CELL_SIZE * 6}
-            fill="url(#yellowGrad)"
-          />
-          <Rect
-            x={CELL_SIZE * 9.8}
-            y={CELL_SIZE * 0.8}
-            width={CELL_SIZE * 4.4}
-            height={CELL_SIZE * 4.4}
-            fill="#FFFFFF"
-            rx={12}
-          />
-          <Rect
-            x={CELL_SIZE * 10.2}
-            y={CELL_SIZE * 1.2}
-            width={CELL_SIZE * 3.6}
-            height={CELL_SIZE * 3.6}
-            fill="#FFFFFF"
-            rx={8}
-          />
-          {[
-            { x: 10.8, y: 1.8 }, { x: 13.2, y: 1.8 },
-            { x: 10.8, y: 4.2 }, { x: 13.2, y: 4.2 },
-          ].map((coord, i) => (
-            <G key={`yellow_yard_${i}`}>
-              <Circle
-                cx={coord.x * CELL_SIZE}
-                cy={coord.y * CELL_SIZE}
-                r={CELL_SIZE * 0.45}
-                fill={COLORS.yellow.light}
-              />
-            </G>
-          ))}
-
-          {/* ============ GREEN YARD (Bottom-Right) ============ */}
-          <Rect
-            x={CELL_SIZE * 9}
-            y={CELL_SIZE * 9}
-            width={CELL_SIZE * 6}
-            height={CELL_SIZE * 6}
-            fill="url(#greenGrad)"
-          />
-          <Rect
-            x={CELL_SIZE * 9.8}
-            y={CELL_SIZE * 9.8}
-            width={CELL_SIZE * 4.4}
-            height={CELL_SIZE * 4.4}
-            fill="#FFFFFF"
-            rx={12}
-          />
-          <Rect
-            x={CELL_SIZE * 10.2}
-            y={CELL_SIZE * 10.2}
-            width={CELL_SIZE * 3.6}
-            height={CELL_SIZE * 3.6}
-            fill="#FFFFFF"
-            rx={8}
-          />
-          {GREEN_YARD_TOKEN_COORDS.map((coord, i) => (
-            <G key={`green_yard_${i}`}>
-              <Circle
-                cx={coord.x * CELL_SIZE}
-                cy={coord.y * CELL_SIZE}
-                r={CELL_SIZE * 0.45}
-                fill={COLORS.green.light}
-              />
-            </G>
-          ))}
-
-          {/* ============ BLUE YARD (Bottom-Left) ============ */}
-          <Rect
-            x={0}
-            y={CELL_SIZE * 9}
-            width={CELL_SIZE * 6}
-            height={CELL_SIZE * 6}
-            fill="url(#blueGrad)"
-          />
-          <Rect
-            x={CELL_SIZE * 0.8}
-            y={CELL_SIZE * 9.8}
-            width={CELL_SIZE * 4.4}
-            height={CELL_SIZE * 4.4}
-            fill="#FFFFFF"
-            rx={12}
-          />
-          <Rect
-            x={CELL_SIZE * 1.2}
-            y={CELL_SIZE * 10.2}
-            width={CELL_SIZE * 3.6}
-            height={CELL_SIZE * 3.6}
-            fill="#FFFFFF"
-            rx={8}
-          />
-          {[
-            { x: 1.8, y: 10.8 }, { x: 4.2, y: 10.8 },
-            { x: 1.8, y: 13.2 }, { x: 4.2, y: 13.2 },
-          ].map((coord, i) => (
-            <G key={`blue_yard_${i}`}>
-              <Circle
-                cx={coord.x * CELL_SIZE}
-                cy={coord.y * CELL_SIZE}
-                r={CELL_SIZE * 0.45}
-                fill={COLORS.blue.light}
-              />
-            </G>
-          ))}
-
-          {/* ============ CENTER HOME TRIANGLES ============ */}
-          <Polygon
-            points={`${CELL_SIZE * 6},${CELL_SIZE * 6} ${CELL_SIZE * 9},${CELL_SIZE * 6} ${CELL_SIZE * 7.5},${CELL_SIZE * 7.5}`}
-            fill="url(#yellowGrad)"
-            stroke="#FFF"
-            strokeWidth={1}
-          />
-          <Polygon
-            points={`${CELL_SIZE * 9},${CELL_SIZE * 6} ${CELL_SIZE * 9},${CELL_SIZE * 9} ${CELL_SIZE * 7.5},${CELL_SIZE * 7.5}`}
-            fill="url(#greenGrad)"
-            stroke="#FFF"
-            strokeWidth={1}
-          />
-          <Polygon
-            points={`${CELL_SIZE * 6},${CELL_SIZE * 9} ${CELL_SIZE * 9},${CELL_SIZE * 9} ${CELL_SIZE * 7.5},${CELL_SIZE * 7.5}`}
-            fill="url(#blueGrad)"
-            stroke="#FFF"
-            strokeWidth={1}
-          />
-          <Polygon
-            points={`${CELL_SIZE * 6},${CELL_SIZE * 6} ${CELL_SIZE * 6},${CELL_SIZE * 9} ${CELL_SIZE * 7.5},${CELL_SIZE * 7.5}`}
-            fill="url(#redGrad)"
-            stroke="#FFF"
-            strokeWidth={1}
-          />
-          {/* Center glow */}
-          <Circle cx={CELL_SIZE * 7.5} cy={CELL_SIZE * 7.5} r={CELL_SIZE * 0.5} fill="url(#centerGlow)" />
-
-          {/* ============ COMMON TRACK ============ */}
-          {COMMON_TRACK_COORDS.map((coord, index) => {
-            const isSafe = SAFE_COMMON_INDICES.includes(index);
-            const isRedStart = index === 1;
-            const isYellowStart = index === 14;
-            const isGreenStart = index === 27;
-            const isBlueStart = index === 40;
-
-            let fillSrc = '#FFFFFF';
-            let borderColor = '#94A3B8';
-            let borderWidth = 1;
-
-            if (isRedStart) {
-              fillSrc = 'url(#redGrad)';
-              borderColor = COLORS.red.dark;
-              borderWidth = 1.5;
-            } else if (isYellowStart) {
-              fillSrc = 'url(#yellowGrad)';
-              borderColor = COLORS.yellow.dark;
-              borderWidth = 1.5;
-            } else if (isGreenStart) {
-              fillSrc = 'url(#greenGrad)';
-              borderColor = COLORS.green.dark;
-              borderWidth = 1.5;
-            } else if (isBlueStart) {
-              fillSrc = 'url(#blueGrad)';
-              borderColor = COLORS.blue.dark;
-              borderWidth = 1.5;
-            } else if (isSafe) {
-              fillSrc = '#F1F5F9';
-            }
-
-            return (
-              <G key={index}>
-                <Rect
-                  x={coord.x * CELL_SIZE}
-                  y={coord.y * CELL_SIZE}
-                  width={CELL_SIZE}
-                  height={CELL_SIZE}
-                  fill={fillSrc}
-                  stroke={borderColor}
-                  strokeWidth={borderWidth}
-                />
-                {isSafe && (
-                  <Path
-                    d={getStarPath(
-                      coord.x * CELL_SIZE + CELL_SIZE / 2,
-                      coord.y * CELL_SIZE + CELL_SIZE / 2,
-                      CELL_SIZE * 0.32
-                    )}
-                    fill="url(#starGrad)"
-                    stroke="#B45309"
-                    strokeWidth={0.8}
+              return (
+                <View key={p.id} style={wrapperStyle}>
+                  <PlayerCard
+                    username={p.username || `Player ${idx + 1}`}
+                    phone={p.id === currentUser._id ? currentUser.phone : undefined}
+                    color={p.color as any}
+                    isActive={matchState.activePlayerIndex === idx}
+                    isCurrentUser={p.id === currentUser._id}
+                    turnTimer={matchState.turnTimer}
+                    totalTime={15}
+                    align={align as any}
+                    diceValue={matchState.activePlayerIndex === idx ? (diceDisplayVal || 1) : 1}
+                    isDiceAnimating={matchState.activePlayerIndex === idx && isDiceAnimating}
+                    canRoll={isMyTurn && !matchState.hasRolled && !isDiceAnimating && matchState.activePlayerIndex === idx}
+                    onRoll={handleRollDice}
+                    avatarUri={require('../../assets/avatar.png')}
+                    diceTransform={matchState.activePlayerIndex === idx ? [{ scale: diceScale }, { rotate: rotZInterpolate }] : undefined}
+                    score={matchState.gameMode === 'QUICK' ? (matchState.scores ? (matchState.scores[idx] ?? 0) : 0) : (matchState.scores ? matchState.scores[idx] : undefined)}
                   />
-                )}
-                {/* Start position arrows */}
-                {isRedStart && (
-                  <Path
-                    d={getArrowPath(coord.x * CELL_SIZE + CELL_SIZE / 2, coord.y * CELL_SIZE + CELL_SIZE / 2, CELL_SIZE, 'right')}
-                    fill="#FFF"
-                    opacity={0.9}
+                </View>
+              );
+            })}
+
+            {/* ========== BOARD CONTAINER (OUTER) ========== */}
+            <View style={{ alignSelf: 'center', position: 'relative', width: BOARD_SIZE, height: BOARD_SIZE, transform: [{ rotate: boardRotation }] }}>
+              {/* Board Background wrapper (clips sharp SVG corners) */}
+              <View style={[styles.boardWrapper, { width: BOARD_SIZE, height: BOARD_SIZE, overflow: 'hidden' }]}>
+                <Svg width={BOARD_SIZE} height={BOARD_SIZE} style={styles.boardSvg}>
+                  <Defs>
+                    <LinearGradient id="redGrad" x1="0" y1="0" x2="1" y2="1">
+                      <Stop offset="0" stopColor={COLORS.red.gradient1} />
+                      <Stop offset="1" stopColor={COLORS.red.gradient2} />
+                    </LinearGradient>
+                    <LinearGradient id="greenGrad" x1="0" y1="0" x2="1" y2="1">
+                      <Stop offset="0" stopColor={COLORS.green.gradient1} />
+                      <Stop offset="1" stopColor={COLORS.green.gradient2} />
+                    </LinearGradient>
+                    <LinearGradient id="blueGrad" x1="0" y1="0" x2="1" y2="1">
+                      <Stop offset="0" stopColor={COLORS.blue.gradient1} />
+                      <Stop offset="1" stopColor={COLORS.blue.gradient2} />
+                    </LinearGradient>
+                    <LinearGradient id="yellowGrad" x1="0" y1="0" x2="1" y2="1">
+                      <Stop offset="0" stopColor={COLORS.yellow.gradient1} />
+                      <Stop offset="1" stopColor={COLORS.yellow.gradient2} />
+                    </LinearGradient>
+                    <LinearGradient id="starGrad" x1="0" y1="0" x2="1" y2="1">
+                      <Stop offset="0" stopColor="#FBBF24" />
+                      <Stop offset="1" stopColor="#D97706" />
+                    </LinearGradient>
+                    <RadialGradient id="centerGlow" cx="50%" cy="50%" r="50%">
+                      <Stop offset="0" stopColor="#FFF" stopOpacity="0.5" />
+                      <Stop offset="1" stopColor="#FFF" stopOpacity="0" />
+                    </RadialGradient>
+                  </Defs>
+
+                  {/* Board Background */}
+                  <Rect x={0} y={0} width={BOARD_SIZE} height={BOARD_SIZE} fill="#FFFFFF" />
+
+                  {/* ============ RED YARD (Top-Left) ============ */}
+                  <Rect
+                    x={0}
+                    y={0}
+                    width={CELL_SIZE * 6}
+                    height={CELL_SIZE * 6}
+                    fill="url(#redGrad)"
                   />
-                )}
-                {isGreenStart && (
-                  <Path
-                    d={getArrowPath(coord.x * CELL_SIZE + CELL_SIZE / 2, coord.y * CELL_SIZE + CELL_SIZE / 2, CELL_SIZE, 'left')}
-                    fill="#FFF"
-                    opacity={0.9}
+                  <Rect
+                    x={CELL_SIZE * 0.8}
+                    y={CELL_SIZE * 0.8}
+                    width={CELL_SIZE * 4.4}
+                    height={CELL_SIZE * 4.4}
+                    fill="#FFFFFF"
+                    rx={12}
                   />
-                )}
-                {isYellowStart && (
-                  <Path
-                    d={getArrowPath(coord.x * CELL_SIZE + CELL_SIZE / 2, coord.y * CELL_SIZE + CELL_SIZE / 2, CELL_SIZE, 'down')}
-                    fill="#FFF"
-                    opacity={0.9}
+                  <Rect
+                    x={CELL_SIZE * 1.2}
+                    y={CELL_SIZE * 1.2}
+                    width={CELL_SIZE * 3.6}
+                    height={CELL_SIZE * 3.6}
+                    fill="#FFFFFF"
+                    rx={8}
                   />
-                )}
-                {isBlueStart && (
-                  <Path
-                    d={getArrowPath(coord.x * CELL_SIZE + CELL_SIZE / 2, coord.y * CELL_SIZE + CELL_SIZE / 2, CELL_SIZE, 'up')}
-                    fill="#FFF"
-                    opacity={0.9}
+                  {RED_YARD_TOKEN_COORDS.map((coord, i) => (
+                    <G key={`red_yard_${i}`}>
+                      <Circle
+                        cx={coord.x * CELL_SIZE}
+                        cy={coord.y * CELL_SIZE}
+                        r={CELL_SIZE * 0.45}
+                        fill={COLORS.red.light}
+                      />
+                    </G>
+                  ))}
+
+                  {/* ============ YELLOW YARD (Top-Right) ============ */}
+                  <Rect
+                    x={CELL_SIZE * 9}
+                    y={0}
+                    width={CELL_SIZE * 6}
+                    height={CELL_SIZE * 6}
+                    fill="url(#yellowGrad)"
                   />
-                )}
-              </G>
-            );
-          })}
+                  <Rect
+                    x={CELL_SIZE * 9.8}
+                    y={CELL_SIZE * 0.8}
+                    width={CELL_SIZE * 4.4}
+                    height={CELL_SIZE * 4.4}
+                    fill="#FFFFFF"
+                    rx={12}
+                  />
+                  <Rect
+                    x={CELL_SIZE * 10.2}
+                    y={CELL_SIZE * 1.2}
+                    width={CELL_SIZE * 3.6}
+                    height={CELL_SIZE * 3.6}
+                    fill="#FFFFFF"
+                    rx={8}
+                  />
+                  {[
+                    { x: 10.8, y: 1.8 }, { x: 13.2, y: 1.8 },
+                    { x: 10.8, y: 4.2 }, { x: 13.2, y: 4.2 },
+                  ].map((coord, i) => (
+                    <G key={`yellow_yard_${i}`}>
+                      <Circle
+                        cx={coord.x * CELL_SIZE}
+                        cy={coord.y * CELL_SIZE}
+                        r={CELL_SIZE * 0.45}
+                        fill={COLORS.yellow.light}
+                      />
+                    </G>
+                  ))}
 
-          {/* ============ RED HOME PATH ============ */}
-          {RED_HOME_PATH_COORDS.slice(0, 5).map((coord, i) => (
-            <Rect
-              key={`red_home_${i}`}
-              x={coord.x * CELL_SIZE}
-              y={coord.y * CELL_SIZE}
-              width={CELL_SIZE}
-              height={CELL_SIZE}
-              fill="url(#redGrad)"
-              stroke="#FFF"
-              strokeWidth={1}
-            />
-          ))}
+                  {/* ============ GREEN YARD (Bottom-Right) ============ */}
+                  <Rect
+                    x={CELL_SIZE * 9}
+                    y={CELL_SIZE * 9}
+                    width={CELL_SIZE * 6}
+                    height={CELL_SIZE * 6}
+                    fill="url(#greenGrad)"
+                  />
+                  <Rect
+                    x={CELL_SIZE * 9.8}
+                    y={CELL_SIZE * 9.8}
+                    width={CELL_SIZE * 4.4}
+                    height={CELL_SIZE * 4.4}
+                    fill="#FFFFFF"
+                    rx={12}
+                  />
+                  <Rect
+                    x={CELL_SIZE * 10.2}
+                    y={CELL_SIZE * 10.2}
+                    width={CELL_SIZE * 3.6}
+                    height={CELL_SIZE * 3.6}
+                    fill="#FFFFFF"
+                    rx={8}
+                  />
+                  {GREEN_YARD_TOKEN_COORDS.map((coord, i) => (
+                    <G key={`green_yard_${i}`}>
+                      <Circle
+                        cx={coord.x * CELL_SIZE}
+                        cy={coord.y * CELL_SIZE}
+                        r={CELL_SIZE * 0.45}
+                        fill={COLORS.green.light}
+                      />
+                    </G>
+                  ))}
 
-          {/* ============ YELLOW HOME PATH ============ */}
-          {[1, 2, 3, 4, 5].map((yVal, i) => (
-            <Rect
-              key={`yellow_home_${i}`}
-              x={7 * CELL_SIZE}
-              y={yVal * CELL_SIZE}
-              width={CELL_SIZE}
-              height={CELL_SIZE}
-              fill="url(#yellowGrad)"
-              stroke="#FFF"
-              strokeWidth={1}
-            />
-          ))}
+                  {/* ============ BLUE YARD (Bottom-Left) ============ */}
+                  <Rect
+                    x={0}
+                    y={CELL_SIZE * 9}
+                    width={CELL_SIZE * 6}
+                    height={CELL_SIZE * 6}
+                    fill="url(#blueGrad)"
+                  />
+                  <Rect
+                    x={CELL_SIZE * 0.8}
+                    y={CELL_SIZE * 9.8}
+                    width={CELL_SIZE * 4.4}
+                    height={CELL_SIZE * 4.4}
+                    fill="#FFFFFF"
+                    rx={12}
+                  />
+                  <Rect
+                    x={CELL_SIZE * 1.2}
+                    y={CELL_SIZE * 10.2}
+                    width={CELL_SIZE * 3.6}
+                    height={CELL_SIZE * 3.6}
+                    fill="#FFFFFF"
+                    rx={8}
+                  />
+                  {[
+                    { x: 1.8, y: 10.8 }, { x: 4.2, y: 10.8 },
+                    { x: 1.8, y: 13.2 }, { x: 4.2, y: 13.2 },
+                  ].map((coord, i) => (
+                    <G key={`blue_yard_${i}`}>
+                      <Circle
+                        cx={coord.x * CELL_SIZE}
+                        cy={coord.y * CELL_SIZE}
+                        r={CELL_SIZE * 0.45}
+                        fill={COLORS.blue.light}
+                      />
+                    </G>
+                  ))}
 
-          {/* ============ GREEN HOME PATH ============ */}
-          {GREEN_HOME_PATH_COORDS.slice(0, 5).map((coord, i) => (
-            <Rect
-              key={`green_home_${i}`}
-              x={coord.x * CELL_SIZE}
-              y={coord.y * CELL_SIZE}
-              width={CELL_SIZE}
-              height={CELL_SIZE}
-              fill="url(#greenGrad)"
-              stroke="#FFF"
-              strokeWidth={1}
-            />
-          ))}
+                  {/* ============ CENTER HOME TRIANGLES ============ */}
+                  <Polygon
+                    points={`${CELL_SIZE * 6},${CELL_SIZE * 6} ${CELL_SIZE * 9},${CELL_SIZE * 6} ${CELL_SIZE * 7.5},${CELL_SIZE * 7.5}`}
+                    fill="url(#yellowGrad)"
+                    stroke="#FFF"
+                    strokeWidth={1}
+                  />
+                  <Polygon
+                    points={`${CELL_SIZE * 9},${CELL_SIZE * 6} ${CELL_SIZE * 9},${CELL_SIZE * 9} ${CELL_SIZE * 7.5},${CELL_SIZE * 7.5}`}
+                    fill="url(#greenGrad)"
+                    stroke="#FFF"
+                    strokeWidth={1}
+                  />
+                  <Polygon
+                    points={`${CELL_SIZE * 6},${CELL_SIZE * 9} ${CELL_SIZE * 9},${CELL_SIZE * 9} ${CELL_SIZE * 7.5},${CELL_SIZE * 7.5}`}
+                    fill="url(#blueGrad)"
+                    stroke="#FFF"
+                    strokeWidth={1}
+                  />
+                  <Polygon
+                    points={`${CELL_SIZE * 6},${CELL_SIZE * 6} ${CELL_SIZE * 6},${CELL_SIZE * 9} ${CELL_SIZE * 7.5},${CELL_SIZE * 7.5}`}
+                    fill="url(#redGrad)"
+                    stroke="#FFF"
+                    strokeWidth={1}
+                  />
+                  {/* Center glow */}
+                  <Circle cx={CELL_SIZE * 7.5} cy={CELL_SIZE * 7.5} r={CELL_SIZE * 0.5} fill="url(#centerGlow)" />
 
-          {/* ============ BLUE HOME PATH ============ */}
-          {[9, 10, 11, 12, 13].map((yVal, i) => (
-            <Rect
-              key={`blue_home_${i}`}
-              x={7 * CELL_SIZE}
-              y={yVal * CELL_SIZE}
-              width={CELL_SIZE}
-              height={CELL_SIZE}
-              fill="url(#blueGrad)"
-              stroke="#FFF"
-              strokeWidth={1}
-            />
-          ))}
-        </Svg>
-      </View>
+                  {/* ============ COMMON TRACK ============ */}
+                  {COMMON_TRACK_COORDS.map((coord, index) => {
+                    const isSafe = SAFE_COMMON_INDICES.includes(index);
+                    const isRedStart = index === 1;
+                    const isYellowStart = index === 14;
+                    const isGreenStart = index === 27;
+                    const isBlueStart = index === 40;
 
-      {/* ============ PAWNS LAYER (OUTSIDE CLIPPING VIEW) ============ */}
-      <View 
-        style={{ 
-          position: 'absolute', 
-          left: 3, 
-          top: 3, 
-          width: BOARD_SIZE - 6, 
-          height: BOARD_SIZE - 6, 
-          zIndex: 10, 
-          elevation: 10 
-        }} 
-        pointerEvents="box-none"
-      >
-        {matchState.players.map((player: any, pIdx: number) => {
-          // Render each token individually to allow getStackingInfo to position them side-by-side
-          const tokensList = player.tokens.map((pos: number, tIdx: number) => ({
-            tIdxs: [tIdx],
-            representativeTIdx: tIdx,
-            pos,
-          }));
+                    let fillSrc = '#FFFFFF';
+                    let borderColor = '#94A3B8';
+                    let borderWidth = 1;
 
-          return tokensList.map(({ tIdxs, representativeTIdx, pos }: { tIdxs: number[]; representativeTIdx: number; pos: number }) => {
-            const tokenIdx = pIdx * 4 + representativeTIdx;
-            const isUserToken = player.id === currentUser._id;
-            const hasRollVal = matchState.diceRoll !== null;
+                    if (isRedStart) {
+                      fillSrc = 'url(#redGrad)';
+                      borderColor = COLORS.red.dark;
+                      borderWidth = 1.5;
+                    } else if (isYellowStart) {
+                      fillSrc = 'url(#yellowGrad)';
+                      borderColor = COLORS.yellow.dark;
+                      borderWidth = 1.5;
+                    } else if (isGreenStart) {
+                      fillSrc = 'url(#greenGrad)';
+                      borderColor = COLORS.green.dark;
+                      borderWidth = 1.5;
+                    } else if (isBlueStart) {
+                      fillSrc = 'url(#blueGrad)';
+                      borderColor = COLORS.blue.dark;
+                      borderWidth = 1.5;
+                    } else if (isSafe) {
+                      fillSrc = '#F1F5F9';
+                    }
 
-            // The stack can be clicked to move if any token in it has a valid move
-            const moveableTokenIndex = tIdxs.find((tIdx: number) => {
-              const currentPos = player.tokens[tIdx];
-              const roll = matchState.diceRoll;
-              if (roll === null) return false;
-              if (currentPos === 56) return false;
-              if (currentPos === -1 && matchState.gameMode !== 'QUICK' && roll !== 6) return false;
-              if (currentPos + roll > 56) return false;
-              return true;
-            });
-            
-            const currentPos = player.tokens[representativeTIdx];
-            const canMoveToken = isUserToken && isMyTurn && hasRollVal && moveableTokenIndex !== undefined;
-            const stacking = getStackingInfo(pIdx, representativeTIdx, currentPos);
-            // Dynamic scale: if animating/pulse apply it, otherwise use stacking scale.
-            // When in goal (56), use stacking.scale directly (it's between 0.60 and 1.0)
-            const sizeMultiplier = currentPos === 56 
-              ? stacking.scale 
-              : (canMoveToken 
-                  ? tokenPulseAnim.interpolate({
-                      inputRange: [1.0, 1.15],
-                      outputRange: [stacking.scale, stacking.scale * 1.15],
-                    }) 
-                  : stacking.scale);
-            const isInYard = currentPos === -1;
+                    return (
+                      <G key={index}>
+                        <Rect
+                          x={coord.x * CELL_SIZE}
+                          y={coord.y * CELL_SIZE}
+                          width={CELL_SIZE}
+                          height={CELL_SIZE}
+                          fill={fillSrc}
+                          stroke={borderColor}
+                          strokeWidth={borderWidth}
+                        />
+                        {isSafe && (
+                          <Path
+                            d={getStarPath(
+                              coord.x * CELL_SIZE + CELL_SIZE / 2,
+                              coord.y * CELL_SIZE + CELL_SIZE / 2,
+                              CELL_SIZE * 0.32
+                            )}
+                            fill="url(#starGrad)"
+                            stroke="#B45309"
+                            strokeWidth={0.8}
+                          />
+                        )}
+                        {/* Start position arrows */}
+                        {isRedStart && (
+                          <Path
+                            d={getArrowPath(coord.x * CELL_SIZE + CELL_SIZE / 2, coord.y * CELL_SIZE + CELL_SIZE / 2, CELL_SIZE, 'right')}
+                            fill="#FFF"
+                            opacity={0.9}
+                          />
+                        )}
+                        {isGreenStart && (
+                          <Path
+                            d={getArrowPath(coord.x * CELL_SIZE + CELL_SIZE / 2, coord.y * CELL_SIZE + CELL_SIZE / 2, CELL_SIZE, 'left')}
+                            fill="#FFF"
+                            opacity={0.9}
+                          />
+                        )}
+                        {isYellowStart && (
+                          <Path
+                            d={getArrowPath(coord.x * CELL_SIZE + CELL_SIZE / 2, coord.y * CELL_SIZE + CELL_SIZE / 2, CELL_SIZE, 'down')}
+                            fill="#FFF"
+                            opacity={0.9}
+                          />
+                        )}
+                        {isBlueStart && (
+                          <Path
+                            d={getArrowPath(coord.x * CELL_SIZE + CELL_SIZE / 2, coord.y * CELL_SIZE + CELL_SIZE / 2, CELL_SIZE, 'up')}
+                            fill="#FFF"
+                            opacity={0.9}
+                          />
+                        )}
+                      </G>
+                    );
+                  })}
 
-            const handlePress = () => {
-              if (canMoveToken && moveableTokenIndex !== undefined) {
-                handleTokenPress(moveableTokenIndex);
-              }
-            };
-
-            return (
-              <Animated.View
-                key={`${pIdx}_token_view_group_${representativeTIdx}`}
-                style={[
-                  styles.pawnWrapper,
-                  { width: CELL_SIZE, height: CELL_SIZE * 1.15 },
-                  {
-                    transform: [
-                      { translateX: pawnPositions[tokenIdx].x },
-                      { translateY: pawnPositions[tokenIdx].y },
-                      { translateY: pawnHeightOffsets[tokenIdx] },
-                      { scaleX: pawnScaleX[tokenIdx] },
-                      { scaleY: pawnScaleY[tokenIdx] },
-                      { scale: sizeMultiplier },
-                    ],
-                  },
-                ]}
-              >
-                <TouchableOpacity
-                  activeOpacity={0.85}
-                  onPress={handlePress}
-                  disabled={!canMoveToken}
-                  style={styles.pawnTouch}
-                >
-                  <Animated.View 
-                    pointerEvents="none"
-                    style={{
-                      position: 'absolute',
-                      width: CELL_SIZE * 1.25,
-                      height: CELL_SIZE * 1.25,
-                      opacity: (canMoveToken && isInYard) ? 1 : 0,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    <Animated.View 
-                      style={[
-                        styles.dottedHighlight,
-                        { width: CELL_SIZE * 1.25, height: CELL_SIZE * 1.25, borderRadius: (CELL_SIZE * 1.25) / 2 },
-                        {
-                          position: 'relative',
-                          borderColor: pIdx === 0 ? COLORS.red.primary : COLORS.green.primary,
-                          transform: [{ rotate: spinAnim }]
-                        }
-                      ]} 
+                  {/* ============ RED HOME PATH ============ */}
+                  {RED_HOME_PATH_COORDS.slice(0, 5).map((coord, i) => (
+                    <Rect
+                      key={`red_home_${i}`}
+                      x={coord.x * CELL_SIZE}
+                      y={coord.y * CELL_SIZE}
+                      width={CELL_SIZE}
+                      height={CELL_SIZE}
+                      fill="url(#redGrad)"
+                      stroke="#FFF"
+                      strokeWidth={1}
                     />
-                  </Animated.View>
-                  <Animated.View 
-                    pointerEvents="none"
-                    style={[
-                      styles.glowHighlight,
-                      { width: CELL_SIZE * 1.05, height: CELL_SIZE * 1.05, borderRadius: (CELL_SIZE * 1.05) / 2 },
-                      {
-                        opacity: (canMoveToken && !isInYard) ? 1 : 0,
-                        borderColor: pIdx === 0 ? COLORS.red.primary : COLORS.green.primary,
-                        backgroundColor: pIdx === 0 ? 'rgba(230, 57, 70, 0.12)' : 'rgba(46, 125, 50, 0.12)',
-                        shadowColor: pIdx === 0 ? COLORS.red.primary : COLORS.green.primary,
+                  ))}
+
+                  {/* ============ YELLOW HOME PATH ============ */}
+                  {[1, 2, 3, 4, 5].map((yVal, i) => (
+                    <Rect
+                      key={`yellow_home_${i}`}
+                      x={7 * CELL_SIZE}
+                      y={yVal * CELL_SIZE}
+                      width={CELL_SIZE}
+                      height={CELL_SIZE}
+                      fill="url(#yellowGrad)"
+                      stroke="#FFF"
+                      strokeWidth={1}
+                    />
+                  ))}
+
+                  {/* ============ GREEN HOME PATH ============ */}
+                  {GREEN_HOME_PATH_COORDS.slice(0, 5).map((coord, i) => (
+                    <Rect
+                      key={`green_home_${i}`}
+                      x={coord.x * CELL_SIZE}
+                      y={coord.y * CELL_SIZE}
+                      width={CELL_SIZE}
+                      height={CELL_SIZE}
+                      fill="url(#greenGrad)"
+                      stroke="#FFF"
+                      strokeWidth={1}
+                    />
+                  ))}
+
+                  {/* ============ BLUE HOME PATH ============ */}
+                  {[9, 10, 11, 12, 13].map((yVal, i) => (
+                    <Rect
+                      key={`blue_home_${i}`}
+                      x={7 * CELL_SIZE}
+                      y={yVal * CELL_SIZE}
+                      width={CELL_SIZE}
+                      height={CELL_SIZE}
+                      fill="url(#blueGrad)"
+                      stroke="#FFF"
+                      strokeWidth={1}
+                    />
+                  ))}
+                </Svg>
+              </View>
+
+              {/* ============ PAWNS LAYER (OUTSIDE CLIPPING VIEW) ============ */}
+              <View
+                style={{
+                  position: 'absolute',
+                  top: 3,
+                  left: 3,
+                  width: BOARD_SIZE - 6,
+                  height: BOARD_SIZE - 6,
+                  zIndex: 10,
+                  elevation: 10
+                }}
+                pointerEvents="box-none"
+              >
+                {matchState.players.map((player: any, pIdx: number) => {
+                  if (player.hasLeft) return null;
+                  // Render each token individually to allow getStackingInfo to position them side-by-side
+                  const tokensList = player.tokens.map((pos: number, tIdx: number) => ({
+                    tIdxs: [tIdx],
+                    representativeTIdx: tIdx,
+                    pos,
+                  }));
+
+                  return tokensList.map(({ tIdxs, representativeTIdx, pos }: { tIdxs: number[]; representativeTIdx: number; pos: number }) => {
+                    const tokenIdx = pIdx * 4 + representativeTIdx;
+                    const isUserToken = player.id === currentUser._id;
+                    const hasRollVal = matchState.diceRoll !== null;
+
+                    // The stack can be clicked to move if any token in it has a valid move
+                    const moveableTokenIndex = tIdxs.find((tIdx: number) => {
+                      const currentPos = player.tokens[tIdx];
+                      const roll = matchState.diceRoll;
+                      if (roll === null) return false;
+                      if (currentPos === 56) return false;
+                      if (currentPos === -1 && matchState.gameMode !== 'QUICK' && roll !== 6) return false;
+                      if (currentPos + roll > 56) return false;
+                      return true;
+                    });
+
+                    const currentPos = player.tokens[representativeTIdx];
+                    const canMoveToken = isUserToken && isMyTurn && hasRollVal && moveableTokenIndex !== undefined;
+                    const stacking = getStackingInfo(pIdx, representativeTIdx, currentPos);
+                    // Dynamic scale: if animating/pulse apply it, otherwise use stacking scale.
+                    // When in goal (56), use stacking.scale directly (it's between 0.60 and 1.0)
+                    const sizeMultiplier = currentPos === 56
+                      ? stacking.scale
+                      : (canMoveToken
+                        ? tokenPulseAnim.interpolate({
+                          inputRange: [1.0, 1.15],
+                          outputRange: [stacking.scale, stacking.scale * 1.15],
+                        })
+                        : stacking.scale);
+                    const isInYard = currentPos === -1;
+
+                    const handlePress = () => {
+                      if (canMoveToken && moveableTokenIndex !== undefined) {
+                        handleTokenPress(moveableTokenIndex);
                       }
-                    ]} 
-                  />
-                  <Pawn3D color={pIdx === 0 ? 'red' : 'green'} size={CELL_SIZE * 0.95} />
-                  
-                  {/* Micro-badge showing stack count */}
-                  {tIdxs.length > 1 && (
-                    <View style={styles.stackBadge}>
-                      <Text style={styles.stackBadgeText}>{tIdxs.length}</Text>
-                    </View>
-                  )}
-                </TouchableOpacity>
-              </Animated.View>
-            );
-          });
-        })}
-      </View>
-    </View>
+                    };
 
+                    return (
+                      <Animated.View
+                        key={`${pIdx}_token_view_group_${representativeTIdx}`}
+                        style={[
+                          styles.pawnWrapper,
+                          { width: CELL_SIZE, height: CELL_SIZE * 1.15 },
+                          {
+                            transform: [
+                              { translateX: pawnPositions[tokenIdx].x },
+                              { translateY: pawnPositions[tokenIdx].y },
+                              { scaleX: pawnScaleX[tokenIdx] },
+                              { scaleY: pawnScaleY[tokenIdx] },
+                              { scale: sizeMultiplier },
+                              { rotate: counterRotation },
+                              { translateY: pawnHeightOffsets[tokenIdx] },
+                            ],
+                          },
+                        ]}
+                      >
+                        <TouchableOpacity
+                          activeOpacity={0.85}
+                          onPress={handlePress}
+                          disabled={!canMoveToken}
+                          style={styles.pawnTouch}
+                        >
+                          <Animated.View
+                            pointerEvents="none"
+                            style={{
+                              position: 'absolute',
+                              width: CELL_SIZE * 1.25,
+                              height: CELL_SIZE * 1.25,
+                              opacity: (canMoveToken && isInYard) ? 1 : 0,
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                            }}
+                          >
+                            <Animated.View
+                              style={[
+                                styles.dottedHighlight,
+                                { width: CELL_SIZE * 1.25, height: CELL_SIZE * 1.25, borderRadius: (CELL_SIZE * 1.25) / 2 },
+                                {
+                                  position: 'relative',
+                                  borderColor: player.color === 'red' ? COLORS.red.primary : player.color === 'yellow' ? COLORS.yellow.primary : player.color === 'green' ? COLORS.green.primary : COLORS.blue.primary,
+                                  transform: [{ rotate: spinAnim }]
+                                }
+                              ]}
+                            />
+                          </Animated.View>
+                          <Animated.View
+                            pointerEvents="none"
+                            style={[
+                              styles.glowHighlight,
+                              { width: CELL_SIZE * 1.05, height: CELL_SIZE * 1.05, borderRadius: (CELL_SIZE * 1.05) / 2 },
+                              {
+                                opacity: (canMoveToken && !isInYard) ? 1 : 0,
+                                borderColor: player.color === 'red' ? COLORS.red.primary : player.color === 'yellow' ? COLORS.yellow.primary : player.color === 'green' ? COLORS.green.primary : COLORS.blue.primary,
+                                backgroundColor: player.color === 'red' ? 'rgba(230, 57, 70, 0.12)' : player.color === 'yellow' ? 'rgba(250, 204, 21, 0.12)' : player.color === 'green' ? 'rgba(46, 125, 50, 0.12)' : 'rgba(30, 136, 229, 0.12)',
+                                shadowColor: player.color === 'red' ? COLORS.red.primary : player.color === 'yellow' ? COLORS.yellow.primary : player.color === 'green' ? COLORS.green.primary : COLORS.blue.primary,
+                              }
+                            ]}
+                          />
+                          <Pawn3D color={player.color} size={CELL_SIZE * 0.95} />
 
-
-        </View>
-
-      {/* ============ EXIT CONFIRM MODAL ============ */}
-      <Modal visible={showExitConfirm} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={styles.exitModal}>
-            <Text style={styles.exitModalIcon}>⚠️</Text>
-            <Text style={styles.exitModalTitle}>Give Up Match?</Text>
-            <Text style={styles.exitModalMessage}>
-              You will lose your entry fee of{' '}
-              <Text style={{ fontWeight: '900', color: '#EF4444' }}>
-                ₹{matchState.entryFee || 0}
-              </Text>{' '}
-              and the other player will win the money.
-            </Text>
-            <View style={styles.exitModalButtons}>
-              <TouchableOpacity
-                style={styles.exitCancelBtn}
-                onPress={() => setShowExitConfirm(false)}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.exitCancelText}>Keep Playing</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.exitConfirmBtn}
-                onPress={confirmExit}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.exitConfirmText}>Give Up</Text>
-              </TouchableOpacity>
+                          {/* Micro-badge showing stack count */}
+                          {tIdxs.length > 1 && (
+                            <View style={styles.stackBadge}>
+                              <Text style={styles.stackBadgeText}>{tIdxs.length}</Text>
+                            </View>
+                          )}
+                        </TouchableOpacity>
+                      </Animated.View>
+                    );
+                  });
+                })}
+              </View>
             </View>
           </View>
         </View>
-      </Modal>
 
-      {/* ============ VICTORY MODAL ============ */}
-      <Modal visible={isWinner} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={styles.victoryCard}>
-            {winnerInfo?.winnerId === currentUser._id ? (
-              <>
-                {/* Play Win Sound */}
-                {React.createElement(View, { onLayout: () => SoundManager.playWin() })}
-                <Text style={styles.victoryEmoji}>🏆</Text>
-                <Text style={styles.victoryTitle}>VICTORY!</Text>
-                <Text style={styles.victorySub}>Congratulations, you won!</Text>
-                <View style={styles.winningsBox}>
-                  <Text style={styles.winningsLabel}>You Won</Text>
-                  <Text style={styles.winningsAmount}>
-                    ₹{winnerInfo?.winnings?.toFixed(2) || '0.00'}
+        {/* ============ EXIT CONFIRM MODAL ============ */}
+        <Modal visible={showExitConfirm} transparent animationType="fade">
+          <View style={styles.modalOverlay}>
+            <View style={styles.exitModal}>
+              <Text style={styles.exitModalIcon}>⚠️</Text>
+              <Text style={styles.exitModalTitle}>Give Up Match?</Text>
+              <Text style={styles.exitModalMessage}>
+                You will lose your entry fee of{' '}
+                <Text style={{ fontWeight: '900', color: '#EF4444' }}>
+                  ₹{matchState.entryFee || 0}
+                </Text>{' '}
+                and the other player will win the money.
+              </Text>
+              <View style={styles.exitModalButtons}>
+                <TouchableOpacity
+                  style={styles.exitCancelBtn}
+                  onPress={() => setShowExitConfirm(false)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.exitCancelText}>Keep Playing</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.exitConfirmBtn}
+                  onPress={confirmExit}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.exitConfirmText}>Give Up</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+
+        {/* ============ VICTORY MODAL ============ */}
+        <Modal visible={isWinner} transparent animationType="fade">
+          <View style={styles.modalOverlay}>
+            <View style={styles.victoryCard}>
+              {winnerInfo?.winnerId === currentUser._id ? (
+                <>
+                  {/* Play Win Sound */}
+                  {React.createElement(View, { onLayout: () => SoundManager.playWin() })}
+                  <Text style={styles.victoryEmoji}>🏆</Text>
+                  <Text style={styles.victoryTitle}>VICTORY!</Text>
+                  <Text style={styles.victorySub}>Congratulations, you won!</Text>
+                  <View style={styles.winningsBox}>
+                    <Text style={styles.winningsLabel}>You Won</Text>
+                    <Text style={styles.winningsAmount}>
+                      ₹{winnerInfo?.winnings?.toFixed(2) || '0.00'}
+                    </Text>
+                    <Text style={styles.winningsCredited}>💰 Credited to Wallet</Text>
+                  </View>
+                </>
+              ) : (
+                <>
+                  {/* Play Loss Sound */}
+                  {React.createElement(View, { onLayout: () => SoundManager.playLoss() })}
+                  <Text style={styles.victoryEmoji}>💔</Text>
+                  <Text style={[styles.victoryTitle, styles.defeatTitle]}>DEFEATED</Text>
+                  <Text style={styles.victorySub}>
+                    {winnerInfo?.winnerUsername || 'Opponent'} won the match
                   </Text>
-                  <Text style={styles.winningsCredited}>💰 Credited to Wallet</Text>
-                </View>
-              </>
-            ) : (
-              <>
-                {/* Play Loss Sound */}
-                {React.createElement(View, { onLayout: () => SoundManager.playLoss() })}
-                <Text style={styles.victoryEmoji}>💔</Text>
-                <Text style={[styles.victoryTitle, styles.defeatTitle]}>DEFEATED</Text>
-                <Text style={styles.victorySub}>
-                  {winnerInfo?.winnerUsername || 'Opponent'} won the match
+                  <Text style={styles.tryAgainText}>Better luck next time! 🎲</Text>
+                </>
+              )}
+              <TouchableOpacity
+                style={styles.closeModalBtn}
+                onPress={onLeaveMatch}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.closeModalBtnText}>RETURN TO LOBBY</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+
+        {showMatchFound && (
+          <Animated.View
+            style={[styles.matchFoundOverlay, { opacity: matchFoundOpacity }]}
+            pointerEvents="auto"
+          >
+            <Animated.Text style={[styles.matchFoundTitle, { transform: [{ translateY: titleTranslateY }] }]}>
+              MATCH FOUND
+            </Animated.Text>
+
+            <Animated.Text style={[styles.matchFoundSub, { opacity: vsOpacity }]}>
+              {matchState.gameMode || 'REGULAR'} MODE
+            </Animated.Text>
+
+            <View style={styles.vsRow}>
+              {/* Player 1 Circle */}
+              <Animated.View style={[styles.matchFoundPlayerCircle, styles.playerCircleRed, { transform: [{ scale: avatarsScale }] }]}>
+                <Text style={styles.matchFoundInitial}>
+                  {matchState.players[0]?.username?.charAt(0).toUpperCase() || 'P'}
                 </Text>
-                <Text style={styles.tryAgainText}>Better luck next time! 🎲</Text>
-              </>
-            )}
-            <TouchableOpacity
-              style={styles.closeModalBtn}
-              onPress={onLeaveMatch}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.closeModalBtnText}>RETURN TO LOBBY</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+                <Text style={styles.matchFoundName} numberOfLines={1}>
+                  {matchState.players[0]?.username || 'Player 1'}
+                </Text>
+              </Animated.View>
 
-      {showMatchFound && (
-        <Animated.View 
-          style={[styles.matchFoundOverlay, { opacity: matchFoundOpacity }]}
-          pointerEvents="auto"
-        >
-          <Animated.Text style={[styles.matchFoundTitle, { transform: [{ translateY: titleTranslateY }] }]}>
-            MATCH FOUND
-          </Animated.Text>
-          
-          <Animated.Text style={[styles.matchFoundSub, { opacity: vsOpacity }]}>
-            {matchState.gameMode || 'REGULAR'} MODE
-          </Animated.Text>
+              {/* VS Circle */}
+              <Animated.View style={[styles.matchFoundVsCircle, { opacity: vsOpacity, transform: [{ scale: vsScale }] }]}>
+                <Text style={styles.matchFoundVsText}>VS</Text>
+              </Animated.View>
 
-          <View style={styles.vsRow}>
-            {/* Player 1 Circle */}
-            <Animated.View style={[styles.matchFoundPlayerCircle, styles.playerCircleRed, { transform: [{ scale: avatarsScale }] }]}>
-              <Text style={styles.matchFoundInitial}>
-                {matchState.players[0]?.username?.charAt(0).toUpperCase() || 'P'}
-              </Text>
-              <Text style={styles.matchFoundName} numberOfLines={1}>
-                {matchState.players[0]?.username || 'Player 1'}
-              </Text>
-            </Animated.View>
+              {/* Player 2 Circle */}
+              <Animated.View style={[styles.matchFoundPlayerCircle, styles.playerCircleGreen, { transform: [{ scale: avatarsScale }] }]}>
+                <Text style={styles.matchFoundInitial}>
+                  {matchState.players[1]?.username?.charAt(0).toUpperCase() || 'P'}
+                </Text>
+                <Text style={styles.matchFoundName} numberOfLines={1}>
+                  {matchState.players[1]?.username || 'Player 2'}
+                </Text>
+              </Animated.View>
+            </View>
 
-            {/* VS Circle */}
-            <Animated.View style={[styles.matchFoundVsCircle, { opacity: vsOpacity, transform: [{ scale: vsScale }] }]}>
-              <Text style={styles.matchFoundVsText}>VS</Text>
-            </Animated.View>
-
-            {/* Player 2 Circle */}
-            <Animated.View style={[styles.matchFoundPlayerCircle, styles.playerCircleGreen, { transform: [{ scale: avatarsScale }] }]}>
-              <Text style={styles.matchFoundInitial}>
-                {matchState.players[1]?.username?.charAt(0).toUpperCase() || 'P'}
-              </Text>
-              <Text style={styles.matchFoundName} numberOfLines={1}>
-                {matchState.players[1]?.username || 'Player 2'}
-              </Text>
-            </Animated.View>
-          </View>
-
-          <Animated.Text style={[styles.matchFoundFooter, { opacity: vsOpacity }]}>
-            Prepare for battle...
-          </Animated.Text>
-        </Animated.View>
-      )}
-    </SafeAreaView>
+            <Animated.Text style={[styles.matchFoundFooter, { opacity: vsOpacity }]}>
+              Prepare for battle...
+            </Animated.Text>
+          </Animated.View>
+        )}
+      </SafeAreaView>
     </View>
   );
 };
@@ -2505,22 +2554,55 @@ const styles = StyleSheet.create({
   matchTimerCapsule: { backgroundColor: '#166534', paddingHorizontal: 16, paddingVertical: 6, borderRadius: 20, borderWidth: 2, borderColor: '#22C55E' },
   matchTimerText: { color: '#FFFFFF', fontWeight: '900', fontSize: 14, letterSpacing: 1 },
   arenaContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', position: 'relative' },
-  topRightPlayerWrapper: { position: 'absolute', top: 30, right: 10, zIndex: 100 },
-  bottomLeftPlayerWrapper: { position: 'absolute', bottom: 30, left: 10, zIndex: 100 },
+  topLeftPlayerWrapper: { position: 'absolute', top: -45, left: -10, zIndex: 100 },
+  topRightPlayerWrapper: { position: 'absolute', top: -45, right: -10, zIndex: 100 },
+  bottomLeftPlayerWrapper: { position: 'absolute', bottom: -45, left: -10, zIndex: 100 },
+  bottomRightPlayerWrapper: { position: 'absolute', bottom: -45, right: -10, zIndex: 100 },
   diagonalCardContainer: { alignItems: 'center' },
   nameBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, marginBottom: 4 },
   nameBadgeText: { color: '#FFF', fontSize: 10, fontWeight: '900', letterSpacing: 0.5 },
   avatarDiceRow: { flexDirection: 'row', alignItems: 'center' },
-  
-  
-  
+
+
+
   bubblePointer: { position: 'absolute', width: 10, height: 10 },
-  
-  
+
+
 
   avatarBorderContainer: { width: 68, height: 68, borderRadius: 34, borderWidth: 3.5, alignItems: 'center', justifyContent: 'center', backgroundColor: '#0F172A', overflow: 'hidden', marginHorizontal: 4 },
   avatarImageLarge: { width: 60, height: 60, borderRadius: 30 },
   diceBoxWrapper: { width: 80, height: 80, borderRadius: 20, alignItems: 'center', justifyContent: 'center', position: 'relative', marginHorizontal: 8, backgroundColor: 'rgba(15, 23, 42, 0.95)' },
+  scorePillContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#0F172A',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: '#F59E0B',
+    shadowColor: '#F59E0B',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35,
+    shadowRadius: 6,
+    elevation: 5,
+  },
+  scoreIcon: {
+    fontSize: 14,
+    marginRight: 6,
+  },
+  scoreValueText: {
+    color: '#FFFFFF',
+    fontWeight: '900',
+    fontSize: 15,
+    letterSpacing: 0.5,
+  },
+  scoreUnitText: {
+    color: '#FCD34D',
+    fontWeight: '800',
+    fontSize: 11,
+    letterSpacing: 0.5,
+  },
 });
 
 export default GameScreen;

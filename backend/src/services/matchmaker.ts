@@ -61,40 +61,84 @@ export const processMatchmakingQueue = async (tier: number, mode: 'QUICK' | 'REG
   const queueKey = `queue:tier_${tier}_mode_${mode}`;
   try {
     const queueLen = await redis.lLen(queueKey);
-    if (queueLen >= 2) {
-      // Match 2 human players
-      const player1Str = await redis.lPop(queueKey);
-      const player2Str = await redis.lPop(queueKey);
+    if (queueLen === 0) return;
 
-      if (player1Str && player2Str) {
-        const player1: QueueUser = JSON.parse(player1Str);
-        const player2: QueueUser = JSON.parse(player2Str);
+    if (mode === 'QUICK') {
+      if (queueLen >= 2) {
+        // Match 2 human players
+        const player1Str = await redis.lPop(queueKey);
+        const player2Str = await redis.lPop(queueKey);
 
-        await createLiveMatch(player1, player2, tier, false, mode);
+        if (player1Str && player2Str) {
+          const player1: QueueUser = JSON.parse(player1Str);
+          const player2: QueueUser = JSON.parse(player2Str);
+          await createLiveMatch([player1, player2], tier, false, mode);
+        }
+      } else if (queueLen === 1) {
+        // Check for timeout -> Bot Injection
+        const playerStr = await redis.lIndex(queueKey, 0);
+        if (playerStr) {
+          const player: QueueUser = JSON.parse(playerStr);
+          const elapsed = Date.now() - player.joinedAt;
+
+          const timeoutMs = getMatchmakingTimeoutMs(tier);
+          if (elapsed >= timeoutMs) {
+            await redis.lPop(queueKey);
+
+            const botId = `bot_${Date.now()}`;
+            const botPlayer: QueueUser = {
+              userId: botId,
+              username: getRandomBotName(),
+              socketId: `socket_${botId}`,
+              joinedAt: Date.now(),
+              gameMode: mode,
+            };
+
+            await createLiveMatch([player, botPlayer], tier, true, mode);
+          }
+        }
       }
-    } else if (queueLen === 1) {
-      // Check for timeout -> Bot Injection
-      const playerStr = await redis.lIndex(queueKey, 0);
-      if (playerStr) {
-        const player: QueueUser = JSON.parse(playerStr);
-        const elapsed = Date.now() - player.joinedAt;
-
-        const timeoutMs = getMatchmakingTimeoutMs(tier);
-        if (elapsed >= timeoutMs) {
-          await redis.lPop(queueKey);
-
-          // Spawn server bot
-          const botId = `bot_${Date.now()}`;
-          const botUsername = getRandomBotName();
-          const botPlayer: QueueUser = {
-            userId: botId,
-            username: botUsername,
-            socketId: `socket_${botId}`,
-            joinedAt: Date.now(),
-            gameMode: mode,
-          };
-
-          await createLiveMatch(player, botPlayer, tier, true, mode);
+    } else {
+      // REGULAR MODE (Supports up to 4 players)
+      if (queueLen >= 4) {
+        const playersToMatch: QueueUser[] = [];
+        for (let i = 0; i < 4; i++) {
+          const pStr = await redis.lPop(queueKey);
+          if (pStr) playersToMatch.push(JSON.parse(pStr));
+        }
+        if (playersToMatch.length === 4) {
+          await createLiveMatch(playersToMatch, tier, false, mode);
+        }
+      } else if (queueLen > 0) {
+        const playerStr = await redis.lIndex(queueKey, 0);
+        if (playerStr) {
+          const player: QueueUser = JSON.parse(playerStr);
+          const elapsed = Date.now() - player.joinedAt;
+          
+          const timeoutMs = getMatchmakingTimeoutMs(tier);
+          if (elapsed >= timeoutMs) {
+            // Pop everyone currently in queue
+            const playersToMatch: QueueUser[] = [];
+            for (let i = 0; i < queueLen; i++) {
+              const pStr = await redis.lPop(queueKey);
+              if (pStr) playersToMatch.push(JSON.parse(pStr));
+            }
+            
+            let hasBot = false;
+            if (playersToMatch.length === 1) {
+              const botId = `bot_${Date.now()}`;
+              playersToMatch.push({
+                userId: botId,
+                username: getRandomBotName(),
+                socketId: `socket_${botId}`,
+                joinedAt: Date.now(),
+                gameMode: mode,
+              });
+              hasBot = true;
+            }
+            
+            await createLiveMatch(playersToMatch, tier, hasBot, mode);
+          }
         }
       }
     }
@@ -195,7 +239,7 @@ export const joinQueue = async (
       await redis.del(lobbyKey);
 
       // Launch the match asynchronously with cached creator parameters
-      createLiveMatch(waitingPlayer, queueUser, fee, false, mode, rules);
+      createLiveMatch([waitingPlayer, queueUser], fee, false, mode, rules);
 
       return { success: true, message: 'Lobby joined! Match starting...' };
     } else {
@@ -370,8 +414,7 @@ export const leaveQueue = async (userId: string): Promise<{ success: boolean; me
  * Creates room, processes fee transaction, and launches match
  */
 const createLiveMatch = async (
-  p1: QueueUser,
-  p2: QueueUser,
+  players: QueueUser[],
   entryFee: number,
   hasBot = false,
   gameMode: 'QUICK' | 'REGULAR' | 'ROOMS' = 'REGULAR',
@@ -385,56 +428,54 @@ const createLiveMatch = async (
     // 1. Process entry fees inside a database transaction (only for private lobbies)
     if (gameMode === 'ROOMS') {
       await runInTransaction(async (session) => {
-        // Human 1 entry fee
-        await deductEntryFee(p1.userId, entryFee, roomId, session);
-
-        // Human 2 entry fee
-        await deductEntryFee(p2.userId, entryFee, roomId, session);
+        for (const p of players) {
+          if (!p.userId.startsWith('bot_')) {
+            await deductEntryFee(p.userId, entryFee, roomId, session);
+          }
+        }
       });
     }
 
     // Increment playing count in LobbyStateService
     try {
       const { incrementPlayingCount } = require('./lobbyService');
-      await incrementPlayingCount(entryFee, hasBot ? 1 : 2);
+      const humanCount = players.filter(p => !p.userId.startsWith('bot_')).length;
+      await incrementPlayingCount(entryFee, humanCount);
     } catch (err) {
       console.error('Failed to increment playing count on match start:', err);
     }
 
     // Check if either player is a promoter, and fetch their config state
     let promoOverride: 'PROMOTER_MUST_WIN' | 'PROMOTER_MUST_LOSE' | undefined = undefined;
-    const p1User = await User.findById(p1.userId);
-    const p2User = !hasBot ? await User.findById(p2.userId) : null;
-
-    if (p1User && p1User.isPromoter) {
-      const stakeKey = `stake_${entryFee}`;
-      let promoStateVal = 'MUST_LOSE';
-      if (p1User.promoMatchState) {
-        if (typeof p1User.promoMatchState.get === 'function') {
-          promoStateVal = p1User.promoMatchState.get(stakeKey) || 'MUST_LOSE';
-        } else {
-          promoStateVal = p1User.promoMatchState[stakeKey] || 'MUST_LOSE';
-        }
+    
+    const playersInit = await Promise.all(players.map(async (p) => {
+      const isBot = p.userId.startsWith('bot_');
+      let isPromoter = false;
+      if (!isBot) {
+         const user = await User.findById(p.userId);
+         if (user && user.isPromoter) {
+            isPromoter = true;
+            if (!promoOverride) {
+              const stakeKey = `stake_${entryFee}`;
+              let promoStateVal = 'MUST_LOSE';
+              if (user.promoMatchState) {
+                if (typeof user.promoMatchState.get === 'function') {
+                  promoStateVal = user.promoMatchState.get(stakeKey) || 'MUST_LOSE';
+                } else {
+                  promoStateVal = (user.promoMatchState as any)[stakeKey] || 'MUST_LOSE';
+                }
+              }
+              promoOverride = promoStateVal === 'MUST_WIN' ? 'PROMOTER_MUST_WIN' : 'PROMOTER_MUST_LOSE';
+            }
+         }
       }
-      promoOverride = promoStateVal === 'MUST_WIN' ? 'PROMOTER_MUST_WIN' : 'PROMOTER_MUST_LOSE';
-    } else if (p2User && p2User.isPromoter) {
-      const stakeKey = `stake_${entryFee}`;
-      let promoStateVal = 'MUST_LOSE';
-      if (p2User.promoMatchState) {
-        if (typeof p2User.promoMatchState.get === 'function') {
-          promoStateVal = p2User.promoMatchState.get(stakeKey) || 'MUST_LOSE';
-        } else {
-          promoStateVal = p2User.promoMatchState[stakeKey] || 'MUST_LOSE';
-        }
-      }
-      promoOverride = promoStateVal === 'MUST_WIN' ? 'PROMOTER_MUST_WIN' : 'PROMOTER_MUST_LOSE';
-    }
+      return { id: p.userId, username: p.username, isBot, isPromoter };
+    }));
 
     // 2. Initialize Match State
     const matchState = createInitialState(
       roomId,
-      { id: p1.userId, username: p1.username, isBot: false, isPromoter: p1User?.isPromoter || false },
-      { id: p2.userId, username: p2.username, isBot: hasBot, isPromoter: p2User?.isPromoter || false },
+      playersInit,
       entryFee,
       gameMode,
       customRules
@@ -449,18 +490,18 @@ const createLiveMatch = async (
     }
 
     // Save mapping in socket manager for reconnection purposes
-    registerUserToRoom(p1.userId, roomId);
-    if (!hasBot) {
-      registerUserToRoom(p2.userId, roomId);
+    for (const p of players) {
+      if (!p.userId.startsWith('bot_')) {
+        registerUserToRoom(p.userId, roomId);
+      }
     }
 
     // Cache state in Redis and connect sockets to room
-    const p1Socket = io.sockets.sockets.get(p1.socketId);
-    if (p1Socket) p1Socket.join(roomId);
-
-    if (!hasBot) {
-      const p2Socket = io.sockets.sockets.get(p2.socketId);
-      if (p2Socket) p2Socket.join(roomId);
+    for (const p of players) {
+      if (!p.userId.startsWith('bot_')) {
+        const pSocket = io.sockets.sockets.get(p.socketId);
+        if (pSocket) pSocket.join(roomId);
+      }
     }
 
     if (!hasBot) {
@@ -468,17 +509,18 @@ const createLiveMatch = async (
       matchState.status = 'MATCH_PENDING';
       
       // Save tracking info on players
-      matchState.players[0].queueId = p1.queueId;
-      matchState.players[0].socketId = p1.socketId;
-      matchState.players[0].joinedAt = p1.joinedAt;
-
-      matchState.players[1].queueId = p2.queueId;
-      matchState.players[1].socketId = p2.socketId;
-      matchState.players[1].joinedAt = p2.joinedAt;
+      for (let i = 0; i < players.length; i++) {
+        if (!players[i].userId.startsWith('bot_')) {
+          matchState.players[i].queueId = players[i].queueId;
+          matchState.players[i].socketId = players[i].socketId;
+          matchState.players[i].joinedAt = players[i].joinedAt;
+        }
+      }
 
       await cacheRoomState(roomId, matchState);
       
-      console.log(`Match pending handshake in room ${roomId}. Players: ${p1.username} vs ${p2.username}`);
+      const usernames = players.map(p => p.username).join(' vs ');
+      console.log(`Match pending handshake in room ${roomId}. Players: ${usernames}`);
 
       // Dispatch MATCH_FOUND_ACK to trigger client overlays
       io.to(roomId).emit('MATCH_FOUND_ACK', {
@@ -504,7 +546,8 @@ const createLiveMatch = async (
       matchState.status = 'ACTIVE';
       await cacheRoomState(roomId, matchState);
 
-      console.log(`Match created in room ${roomId} against bot. Player: ${p1.username}`);
+      const usernames = players.map(p => p.username).join(' vs ');
+      console.log(`Match created in room ${roomId} against bot. Players: ${usernames}`);
 
       // Emit start signals
       io.to(roomId).emit('MATCH_START', { roomId, state: matchState });
@@ -524,12 +567,11 @@ const createLiveMatch = async (
     console.error(`Failed to initialize match for room ${roomId}:`, error);
 
     // Notify clients about transaction/initialization failure
-    const socket1 = io.sockets.sockets.get(p1.socketId);
-    if (socket1) socket1.emit('ERROR', { message: 'Failed to start match due to transaction error.' });
-
-    if (!hasBot) {
-      const socket2 = io.sockets.sockets.get(p2.socketId);
-      if (socket2) socket2.emit('ERROR', { message: 'Failed to start match due to transaction error.' });
+    for (const p of players) {
+      if (!p.userId.startsWith('bot_')) {
+        const pSocket = io.sockets.sockets.get(p.socketId);
+        if (pSocket) pSocket.emit('ERROR', { message: 'Failed to start match due to transaction error.' });
+      }
     }
   }
 };

@@ -210,8 +210,10 @@ export async function initializeTournamentRound(tour: any, roundNumber: number):
         // Init state in ludo game engine
         const state = createInitialState(
           m.matchId,
-          { id: u1._id.toString(), username: u1.username, isBot: false },
-          { id: u2._id.toString(), username: u2.username, isBot: false },
+          [
+            { id: u1._id.toString(), username: u1.username, isBot: false },
+            { id: u2._id.toString(), username: u2.username, isBot: false }
+          ],
           tour.entryFee,
           'REGULAR'
         );

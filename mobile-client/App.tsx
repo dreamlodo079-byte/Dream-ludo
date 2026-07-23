@@ -128,6 +128,15 @@ function AppContent() {
         return;
       }
 
+      // If this user has forfeited (hasLeft), treat as terminated locally
+      const myPlayer = matchState.players?.find((p: any) => p.id === currentUser?._id);
+      if (myPlayer?.hasLeft) {
+        if (view !== 'game') {
+          resetMatchState();
+        }
+        return;
+      }
+
       if (matchState.status === 'ACTIVE') {
         if (showOverlay) {
           // Handshake succeeded! Reveal opponent details inside overlay first

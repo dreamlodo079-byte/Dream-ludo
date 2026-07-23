@@ -52,6 +52,16 @@ export interface MatchmakingCardOverlayProps {
   entryFee?: number;
 }
 
+// Helper function to pick random (x, y) coordinates inside radar circle disk (keeping distance 34px to 54px from center core)
+const getRandomRadarCoords = (minRadius = 34, maxRadius = 54) => {
+  const angle = Math.random() * 2 * Math.PI;
+  const r = minRadius + Math.random() * (maxRadius - minRadius);
+  return {
+    x: Math.round(r * Math.cos(angle)),
+    y: Math.round(r * Math.sin(angle)),
+  };
+};
+
 export const MatchmakingCardOverlay: React.FC<MatchmakingCardOverlayProps> = ({
   visible,
   onCancel,
@@ -71,16 +81,44 @@ export const MatchmakingCardOverlay: React.FC<MatchmakingCardOverlayProps> = ({
   const cardTranslateY = useSharedValue(200);
   const cardScale = useSharedValue(0.9);
 
-  // Radar continuous 360-degree rotation (1500ms per revolution)
-  const radarRotation = useSharedValue(0);
+  // Sonar Radar expanding pulse waves (radiating outwards & fading)
+  const wave1Scale = useSharedValue(0.15);
+  const wave1Opacity = useSharedValue(0.85);
+  const wave2Scale = useSharedValue(0.15);
+  const wave2Opacity = useSharedValue(0.85);
+  const wave3Scale = useSharedValue(0.15);
+  const wave3Opacity = useSharedValue(0.85);
 
-  // Dynamic simulated player dots (pop-in and orbit)
+  // Dynamic teeming online player dots (opacity, scale, and random (x,y) positions)
   const dot1Opacity = useSharedValue(0);
   const dot1Scale = useSharedValue(0);
+  const dot1X = useSharedValue(25);
+  const dot1Y = useSharedValue(-25);
+
   const dot2Opacity = useSharedValue(0);
   const dot2Scale = useSharedValue(0);
+  const dot2X = useSharedValue(-28);
+  const dot2Y = useSharedValue(24);
+
   const dot3Opacity = useSharedValue(0);
   const dot3Scale = useSharedValue(0);
+  const dot3X = useSharedValue(-26);
+  const dot3Y = useSharedValue(-28);
+
+  // Helper to re-randomize dot coordinates between pings
+  const relocateDot = useCallback((dotIndex: 1 | 2 | 3) => {
+    const coords = getRandomRadarCoords(52);
+    if (dotIndex === 1) {
+      dot1X.value = coords.x;
+      dot1Y.value = coords.y;
+    } else if (dotIndex === 2) {
+      dot2X.value = coords.x;
+      dot2Y.value = coords.y;
+    } else if (dotIndex === 3) {
+      dot3X.value = coords.x;
+      dot3Y.value = coords.y;
+    }
+  }, []);
 
   // VS Matchup layout transition progress (0 = Radar Searching, 1 = VS Locked)
   const vsProgress = useSharedValue(0);
@@ -100,6 +138,11 @@ export const MatchmakingCardOverlay: React.FC<MatchmakingCardOverlayProps> = ({
       setSecondsLeft(durationSeconds);
       vsProgress.value = 0;
 
+      // Initialize random spot coordinates
+      relocateDot(1);
+      relocateDot(2);
+      relocateDot(3);
+
       // Backdrop & Card Slide Up
       backdropOpacity.value = withTiming(1, { duration: 250 });
       cardTranslateY.value = withTiming(0, {
@@ -108,83 +151,151 @@ export const MatchmakingCardOverlay: React.FC<MatchmakingCardOverlayProps> = ({
       });
       cardScale.value = withTiming(1, { duration: 350 });
 
-      // Start continuous radar sweep rotation (1500ms loop)
-      radarRotation.value = 0;
-      radarRotation.value = withRepeat(
-        withTiming(360, { duration: 1500, easing: Easing.linear }),
+      // Sonar Wave 1 Loop (3200ms slow pulse)
+      wave1Scale.value = 0.15;
+      wave1Opacity.value = 0.85;
+      wave1Scale.value = withRepeat(
+        withTiming(1.75, { duration: 3200, easing: Easing.out(Easing.cubic) }),
+        -1,
+        false
+      );
+      wave1Opacity.value = withRepeat(
+        withTiming(0, { duration: 3200, easing: Easing.out(Easing.quad) }),
         -1,
         false
       );
 
-      // Start simulated online player pop-in dot loop
+      // Sonar Wave 2 Loop (1060ms offset)
+      wave2Scale.value = 0.15;
+      wave2Opacity.value = 0.85;
+      wave2Scale.value = withDelay(
+        1060,
+        withRepeat(
+          withTiming(1.75, { duration: 3200, easing: Easing.out(Easing.cubic) }),
+          -1,
+          false
+        )
+      );
+      wave2Opacity.value = withDelay(
+        1060,
+        withRepeat(
+          withTiming(0, { duration: 3200, easing: Easing.out(Easing.quad) }),
+          -1,
+          false
+        )
+      );
+
+      // Sonar Wave 3 Loop (2120ms offset)
+      wave3Scale.value = 0.15;
+      wave3Opacity.value = 0.85;
+      wave3Scale.value = withDelay(
+        2120,
+        withRepeat(
+          withTiming(1.75, { duration: 3200, easing: Easing.out(Easing.cubic) }),
+          -1,
+          false
+        )
+      );
+      wave3Opacity.value = withDelay(
+        2120,
+        withRepeat(
+          withTiming(0, { duration: 3200, easing: Easing.out(Easing.quad) }),
+          -1,
+          false
+        )
+      );
+
+      // Simulated online player pop-in, hold, fade-out & relocate loop (3 spots pinging organically)
       dot1Scale.value = withDelay(
-        800,
+        300,
         withRepeat(
           withSequence(
-            withTiming(1, { duration: 400 }),
-            withTiming(1.2, { duration: 600 }),
-            withTiming(0, { duration: 400 })
+            withTiming(1, { duration: 650, easing: Easing.out(Easing.back(1.1)) }),
+            withTiming(1.15, { duration: 1000 }),
+            withTiming(0, { duration: 800, easing: Easing.in(Easing.quad) }),
+            withTiming(0, { duration: 800 }, (finished) => {
+              if (finished) {
+                runOnJS(relocateDot)(1);
+              }
+            })
           ),
           -1,
-          true
+          false
         )
       );
       dot1Opacity.value = withDelay(
-        800,
+        300,
         withRepeat(
           withSequence(
-            withTiming(1, { duration: 400 }),
-            withTiming(0.8, { duration: 600 }),
-            withTiming(0, { duration: 400 })
+            withTiming(1, { duration: 650 }),
+            withTiming(0.85, { duration: 1000 }),
+            withTiming(0, { duration: 800 }),
+            withTiming(0, { duration: 800 })
           ),
           -1,
-          true
+          false
         )
       );
 
-      dot2Scale.value = withDelay(1800,
+      dot2Scale.value = withDelay(
+        1100,
         withRepeat(
           withSequence(
-            withTiming(1, { duration: 400 }),
-            withTiming(1.2, { duration: 600 }),
-            withTiming(0, { duration: 400 })
+            withTiming(1, { duration: 650, easing: Easing.out(Easing.back(1.1)) }),
+            withTiming(1.15, { duration: 1000 }),
+            withTiming(0, { duration: 800, easing: Easing.in(Easing.quad) }),
+            withTiming(0, { duration: 800 }, (finished) => {
+              if (finished) {
+                runOnJS(relocateDot)(2);
+              }
+            })
           ),
           -1,
-          true
+          false
         )
       );
-      dot2Opacity.value = withDelay(1800,
+      dot2Opacity.value = withDelay(
+        1100,
         withRepeat(
           withSequence(
-            withTiming(1, { duration: 400 }),
-            withTiming(0.8, { duration: 600 }),
-            withTiming(0, { duration: 400 })
+            withTiming(1, { duration: 650 }),
+            withTiming(0.85, { duration: 1000 }),
+            withTiming(0, { duration: 800 }),
+            withTiming(0, { duration: 800 })
           ),
           -1,
-          true
+          false
         )
       );
 
-      dot3Scale.value = withDelay(2800,
+      dot3Scale.value = withDelay(
+        2000,
         withRepeat(
           withSequence(
-            withTiming(1, { duration: 400 }),
-            withTiming(1.2, { duration: 600 }),
-            withTiming(0, { duration: 400 })
+            withTiming(1, { duration: 650, easing: Easing.out(Easing.back(1.1)) }),
+            withTiming(1.15, { duration: 1000 }),
+            withTiming(0, { duration: 800, easing: Easing.in(Easing.quad) }),
+            withTiming(0, { duration: 800 }, (finished) => {
+              if (finished) {
+                runOnJS(relocateDot)(3);
+              }
+            })
           ),
           -1,
-          true
+          false
         )
       );
-      dot3Opacity.value = withDelay(2800,
+      dot3Opacity.value = withDelay(
+        2000,
         withRepeat(
           withSequence(
-            withTiming(1, { duration: 400 }),
-            withTiming(0.8, { duration: 600 }),
-            withTiming(0, { duration: 400 })
+            withTiming(1, { duration: 650 }),
+            withTiming(0.85, { duration: 1000 }),
+            withTiming(0, { duration: 800 }),
+            withTiming(0, { duration: 800 })
           ),
           -1,
-          true
+          false
         )
       );
 
@@ -194,7 +305,12 @@ export const MatchmakingCardOverlay: React.FC<MatchmakingCardOverlayProps> = ({
       cardScale.value = withTiming(0.9, { duration: 200 });
 
       // Cancel active loops
-      cancelAnimation(radarRotation);
+      cancelAnimation(wave1Scale);
+      cancelAnimation(wave1Opacity);
+      cancelAnimation(wave2Scale);
+      cancelAnimation(wave2Opacity);
+      cancelAnimation(wave3Scale);
+      cancelAnimation(wave3Opacity);
       cancelAnimation(dot1Scale);
       cancelAnimation(dot1Opacity);
       cancelAnimation(dot2Scale);
@@ -249,8 +365,13 @@ export const MatchmakingCardOverlay: React.FC<MatchmakingCardOverlayProps> = ({
     if (opponent) {
       setIsSuccess(true);
 
-      // Stop radar rotation & simulated dot loops
-      cancelAnimation(radarRotation);
+      // Stop radar wave & simulated dot loops
+      cancelAnimation(wave1Scale);
+      cancelAnimation(wave1Opacity);
+      cancelAnimation(wave2Scale);
+      cancelAnimation(wave2Opacity);
+      cancelAnimation(wave3Scale);
+      cancelAnimation(wave3Opacity);
       cancelAnimation(dot1Scale);
       cancelAnimation(dot2Scale);
       cancelAnimation(dot3Scale);
@@ -303,23 +424,46 @@ export const MatchmakingCardOverlay: React.FC<MatchmakingCardOverlayProps> = ({
     ],
   }));
 
-  const animatedSweepStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${radarRotation.value}deg` }],
+  const animatedWave1Style = useAnimatedStyle(() => ({
+    opacity: wave1Opacity.value,
+    transform: [{ scale: wave1Scale.value }],
+  }));
+
+  const animatedWave2Style = useAnimatedStyle(() => ({
+    opacity: wave2Opacity.value,
+    transform: [{ scale: wave2Scale.value }],
+  }));
+
+  const animatedWave3Style = useAnimatedStyle(() => ({
+    opacity: wave3Opacity.value,
+    transform: [{ scale: wave3Scale.value }],
   }));
 
   const animatedDot1Style = useAnimatedStyle(() => ({
     opacity: dot1Opacity.value,
-    transform: [{ scale: dot1Scale.value }],
+    transform: [
+      { translateX: dot1X.value },
+      { translateY: dot1Y.value },
+      { scale: dot1Scale.value },
+    ],
   }));
 
   const animatedDot2Style = useAnimatedStyle(() => ({
     opacity: dot2Opacity.value,
-    transform: [{ scale: dot2Scale.value }],
+    transform: [
+      { translateX: dot2X.value },
+      { translateY: dot2Y.value },
+      { scale: dot2Scale.value },
+    ],
   }));
 
   const animatedDot3Style = useAnimatedStyle(() => ({
     opacity: dot3Opacity.value,
-    transform: [{ scale: dot3Scale.value }],
+    transform: [
+      { translateX: dot3X.value },
+      { translateY: dot3Y.value },
+      { scale: dot3Scale.value },
+    ],
   }));
 
   // Morph styles between Radar (0) and VS Layout (1)
@@ -354,22 +498,26 @@ export const MatchmakingCardOverlay: React.FC<MatchmakingCardOverlayProps> = ({
 
             {/* A. Radar Search Matrix (Phase 1: Searching) */}
             <Animated.View style={[styles.radarMatrixWrapper, radarContainerStyle]}>
-              {/* Outer Thin Lavender Track */}
-              <View style={styles.radarOuterTrack}>
-                {/* Simulated Online Player Dot 1 */}
-                <Animated.View style={[styles.onlineDot, styles.dotPos1, animatedDot1Style]} />
-                {/* Simulated Online Player Dot 2 */}
-                <Animated.View style={[styles.onlineDot, styles.dotPos2, animatedDot2Style]} />
+              {/* Expanding Sonar Pulse Waves */}
+              <Animated.View style={[styles.radarWaveRing, animatedWave1Style]} />
+              <Animated.View style={[styles.radarWaveRing, animatedWave2Style]} />
+              <Animated.View style={[styles.radarWaveRing, animatedWave3Style]} />
 
-                {/* Inner Thin Lavender Track */}
-                <View style={styles.radarInnerTrack}>
-                  {/* Simulated Online Player Dot 3 */}
-                  <Animated.View style={[styles.onlineDot, styles.dotPos3, animatedDot3Style]} />
-
-                  {/* 360-Degree Rotating Gradient Radar Sweep Arc */}
-                  <Animated.View style={[styles.sweepLineArc, animatedSweepStyle]} />
-                </View>
+              {/* Center Radar Beacon Core */}
+              <View style={styles.radarCenterBeacon}>
+                <View style={styles.radarCenterCore} />
               </View>
+
+              {/* Simulated Teeming Discovered Player Dots (Randomized Coordinates) */}
+              <Animated.View style={[styles.onlineDot, animatedDot1Style]}>
+                <View style={styles.dotPulseRing} />
+              </Animated.View>
+              <Animated.View style={[styles.onlineDot, animatedDot2Style]}>
+                <View style={styles.dotPulseRing} />
+              </Animated.View>
+              <Animated.View style={[styles.onlineDot, animatedDot3Style]}>
+                <View style={styles.dotPulseRing} />
+              </Animated.View>
             </Animated.View>
 
             {/* B. Side-by-Side VS Matchup Layout (Phase 2: Match Secured) */}
@@ -520,38 +668,65 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     position: 'absolute',
   },
-  radarOuterTrack: {
-    width: 140,
-    height: 140,
-    borderRadius: 70,
+  radarWaveRing: {
+    position: 'absolute',
+    width: 135,
+    height: 135,
+    borderRadius: 67.5,
     borderWidth: 2,
-    borderColor: 'rgba(199, 210, 254, 0.75)', // Soft lavender track (#C7D2FE)
-    justifyContent: 'center',
-    alignItems: 'center',
-    position: 'relative',
+    borderColor: 'rgba(99, 102, 241, 0.45)', // Soft indigo wave line
+    backgroundColor: 'rgba(99, 102, 241, 0.08)', // Translucent glowing wave fill
   },
-  radarInnerTrack: {
-    width: 94,
-    height: 94,
-    borderRadius: 47,
-    borderWidth: 2,
-    borderColor: 'rgba(224, 231, 255, 0.9)', // Lighter inner track (#E0E7FF)
-    justifyContent: 'center',
-    alignItems: 'center',
-    position: 'relative',
+  radarGridRingOuter: {
+    position: 'absolute',
+    width: 130,
+    height: 130,
+    borderRadius: 65,
+    borderWidth: 1,
+    borderColor: 'rgba(199, 210, 254, 0.6)',
+    borderStyle: 'dashed',
+  },
+  radarGridRingInner: {
+    position: 'absolute',
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    borderWidth: 1,
+    borderColor: 'rgba(224, 231, 255, 0.8)',
   },
   sweepLineArc: {
     position: 'absolute',
-    width: 94,
-    height: 94,
-    borderRadius: 47,
-    borderWidth: 3.5,
+    width: 130,
+    height: 130,
+    borderRadius: 65,
+    borderWidth: 2.5,
     borderColor: 'transparent',
-    borderTopColor: '#4F46E5', // Active gradient sweep arc line
-    borderRightColor: 'rgba(79, 70, 229, 0.4)',
+    borderTopColor: '#4F46E5', // Active scanner sweep arc
+    borderRightColor: 'rgba(79, 70, 229, 0.3)',
+  },
+  radarCenterBeacon: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(79, 70, 229, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(79, 70, 229, 0.3)',
+  },
+  radarCenterCore: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#4F46E5',
+    shadowColor: '#4F46E5',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 6,
+    elevation: 4,
   },
 
-  // Simulated Glowing Online Player Dots
+  // Simulated Glowing Online Player Dots (Max 3 spots)
   onlineDot: {
     position: 'absolute',
     width: 12,
@@ -560,23 +735,33 @@ const styles = StyleSheet.create({
     backgroundColor: '#6366F1',
     borderWidth: 2,
     borderColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
     shadowColor: '#6366F1',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.6,
     shadowRadius: 4,
     elevation: 3,
   },
+  dotPulseRing: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 1,
+    borderColor: 'rgba(99, 102, 241, 0.5)',
+    position: 'absolute',
+  },
   dotPos1: {
-    top: 6,
-    right: 22,
+    top: 24,
+    right: 30,
   },
   dotPos2: {
-    bottom: 18,
-    left: 10,
+    bottom: 28,
+    left: 24,
   },
   dotPos3: {
-    top: 10,
-    left: 12,
+    top: 36,
+    left: 28,
   },
 
   // ─── Side-by-Side VS Matchup Layout ───────

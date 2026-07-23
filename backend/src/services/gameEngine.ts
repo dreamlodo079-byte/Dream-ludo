@@ -1,7 +1,7 @@
 export interface Player {
   id: string; // Socket ID or User database ID
   username: string;
-  color: 'red' | 'green';
+  color: 'red' | 'blue' | 'yellow' | 'green';
   tokens: number[]; // Array of tokens, values range from -1 (in yard) to 56 (home run terminal)
   isBot: boolean;
   ready?: boolean; // Handshake readiness flag
@@ -9,6 +9,7 @@ export interface Player {
   socketId?: string; // Socket connection identifier
   joinedAt?: number; // Queue join timestamp for re-queuing
   isPromoter?: boolean;
+  hasLeft?: boolean;
 }
 
 export interface MatchState {
@@ -43,18 +44,16 @@ const COMMON_TRACK_LENGTH = 52;
 // Safe zone common indices (0-indexed values matching the 8 global protected cells)
 const SAFE_COMMON_INDICES = [1, 9, 14, 22, 27, 35, 40, 48];
 
-// Start offsets on the common board for players
-const PLAYER_START_OFFSETS = [1, 27];
-
 /**
  * Returns the common board position index (0-51) for a player's local token position.
  * Returns -1 if token is in yard (-1) or on the home path (>= 51).
  */
-export const getCommonIndex = (playerIndex: number, localPos: number): number => {
+export const getCommonIndex = (color: 'red' | 'blue' | 'yellow' | 'green', localPos: number): number => {
   if (localPos === -1 || localPos >= 51) {
     return -1;
   }
-  const startOffset = PLAYER_START_OFFSETS[playerIndex];
+  const offsets: Record<string, number> = { red: 1, yellow: 14, green: 27, blue: 40 };
+  const startOffset = offsets[color];
   return (startOffset + localPos) % COMMON_TRACK_LENGTH;
 };
 
@@ -63,7 +62,13 @@ export const getCommonIndex = (playerIndex: number, localPos: number): number =>
  * Stashes the next player's token coordinates snapshot to support 3x consecutive 6s rollback.
  */
 export const rotateTurn = (state: MatchState): void => {
-  state.activePlayerIndex = (state.activePlayerIndex + 1) % state.players.length;
+  let loops = 0;
+  do {
+    state.activePlayerIndex = (state.activePlayerIndex + 1) % state.players.length;
+    loops++;
+    if (loops > state.players.length) break;
+  } while (state.players[state.activePlayerIndex].hasLeft);
+
   state.turnTimer = state.customRules?.turnTimer || (state.gameMode === 'ROOMS' && state.customRules?.turnTimer) || 15;
   state.hasRolled = false;
   state.diceRoll = null;
@@ -72,40 +77,36 @@ export const rotateTurn = (state: MatchState): void => {
 };
 
 /**
- * Creates the initial game state for a new 1v1 match.
+ * Creates the initial game state for a new match.
  */
 export const createInitialState = (
   roomId: string,
-  player0: { id: string; username: string; isBot: boolean; isPromoter?: boolean },
-  player1: { id: string; username: string; isBot: boolean; isPromoter?: boolean },
+  playersInit: { id: string; username: string; isBot: boolean; isPromoter?: boolean }[],
   entryFee: number,
   gameMode: 'QUICK' | 'REGULAR' | 'ROOMS' = 'REGULAR',
   customRules?: { turnTimer?: number; tokenCount?: number }
 ): MatchState => {
   const tokenCount = gameMode === 'QUICK' ? 2 : (gameMode === 'ROOMS' && customRules?.tokenCount) || 4;
   const initialTokens = Array.from({ length: tokenCount }, () => -1);
-  const initialPreTurnTokens = Array.from({ length: 2 }, () => Array.from({ length: tokenCount }, () => -1));
+  const initialPreTurnTokens = Array.from({ length: playersInit.length }, () => Array.from({ length: tokenCount }, () => -1));
+
+  let colors: ('red' | 'blue' | 'yellow' | 'green')[] = [];
+  if (playersInit.length === 2) colors = ['red', 'green'];
+  else if (playersInit.length === 3) colors = ['red', 'yellow', 'green'];
+  else colors = ['red', 'yellow', 'green', 'blue'];
+
+  const players = playersInit.map((p, idx) => ({
+    id: p.id,
+    username: p.username,
+    color: colors[idx],
+    tokens: [...initialTokens],
+    isBot: p.isBot,
+    isPromoter: p.isPromoter,
+  }));
 
   return {
     roomId,
-    players: [
-      {
-        id: player0.id,
-        username: player0.username,
-        color: 'red',
-        tokens: [...initialTokens],
-        isBot: player0.isBot,
-        isPromoter: player0.isPromoter,
-      },
-      {
-        id: player1.id,
-        username: player1.username,
-        color: 'green',
-        tokens: [...initialTokens],
-        isBot: player1.isBot,
-        isPromoter: player1.isPromoter,
-      },
-    ],
+    players,
     activePlayerIndex: 0,
     diceRoll: null,
     hasRolled: false,
@@ -123,22 +124,28 @@ export const createInitialState = (
 };
 
 const hasOpponentBlockade = (state: MatchState, activePlayerIndex: number, nextPos: number): boolean => {
-  const activeCommonIndex = getCommonIndex(activePlayerIndex, nextPos);
+  const activePlayer = state.players[activePlayerIndex];
+  const activeCommonIndex = getCommonIndex(activePlayer.color, nextPos);
   if (activeCommonIndex === -1 || SAFE_COMMON_INDICES.includes(activeCommonIndex)) {
     return false;
   }
-  const opponentIndex = (activePlayerIndex + 1) % state.players.length;
-  const opponent = state.players[opponentIndex];
   
-  let oppTokensCount = 0;
-  for (let i = 0; i < opponent.tokens.length; i++) {
-    const oppPos = opponent.tokens[i];
-    const oppCommonIndex = getCommonIndex(opponentIndex, oppPos);
-    if (oppCommonIndex === activeCommonIndex) {
-      oppTokensCount++;
+  for (let oppIdx = 0; oppIdx < state.players.length; oppIdx++) {
+    if (oppIdx === activePlayerIndex) continue;
+    
+    const opponent = state.players[oppIdx];
+    let oppTokensCount = 0;
+    for (let i = 0; i < opponent.tokens.length; i++) {
+      const oppPos = opponent.tokens[i];
+      const oppCommonIndex = getCommonIndex(opponent.color, oppPos);
+      if (oppCommonIndex === activeCommonIndex) {
+        oppTokensCount++;
+      }
     }
+    if (oppTokensCount >= 2) return true;
   }
-  return oppTokensCount >= 2;
+  
+  return false;
 };
 
 /**
@@ -216,14 +223,14 @@ export const executeRoll = (state: MatchState): { roll: number; shouldPassTurn: 
         if (nextPos >= 51 && nextPos < 56) {
           hasHomePath = true;
         }
-        const nextCommonIndex = getCommonIndex(state.activePlayerIndex, nextPos);
+        const nextCommonIndex = getCommonIndex(activePlayer.color, nextPos);
         if (nextCommonIndex !== -1) {
           if (SAFE_COMMON_INDICES.includes(nextCommonIndex)) {
             hasSafeLanding = true;
           } else {
             const oppIndex = (state.activePlayerIndex + 1) % 2;
             const opp = state.players[oppIndex];
-            const canCap = opp.tokens.some((oppPos) => getCommonIndex(oppIndex, oppPos) === nextCommonIndex);
+            const canCap = opp.tokens.some((oppPos) => getCommonIndex(opp.color, oppPos) === nextCommonIndex);
             if (canCap) {
               hasCapture = true;
             }
@@ -358,34 +365,36 @@ export const executeMove = (state: MatchState, tokenIndex: number): { capturedTo
   // Process capture if on common track (validate before mutating)
   let capturedToken: { playerIndex: number; tokenIndex: number } | null = null;
   let hasCaptured = false;
-  const activeCommonIndex = getCommonIndex(activeIndex, nextPos);
+  const activeCommonIndex = getCommonIndex(activePlayer.color, nextPos);
 
   if (activeCommonIndex !== -1 && !SAFE_COMMON_INDICES.includes(activeCommonIndex)) {
-    const opponentIndex = (activeIndex + 1) % state.players.length;
-    const opponent = state.players[opponentIndex];
-    
-    // Check if opponent has a blockade stack (2 or more tokens at same index) protecting them
-    let oppTokensCount = 0;
-    const oppMatchedIndices: number[] = [];
-    
-    for (let i = 0; i < opponent.tokens.length; i++) {
-      const oppPos = opponent.tokens[i];
-      const oppCommonIndex = getCommonIndex(opponentIndex, oppPos);
-      if (oppCommonIndex === activeCommonIndex) {
-        oppTokensCount++;
-        oppMatchedIndices.push(i);
+    for (let oppIdx = 0; oppIdx < state.players.length; oppIdx++) {
+      if (oppIdx === activeIndex) continue;
+      
+      const opponent = state.players[oppIdx];
+      let oppTokensCount = 0;
+      const oppMatchedIndices: number[] = [];
+      
+      for (let i = 0; i < opponent.tokens.length; i++) {
+        const oppPos = opponent.tokens[i];
+        const oppCommonIndex = getCommonIndex(opponent.color, oppPos);
+        if (oppCommonIndex === activeCommonIndex) {
+          oppTokensCount++;
+          oppMatchedIndices.push(i);
+        }
       }
-    }
-    
-    const isBlockaded = oppTokensCount >= 2;
-    if (isBlockaded) {
-      throw new Error("Cannot capture or land on tile protected by opponent's blockade stack!");
-    }
-    
-    if (oppTokensCount > 0) {
-      // Setup capture info to apply in the mutation phase
-      capturedToken = { playerIndex: opponentIndex, tokenIndex: oppMatchedIndices[0] };
-      hasCaptured = true;
+      
+      const isBlockaded = oppTokensCount >= 2;
+      if (isBlockaded) {
+        throw new Error("Cannot capture or land on tile protected by opponent's blockade stack!");
+      }
+      
+      if (oppTokensCount > 0) {
+        // Setup capture info to apply in the mutation phase
+        capturedToken = { playerIndex: oppIdx, tokenIndex: oppMatchedIndices[0] };
+        hasCaptured = true;
+        break; // Only one opponent can occupy a non-safe cell (or else it would be a blockade/illegal)
+      }
     }
   }
 

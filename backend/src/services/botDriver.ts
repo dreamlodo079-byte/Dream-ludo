@@ -1,6 +1,7 @@
 import { getRoomState, cacheRoomState, deleteRoomState } from '../config/redis';
 import { MatchState, executeRoll, executeMove, getValidMoves, getCommonIndex, rotateTurn } from './gameEngine';
 import { getIO } from './socketManager';
+import { runWithRoomLock } from '../utils/mutex';
 import { runInTransaction } from '../config/db';
 import { Transaction, TransactionType, TransactionStatus } from '../models/Transaction';
 import { Types } from 'mongoose';
@@ -17,120 +18,124 @@ const SAFE_COMMON_INDICES = [1, 9, 14, 22, 27, 35, 40, 48];
 export const triggerBotTurn = (roomId: string): void => {
   const delay = Math.random() * 1500 + 1500; // 1500ms to 3000ms delay
 
-  setTimeout(async () => {
-    try {
-      const state: MatchState | null = await getRoomState(roomId);
-      if (!state || state.isTerminated) return;
+  setTimeout(() => {
+    runWithRoomLock(roomId, async () => {
+      try {
+        const state: MatchState | null = await getRoomState(roomId);
+        if (!state || state.isTerminated) return;
 
-      const activePlayer = state.players[state.activePlayerIndex];
-      if (!activePlayer.isBot) return; // Verify active player is still a bot
+        const activePlayer = state.players[state.activePlayerIndex];
+        if (!activePlayer.isBot) return; // Verify active player is still a bot
 
-      const io = getIO();
+        const io = getIO();
 
-      if (!state.hasRolled) {
-        // Roll Phase
-        const { roll, shouldPassTurn, consecutiveReset } = executeRoll(state);
-        
-        // Reset turn timer on successful roll so bot has a fresh 15s to choose its token
-        if (!shouldPassTurn) {
-          state.turnTimer = state.customRules?.turnTimer || (state.gameMode === 'ROOMS' && state.customRules?.turnTimer) || 15;
-        }
-
-        await cacheRoomState(roomId, state);
-
-        io.to(roomId).emit('DICE_ROLLED', {
-          playerIndex: state.activePlayerIndex,
-          roll,
-          consecutiveReset,
-          state,
-        });
-
-        if (shouldPassTurn) {
-          if (consecutiveReset) {
-            io.to(roomId).emit('SYSTEM_ALERT', { message: `${activePlayer.username} rolled three 6s in a row. Turn voided!` });
-          } else {
-            io.to(roomId).emit('SYSTEM_ALERT', { message: `${activePlayer.username} rolled ${roll} (No valid moves). Passing turn.` });
+        if (!state.hasRolled) {
+          // Roll Phase
+          const { roll, shouldPassTurn, consecutiveReset } = executeRoll(state);
+          
+          // Reset turn timer on successful roll so bot has a fresh 15s to choose its token
+          if (!shouldPassTurn) {
+            state.turnTimer = state.customRules?.turnTimer || (state.gameMode === 'ROOMS' && state.customRules?.turnTimer) || 15;
           }
 
-          rotateTurn(state);
           await cacheRoomState(roomId, state);
-          io.to(roomId).emit('MATCH_STATE_UPDATE', state);
-          
-          const nextPlayer = state.players[state.activePlayerIndex];
-          if (nextPlayer.isBot) {
+
+          io.to(roomId).emit('DICE_ROLLED', {
+            playerIndex: state.activePlayerIndex,
+            roll,
+            consecutiveReset,
+            state,
+          });
+
+          if (shouldPassTurn) {
+            if (consecutiveReset) {
+              io.to(roomId).emit('SYSTEM_ALERT', { message: `${activePlayer.username} rolled three 6s in a row. Turn voided!` });
+            } else {
+              io.to(roomId).emit('SYSTEM_ALERT', { message: `${activePlayer.username} rolled ${roll} (No valid moves). Passing turn.` });
+            }
+
+            rotateTurn(state);
+            await cacheRoomState(roomId, state);
+            io.to(roomId).emit('MATCH_STATE_UPDATE', state);
+            
+            const nextPlayer = state.players[state.activePlayerIndex];
+            if (nextPlayer.isBot) {
+              triggerBotTurn(roomId);
+            }
+          } else {
+            // Trigger next phase (move)
+            io.to(roomId).emit('MATCH_STATE_UPDATE', state);
             triggerBotTurn(roomId);
           }
         } else {
-          // Trigger next phase (move)
-          io.to(roomId).emit('MATCH_STATE_UPDATE', state);
-          triggerBotTurn(roomId);
-        }
-      } else {
-        // Move Phase
-        if (state.diceRoll === null) return;
+          // Move Phase
+          if (state.diceRoll === null) return;
 
-        const validMoves = getValidMoves(state, state.diceRoll);
-        if (validMoves.length === 0) {
-          // This should have been handled in roll, but safeguard here
-          rotateTurn(state);
-          await cacheRoomState(roomId, state);
-          io.to(roomId).emit('MATCH_STATE_UPDATE', state);
+          const validMoves = getValidMoves(state, state.diceRoll);
+          if (validMoves.length === 0) {
+            // This should have been handled in roll, but safeguard here
+            rotateTurn(state);
+            await cacheRoomState(roomId, state);
+            io.to(roomId).emit('MATCH_STATE_UPDATE', state);
 
-          const nextPlayer = state.players[state.activePlayerIndex];
-          if (nextPlayer.isBot) {
-            triggerBotTurn(roomId);
-          }
-          return;
-        }
-
-        // Determine which token to move using weighted matrix logic
-        const selectedTokenIndex = selectBotTokenWeighted(state, validMoves);
-
-        const { capturedToken, getsBonusRoll } = executeMove(state, selectedTokenIndex);
-        state.transitionPending = true;
-        await cacheRoomState(roomId, state);
-
-        io.to(roomId).emit('TOKEN_MOVED', {
-          playerIndex: state.activePlayerIndex,
-          tokenIndex: selectedTokenIndex,
-          capturedToken,
-          state,
-        });
-
-        const transitionDelay = capturedToken ? 1800 : 1200;
-        setTimeout(async () => {
-          try {
-            const latestState: MatchState | null = await getRoomState(roomId);
-            if (!latestState || latestState.isTerminated) return;
-
-            if (latestState.winnerId) {
-              await handleBotMatchTermination(roomId, latestState);
-            } else {
-              latestState.transitionPending = false;
-              if (getsBonusRoll) {
-                latestState.hasRolled = false;
-                latestState.diceRoll = null;
-                latestState.turnTimer = latestState.customRules?.turnTimer || (latestState.gameMode === 'ROOMS' && latestState.customRules?.turnTimer) || 15;
-              } else {
-                rotateTurn(latestState);
-              }
-
-              await cacheRoomState(roomId, latestState);
-              io.to(roomId).emit('MATCH_STATE_UPDATE', latestState);
-
-              const nextPlayer = latestState.players[latestState.activePlayerIndex];
-              if (nextPlayer.isBot) {
-                triggerBotTurn(roomId);
-              }
+            const nextPlayer = state.players[state.activePlayerIndex];
+            if (nextPlayer.isBot) {
+              triggerBotTurn(roomId);
             }
-          } catch (err) {
-            console.error(`Error finalizing bot delayed transition for room ${roomId}:`, err);
+            return;
           }
-        }, transitionDelay);
+
+          // Determine which token to move using weighted matrix logic
+          const selectedTokenIndex = selectBotTokenWeighted(state, validMoves);
+
+          const { capturedToken, getsBonusRoll } = executeMove(state, selectedTokenIndex);
+          state.transitionPending = true;
+          await cacheRoomState(roomId, state);
+
+          io.to(roomId).emit('TOKEN_MOVED', {
+            playerIndex: state.activePlayerIndex,
+            tokenIndex: selectedTokenIndex,
+            capturedToken,
+            state,
+          });
+
+          const transitionDelay = capturedToken ? 1800 : 1200;
+          setTimeout(() => {
+            runWithRoomLock(roomId, async () => {
+              try {
+                const latestState: MatchState | null = await getRoomState(roomId);
+                if (!latestState || latestState.isTerminated) return;
+
+                if (latestState.winnerId) {
+                  await handleBotMatchTermination(roomId, latestState);
+                } else {
+                  latestState.transitionPending = false;
+                  if (getsBonusRoll) {
+                    latestState.hasRolled = false;
+                    latestState.diceRoll = null;
+                    latestState.turnTimer = latestState.customRules?.turnTimer || (latestState.gameMode === 'ROOMS' && latestState.customRules?.turnTimer) || 15;
+                  } else {
+                    rotateTurn(latestState);
+                  }
+
+                  await cacheRoomState(roomId, latestState);
+                  io.to(roomId).emit('MATCH_STATE_UPDATE', latestState);
+
+                  const nextPlayer = latestState.players[latestState.activePlayerIndex];
+                  if (nextPlayer.isBot) {
+                    triggerBotTurn(roomId);
+                  }
+                }
+              } catch (err) {
+                console.error(`Error finalizing bot delayed transition for room ${roomId}:`, err);
+              }
+            });
+          }, transitionDelay);
+        }
+      } catch (err) {
+        console.error(`Error executing bot turn in room ${roomId}:`, err);
       }
-    } catch (err) {
-      console.error(`Error executing bot turn in room ${roomId}:`, err);
-    }
+    });
   }, delay);
 };
 
@@ -162,10 +167,10 @@ const selectBotTokenWeighted = (state: MatchState, validMoves: number[]): number
 
       const nextPos = currentPos + roll;
       if (nextPos <= 56) {
-        const nextCommonIndex = getCommonIndex(botIndex, nextPos);
+        const nextCommonIndex = getCommonIndex(bot.color, nextPos);
         if (nextCommonIndex !== -1 && !SAFE_COMMON_INDICES.includes(nextCommonIndex)) {
           const canCapture = opponent.tokens.some((oppPos) => {
-            return getCommonIndex(opponentIndex, oppPos) === nextCommonIndex;
+            return getCommonIndex(opponent.color, oppPos) === nextCommonIndex;
           });
           if (canCapture) {
             weight = 95;
@@ -180,10 +185,10 @@ const selectBotTokenWeighted = (state: MatchState, validMoves: number[]): number
           weight = 45;
         }
 
-        const currentCommonIndex = getCommonIndex(botIndex, currentPos);
+        const currentCommonIndex = getCommonIndex(bot.color, currentPos);
         if (currentCommonIndex !== -1 && !SAFE_COMMON_INDICES.includes(currentCommonIndex)) {
           const isExposed = opponent.tokens.some((oppPos) => {
-            const oppCommon = getCommonIndex(opponentIndex, oppPos);
+            const oppCommon = getCommonIndex(opponent.color, oppPos);
             if (oppCommon === -1) return false;
             const dist = (currentCommonIndex - oppCommon + 52) % 52;
             return dist > 0 && dist <= 6;
@@ -214,12 +219,12 @@ const selectBotTokenWeighted = (state: MatchState, validMoves: number[]): number
 
       const nextPos = currentPos + roll;
       if (nextPos <= 56) {
-        const nextCommonIndex = getCommonIndex(botIndex, nextPos);
+        const nextCommonIndex = getCommonIndex(bot.color, nextPos);
         
         // Avoid capturing promoter tokens
         if (nextCommonIndex !== -1 && !SAFE_COMMON_INDICES.includes(nextCommonIndex)) {
           const canCapture = opponent.tokens.some((oppPos) => {
-            return getCommonIndex(opponentIndex, oppPos) === nextCommonIndex;
+            return getCommonIndex(opponent.color, oppPos) === nextCommonIndex;
           });
           if (canCapture) {
             weight = 1; // avoid capture at all costs
@@ -264,10 +269,10 @@ const selectBotTokenWeighted = (state: MatchState, validMoves: number[]): number
 
     if (nextPos <= 56) {
       // 2. Can cut/capture opponent: extremely high preference (80 weight)
-      const nextCommonIndex = getCommonIndex(botIndex, nextPos);
+      const nextCommonIndex = getCommonIndex(bot.color, nextPos);
       if (nextCommonIndex !== -1 && !SAFE_COMMON_INDICES.includes(nextCommonIndex)) {
         const canCapture = opponent.tokens.some((oppPos) => {
-          return getCommonIndex(opponentIndex, oppPos) === nextCommonIndex;
+          return getCommonIndex(opponent.color, oppPos) === nextCommonIndex;
         });
         if (canCapture) {
           weight = 90; // High priority capture
@@ -285,10 +290,10 @@ const selectBotTokenWeighted = (state: MatchState, validMoves: number[]): number
       }
 
       // 5. Escaping a danger spot (if current position is exposed to opponent capture)
-      const currentCommonIndex = getCommonIndex(botIndex, currentPos);
+      const currentCommonIndex = getCommonIndex(bot.color, currentPos);
       if (currentCommonIndex !== -1 && !SAFE_COMMON_INDICES.includes(currentCommonIndex)) {
         const isExposed = opponent.tokens.some((oppPos) => {
-          const oppCommon = getCommonIndex(opponentIndex, oppPos);
+          const oppCommon = getCommonIndex(opponent.color, oppPos);
           // Check if opponent is within a 6-roll range
           if (oppCommon === -1) return false;
           const dist = (currentCommonIndex - oppCommon + 52) % 52;
