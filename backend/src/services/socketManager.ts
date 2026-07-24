@@ -545,12 +545,38 @@ export const startRoomTimer = (roomId: string): void => {
 
       if (state.turnTimer <= 0) {
         // Time out! Skip turn
-        skipTurn(state);
+        const pIndex = state.activePlayerIndex;
+        const player = state.players[pIndex];
+        player.missedTurns = (player.missedTurns || 0) + 1;
+        
+        let message = 'Turn skipped due to inactivity.';
+        if (player.missedTurns >= 3) {
+          player.hasLeft = true;
+          message = 'You missed 3 turns and forfeited.';
+          const activeHumans = state.players.filter((p) => !p.hasLeft && !p.isBot);
+          
+          if (activeHumans.length <= 1) {
+            state.winnerId = activeHumans.length === 1 ? activeHumans[0].id : state.players.find(p => !p.hasLeft)?.id || state.players[0].id;
+            state.isTerminated = true;
+          } else {
+            skipTurn(state);
+          }
+        } else {
+          skipTurn(state);
+        }
+
         await cacheRoomState(roomId, state);
         io.to(roomId).emit('TURN_SKIPPED', {
-          message: 'Turn skipped due to inactivity.',
+          message,
           state: state,
+          skippedPlayerId: player.id,
         });
+
+        if (state.isTerminated) {
+          await handleMatchTermination(roomId, state);
+          return;
+        }
+
         checkAndTriggerBot(roomId, state);
       } else {
         // Save the updated timer to Redis

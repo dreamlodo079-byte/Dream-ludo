@@ -10,6 +10,7 @@ export interface Player {
   joinedAt?: number; // Queue join timestamp for re-queuing
   isPromoter?: boolean;
   hasLeft?: boolean;
+  missedTurns?: number;
 }
 
 export interface MatchState {

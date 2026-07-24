@@ -10,6 +10,7 @@ class SoundManager {
   private gameStartSound: Audio.Sound | null = null;
   private pawnHomeSound: Audio.Sound | null = null;
   private pawnKilledSound: Audio.Sound | null = null;
+  private loseHeartSound: Audio.Sound | null = null;
 
   private isLoaded = false;
   private hopLoopActive = false;
@@ -40,7 +41,8 @@ class SoundManager {
         { sound: dice },
         { sound: start },
         { sound: home },
-        { sound: killed }
+        { sound: killed },
+        { sound: loseHeart }
       ] = await Promise.all([
         Audio.Sound.createAsync(require('../../assets/sounds/game_winner.mp3')),
         Audio.Sound.createAsync(require('../../assets/sounds/game_loser.mp3')),
@@ -49,6 +51,7 @@ class SoundManager {
         Audio.Sound.createAsync(require('../../assets/sounds/game_start.mp3')),
         Audio.Sound.createAsync(require('../../assets/sounds/pawn_home.mp3')),
         Audio.Sound.createAsync(require('../../assets/sounds/pawn_killed.mp3')),
+        Audio.Sound.createAsync(require('../../assets/sounds/lose_heart.mp3')),
       ]);
 
       this.gameWinnerSound = winner;
@@ -58,6 +61,7 @@ class SoundManager {
       this.gameStartSound = start;
       this.pawnHomeSound = home;
       this.pawnKilledSound = killed;
+      this.loseHeartSound = loseHeart;
 
       this.isLoaded = true;
     } catch (err) {
@@ -87,6 +91,10 @@ class SoundManager {
 
   public async playKilled() {
     await this.playSound(this.pawnKilledSound);
+  }
+
+  public async playLoseHeart() {
+    await this.playSound(this.loseHeartSound);
   }
 
   public async playPawnHop(hops: number, durationPerHop: number = 200) {
@@ -134,6 +142,7 @@ class SoundManager {
         this.gameStartSound?.unloadAsync(),
         this.pawnHomeSound?.unloadAsync(),
         this.pawnKilledSound?.unloadAsync(),
+        this.loseHeartSound?.unloadAsync(),
       ];
       await Promise.all(unloadPromises);
       this.isLoaded = false;
