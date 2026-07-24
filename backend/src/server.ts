@@ -13,6 +13,9 @@ import { paymentRouter } from './controllers/paymentController';
 import { payoutRouter } from './controllers/payoutController';
 import { tournamentRouter } from './controllers/tournamentController';
 import { leaderboardRouter } from './controllers/leaderboardController';
+import { walletRouter } from './controllers/walletController';
+import { notificationRouter } from './controllers/notificationController';
+import { adminWalletRouter } from './controllers/adminWalletController';
 import { getDailyProgress, claimDailyReward } from './services/challengeTracker';
 import { generalRateLimiter, strictRateLimiter, sanitizeInputMiddleware } from './middleware/security';
 import { authenticateJWT, blacklistToken, JWT_SECRET, AuthenticatedRequest } from './middleware/auth';
@@ -50,6 +53,7 @@ app.use(sanitizeInputMiddleware);
 
 // Strict rate limiting rules for financial & auth routes
 app.use('/api/payout/withdraw', strictRateLimiter);
+app.use('/api/v1/wallet/withdraw/request', strictRateLimiter);
 app.use('/api/users/login', strictRateLimiter);
 app.use('/api/payments/webhook', strictRateLimiter);
 
@@ -57,10 +61,18 @@ import adminRouter from './routes/admin';
 
 // Routes
 app.use('/api/payments', paymentRouter);
+app.use('/api/v1/payments', paymentRouter);
 app.use('/api/payout', payoutRouter);
+app.use('/api/v1/payout', payoutRouter);
+app.use('/api/wallet', walletRouter);
+app.use('/api/v1/wallet', walletRouter);
+app.use('/api/notifications', notificationRouter);
+app.use('/api/v1/notifications', notificationRouter);
 app.use('/api/tournaments', tournamentRouter);
 app.use('/api/leaderboard', leaderboardRouter);
 app.use('/api/admin', adminRouter);
+app.use('/api/admin', adminWalletRouter);
+app.use('/api/v1/admin', adminWalletRouter);
 
 // Daily challenges query route
 app.get('/api/challenges/:userId', async (req, res) => {

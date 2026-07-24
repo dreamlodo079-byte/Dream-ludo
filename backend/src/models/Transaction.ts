@@ -14,6 +14,8 @@ export enum TransactionType {
 
 export enum TransactionStatus {
   PENDING = 'PENDING',
+  APPROVED = 'APPROVED',
+  REJECTED = 'REJECTED',
   SUCCESS = 'SUCCESS',
   FAILED = 'FAILED',
 }
@@ -24,7 +26,9 @@ export interface ITransaction extends Document {
   type: TransactionType;
   status: TransactionStatus;
   referenceId: string; // Unique constraint to prevent double-processing (e.g. gateway txn ID, payout ref)
-  utr?: string | null; // Unique transaction reference (sparse index)
+  utr?: string | null; // Unique 12-digit transaction reference (sparse index)
+  paymentAddress?: string | null; // User's UPI ID or Phone number for payouts/withdrawals
+  rejectionReason?: string | null; // Admin-provided reason if transaction is REJECTED
   createdAt: Date;
   updatedAt: Date;
 }
@@ -63,13 +67,30 @@ const TransactionSchema = new Schema<ITransaction>(
       unique: true,
       sparse: true,
       trim: true,
+    },
+    paymentAddress: {
+      type: String,
       default: null,
+      trim: true,
+    },
+    rejectionReason: {
+      type: String,
+      default: null,
+      trim: true,
     },
   },
   {
     timestamps: true,
   }
 );
+
+// Ensure null/empty utr is set to undefined before saving so sparse index never receives null values
+TransactionSchema.pre('save', function (next) {
+  if (this.utr === null || this.utr === '' || this.utr === undefined) {
+    this.utr = undefined;
+  }
+  next();
+});
 
 TransactionSchema.index({ userId: 1, referenceId: 1, status: 1 });
 
@@ -140,4 +161,20 @@ export const getUserBalances = async (
     bonus: Math.max(0, Math.round(bonus * 100) / 100),
     total: Math.max(0, Math.round((deposits + winnings + bonus) * 100) / 100),
   };
+};
+
+export const syncTransactionIndexes = async (): Promise<void> => {
+  try {
+    const collection = model('Transaction').collection;
+    const indexes = await collection.indexes();
+    const utrIndex = indexes.find((idx: any) => idx.name === 'utr_1');
+    if (utrIndex && !utrIndex.sparse) {
+      console.log('Dropping legacy non-sparse utr_1 index from MongoDB...');
+      await collection.dropIndex('utr_1');
+      await model('Transaction').syncIndexes();
+      console.log('Sparse utr_1 index rebuilt successfully.');
+    }
+  } catch (err: any) {
+    // Ignore if index drop fails or collection doesn't exist yet
+  }
 };

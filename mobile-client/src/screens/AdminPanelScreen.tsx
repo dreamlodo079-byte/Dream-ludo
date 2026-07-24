@@ -40,12 +40,41 @@ interface AdminPanelScreenProps {
   onBack: () => void;
 }
 
-type TabType = 'AUDIT' | 'CONCURRENCY' | 'TOURNAMENT' | 'COMPLIANCE';
+type TabType = 'REQUESTS' | 'AUDIT' | 'CONCURRENCY' | 'TOURNAMENT' | 'COMPLIANCE';
 
 export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({ onBack }) => {
-  const [activeTab, setActiveTab] = useState<TabType>('AUDIT');
+  const [activeTab, setActiveTab] = useState<TabType>('REQUESTS');
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Tab Requests: Deposit & Withdrawal Requests
+  const [requestsList, setRequestsList] = useState<any[]>([]);
+  const [requestFilterType, setRequestFilterType] = useState<'ALL' | 'DEPOSIT' | 'WITHDRAWAL'>('WITHDRAWAL');
+  const [requestFilterStatus, setRequestFilterStatus] = useState<'PENDING' | 'APPROVED' | 'REJECTED' | 'ALL'>('PENDING');
+
+  // Platform Pay-in UPI & QR Config States
+  const [platformUpiInput, setPlatformUpiInput] = useState<string>('dreamludoplatform@bank');
+  const [platformQrInput, setPlatformQrInput] = useState<string>('');
+  const [isSavingConfig, setIsSavingConfig] = useState<boolean>(false);
+
+  // Input modal states for Approve Payout UTR & Reject Reason
+  const [inputModal, setInputModal] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    placeholder: string;
+    value: string;
+    confirmText: string;
+    onConfirm: (val: string) => void;
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+    placeholder: '',
+    value: '',
+    confirmText: 'Submit',
+    onConfirm: () => {},
+  });
 
   // Tab A: Audit Data
   const [auditData, setAuditData] = useState<any>(null);
@@ -306,7 +335,23 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({ onBack }) =>
       const token = await fetchAuthToken();
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
-      if (tab === 'AUDIT') {
+      if (tab === 'REQUESTS') {
+        const [reqRes, cfgRes] = await Promise.all([
+          axios.get(
+            `${API_SERVER_URL}/api/admin/requests?type=${requestFilterType}&status=${requestFilterStatus}`,
+            { headers }
+          ),
+          axios.get(`${API_SERVER_URL}/api/admin/config`, { headers }).catch(() => null),
+        ]);
+
+        if (reqRes.data.success) {
+          setRequestsList(reqRes.data.requests || []);
+        }
+        if (cfgRes?.data?.success) {
+          setPlatformUpiInput(cfgRes.data.platformUpiId || 'dreamludoplatform@bank');
+          setPlatformQrInput(cfgRes.data.platformQrUrl || '');
+        }
+      } else if (tab === 'AUDIT') {
         const res = await axios.get(`${API_SERVER_URL}/api/admin/audit`, { headers });
         if (res.data.success) {
           setAuditData(res.data);
@@ -314,7 +359,7 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({ onBack }) =>
       } else if (tab === 'CONCURRENCY') {
         const res = await axios.get(`${API_SERVER_URL}/api/admin/concurrency`, { headers });
         if (res.data.success) {
-          setConcurrencyData(res.data);
+          setConcurrencyData(res.data.concurrency || res.data);
         }
       } else if (tab === 'TOURNAMENT') {
         const res = await axios.get(`${API_SERVER_URL}/api/admin/tournaments`, { headers });
@@ -329,7 +374,7 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({ onBack }) =>
         }
       }
     } catch (err: any) {
-      console.error('Error fetching admin telemetry data:', err);
+      console.error('Error fetching admin data:', err);
       showToast('Telemetry Sync Failed', err.response?.data?.error || err.message, 'error');
     } finally {
       setLoading(false);
@@ -339,7 +384,146 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({ onBack }) =>
 
   useEffect(() => {
     loadDataForTab(activeTab);
-  }, [activeTab]);
+  }, [activeTab, requestFilterType, requestFilterStatus]);
+
+  // Request Tab Actions: Approve / Reject Deposit
+  const handleApproveDeposit = async (txnId: string, amount: number, username: string) => {
+    showConfirmDialog(
+      '✅',
+      'Approve Deposit Request',
+      `Approve deposit of ₹${amount} for user "${username}" and credit to deposit wallet?`,
+      'APPROVE & CREDIT',
+      async () => {
+        setActionLoading(`approve_dep_${txnId}`);
+        try {
+          const token = await fetchAuthToken();
+          const headers = token ? { Authorization: `Bearer ${token}` } : {};
+          const res = await axios.post(
+            `${API_SERVER_URL}/api/admin/deposit/approve`,
+            { transactionId: txnId },
+            { headers }
+          );
+          if (res.data.success) {
+            showToast('Deposit Approved! 🎉', res.data.message, 'success');
+            loadDataForTab('REQUESTS');
+          }
+        } catch (err: any) {
+          showToast('Approval Failed', err.response?.data?.error || err.message, 'error');
+        } finally {
+          setActionLoading(null);
+        }
+      }
+    );
+  };
+
+  const handleRejectDeposit = (txnId: string, amount: number, username: string) => {
+    setInputModal({
+      visible: true,
+      title: 'Reject Deposit Request ❌',
+      message: `Reject deposit of ₹${amount} for "${username}". Please state reason:`,
+      placeholder: 'Enter rejection reason (e.g. UTR mismatch)',
+      value: 'UTR mismatch or payment not received',
+      confirmText: 'REJECT REQUEST',
+      onConfirm: async (reasonVal: string) => {
+        if (!reasonVal.trim()) {
+          showToast('Reason Required', 'Please provide a reason for rejecting the deposit.', 'error');
+          return;
+        }
+        setActionLoading(`reject_dep_${txnId}`);
+        try {
+          const token = await fetchAuthToken();
+          const headers = token ? { Authorization: `Bearer ${token}` } : {};
+          const res = await axios.post(
+            `${API_SERVER_URL}/api/admin/deposit/reject`,
+            { transactionId: txnId, reason: reasonVal.trim() },
+            { headers }
+          );
+          if (res.data.success) {
+            showToast('Deposit Rejected ❌', res.data.message, 'info');
+            setInputModal((prev) => ({ ...prev, visible: false }));
+            loadDataForTab('REQUESTS');
+          }
+        } catch (err: any) {
+          showToast('Rejection Failed', err.response?.data?.error || err.message, 'error');
+        } finally {
+          setActionLoading(null);
+        }
+      },
+    });
+  };
+
+  // Request Tab Actions: Approve / Reject Withdrawal
+  const handleApproveWithdrawal = (txnId: string, amount: number, upiId: string, username: string) => {
+    setInputModal({
+      visible: true,
+      title: 'Approve Withdrawal & Enter Payout UTR 💸',
+      message: `Transfer ₹${Math.abs(amount)} to "${username}" (UPI: ${upiId || 'N/A'}). Enter 12-digit Bank Payout UTR reference:`,
+      placeholder: 'Enter 12-digit Payout UTR',
+      value: '',
+      confirmText: 'APPROVE & MARK PAID',
+      onConfirm: async (utrVal: string) => {
+        if (!utrVal.trim() || utrVal.trim().length < 6) {
+          showToast('UTR Required', 'Please enter a valid payout UTR reference number.', 'error');
+          return;
+        }
+        setActionLoading(`approve_wd_${txnId}`);
+        try {
+          const token = await fetchAuthToken();
+          const headers = token ? { Authorization: `Bearer ${token}` } : {};
+          const res = await axios.post(
+            `${API_SERVER_URL}/api/admin/withdraw/approve`,
+            { transactionId: txnId, payoutUtr: utrVal.trim() },
+            { headers }
+          );
+          if (res.data.success) {
+            showToast('Withdrawal Approved! 💸', res.data.message, 'success');
+            setInputModal((prev) => ({ ...prev, visible: false }));
+            loadDataForTab('REQUESTS');
+          }
+        } catch (err: any) {
+          showToast('Approval Failed', err.response?.data?.error || err.message, 'error');
+        } finally {
+          setActionLoading(null);
+        }
+      },
+    });
+  };
+
+  const handleRejectWithdrawal = (txnId: string, amount: number, username: string) => {
+    setInputModal({
+      visible: true,
+      title: 'Reject Withdrawal Request ❌',
+      message: `Reject withdrawal of ₹${Math.abs(amount)} for "${username}". Locked funds will be refunded to user winnings balance. Enter reason:`,
+      placeholder: 'Enter rejection reason',
+      value: 'Invalid UPI ID or transfer failed',
+      confirmText: 'REJECT & REFUND USER',
+      onConfirm: async (reasonVal: string) => {
+        if (!reasonVal.trim()) {
+          showToast('Reason Required', 'Please provide a reason for rejecting the withdrawal.', 'error');
+          return;
+        }
+        setActionLoading(`reject_wd_${txnId}`);
+        try {
+          const token = await fetchAuthToken();
+          const headers = token ? { Authorization: `Bearer ${token}` } : {};
+          const res = await axios.post(
+            `${API_SERVER_URL}/api/admin/withdraw/reject`,
+            { transactionId: txnId, reason: reasonVal.trim() },
+            { headers }
+          );
+          if (res.data.success) {
+            showToast('Withdrawal Rejected & Refunded ↩️', res.data.message, 'info');
+            setInputModal((prev) => ({ ...prev, visible: false }));
+            loadDataForTab('REQUESTS');
+          }
+        } catch (err: any) {
+          showToast('Rejection Failed', err.response?.data?.error || err.message, 'error');
+        } finally {
+          setActionLoading(null);
+        }
+      },
+    });
+  };
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -460,10 +644,33 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({ onBack }) =>
         showToast('Demoted! 💔', 'User successfully demoted to regular status.', 'success');
         loadDataForTab('COMPLIANCE');
       }
-    } catch (err: any) {
-      showToast('Demotion Failed', err.response?.data?.error || err.message, 'error');
     } finally {
       setActionLoading(null);
+    }
+  };
+  const handleSavePlatformConfig = async () => {
+    if (!platformUpiInput.trim()) {
+      showToast('Validation Error', 'Platform UPI ID cannot be empty.', 'error');
+      return;
+    }
+
+    setIsSavingConfig(true);
+    try {
+      const token = await fetchAuthToken();
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const res = await axios.put(
+        `${API_SERVER_URL}/api/admin/config`,
+        { platformUpiId: platformUpiInput.trim(), platformQrUrl: platformQrInput.trim() },
+        { headers }
+      );
+
+      if (res.data.success) {
+        showToast('Config Saved! ⚙️', 'Platform UPI ID & QR settings updated successfully.', 'success');
+      }
+    } catch (err: any) {
+      showToast('Save Failed', err.response?.data?.error || err.message, 'error');
+    } finally {
+      setIsSavingConfig(false);
     }
   };
 
@@ -480,40 +687,63 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({ onBack }) =>
         </View>
       </View>
 
-      {/* Navigation Sub-Tabs */}
-      <View style={styles.tabBar}>
-        <TouchableOpacity
-          style={[styles.tabButton, activeTab === 'AUDIT' && styles.activeTabButton]}
-          onPress={() => setActiveTab('AUDIT')}
+      {/* Navigation Sub-Tabs Bar (Scrollable Pill Design) */}
+      <View style={styles.tabBarWrapper}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.tabBarScrollContainer}
         >
-          <Text style={[styles.tabText, activeTab === 'AUDIT' && styles.activeTabText]} numberOfLines={1}>
-            📈 Earnings
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tabButton, activeTab === 'CONCURRENCY' && styles.activeTabButton]}
-          onPress={() => setActiveTab('CONCURRENCY')}
-        >
-          <Text style={[styles.tabText, activeTab === 'CONCURRENCY' && styles.activeTabText]} numberOfLines={1}>
-            ⚡ Matches
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tabButton, activeTab === 'TOURNAMENT' && styles.activeTabButton]}
-          onPress={() => setActiveTab('TOURNAMENT')}
-        >
-          <Text style={[styles.tabText, activeTab === 'TOURNAMENT' && styles.activeTabText]} numberOfLines={1}>
-            🏆 Tournaments
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tabButton, activeTab === 'COMPLIANCE' && styles.activeTabButton]}
-          onPress={() => setActiveTab('COMPLIANCE')}
-        >
-          <Text style={[styles.tabText, activeTab === 'COMPLIANCE' && styles.activeTabText]} numberOfLines={1}>
-            🛡️ Users
-          </Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tabPill, activeTab === 'REQUESTS' && styles.activeTabPill]}
+            onPress={() => setActiveTab('REQUESTS')}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.tabPillText, activeTab === 'REQUESTS' && styles.activeTabPillText]}>
+              💳 Pay-In / Pay-Out
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.tabPill, activeTab === 'AUDIT' && styles.activeTabPill]}
+            onPress={() => setActiveTab('AUDIT')}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.tabPillText, activeTab === 'AUDIT' && styles.activeTabPillText]}>
+              📈 Platform Earnings
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.tabPill, activeTab === 'CONCURRENCY' && styles.activeTabPill]}
+            onPress={() => setActiveTab('CONCURRENCY')}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.tabPillText, activeTab === 'CONCURRENCY' && styles.activeTabPillText]}>
+              ⚡ Active Matches
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.tabPill, activeTab === 'TOURNAMENT' && styles.activeTabPill]}
+            onPress={() => setActiveTab('TOURNAMENT')}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.tabPillText, activeTab === 'TOURNAMENT' && styles.activeTabPillText]}>
+              🏆 Tournaments
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.tabPill, activeTab === 'COMPLIANCE' && styles.activeTabPill]}
+            onPress={() => setActiveTab('COMPLIANCE')}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.tabPillText, activeTab === 'COMPLIANCE' && styles.activeTabPillText]}>
+              🛡️ User Management
+            </Text>
+          </TouchableOpacity>
+        </ScrollView>
       </View>
 
       {/* Main View Area */}
@@ -529,6 +759,254 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({ onBack }) =>
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#4F46E5']} />}
         >
+          {/* TAB: Manual Pay-In / Pay-Out Requests */}
+          {activeTab === 'REQUESTS' && (
+            <View>
+              {/* Platform Pay-In UPI Config Card */}
+              <View style={[styles.sectionCard, { backgroundColor: '#FFFFFF', marginBottom: 14, borderWidth: 1.5, borderColor: '#4F46E5' }]}>
+                <View style={styles.cardHeaderRow}>
+                  <Text style={[styles.cardHeaderTitle, { color: '#4F46E5' }]}>⚙️ PLATFORM PAY-IN UPI SETTINGS</Text>
+                  <Text style={[styles.cardHeaderBadge, { backgroundColor: '#EEF2FF', color: '#4338CA' }]}>
+                    LIVE CONFIG
+                  </Text>
+                </View>
+                <Text style={{ fontSize: 11, color: '#64748B', marginTop: 2, marginBottom: 10 }}>
+                  Update the official Platform Payee UPI ID used to generate dynamic payment QR codes and collect player deposits.
+                </Text>
+
+                <Text style={{ fontSize: 10, fontWeight: '800', color: '#475569', marginBottom: 4 }}>Platform Payee UPI ID (e.g. 6261069826-2.wallet@phonepe)</Text>
+                <TextInput
+                  style={{ height: 44, backgroundColor: '#F8FAFC', borderWidth: 1.5, borderColor: '#CBD5E1', borderRadius: 10, paddingHorizontal: 12, fontSize: 13, fontWeight: '800', color: '#0F172A', marginBottom: 12 }}
+                  value={platformUpiInput}
+                  onChangeText={setPlatformUpiInput}
+                  placeholder="e.g. 6261069826-2.wallet@phonepe"
+                  placeholderTextColor="#94A3B8"
+                  autoCapitalize="none"
+                />
+
+                <TouchableOpacity
+                  style={[{ backgroundColor: '#4F46E5', paddingVertical: 12, borderRadius: 10, alignItems: 'center' }, isSavingConfig && { opacity: 0.6 }]}
+                  onPress={handleSavePlatformConfig}
+                  disabled={isSavingConfig}
+                >
+                  {isSavingConfig ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <Text style={{ color: '#FFFFFF', fontSize: 11, fontWeight: '900', letterSpacing: 0.5 }}>
+                      SAVE PLATFORM UPI ID
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+
+              <View style={[styles.sectionCard, { backgroundColor: '#F8FAFC' }]}>
+                <View style={styles.cardHeaderRow}>
+                  <Text style={[styles.cardHeaderTitle, { color: '#4F46E5' }]}>💳 PAY-IN & PAY-OUT REQUEST LEDGER</Text>
+                  <Text style={[styles.cardHeaderBadge, { backgroundColor: '#EEF2FF', color: '#4338CA' }]}>
+                    {requestsList.length} REQUESTS
+                  </Text>
+                </View>
+
+                {/* Type Filter Chips */}
+                <View style={styles.filterChipRow}>
+                  <Text style={styles.filterLabel}>Type:</Text>
+                  {(['ALL', 'DEPOSIT', 'WITHDRAWAL'] as const).map((t) => (
+                    <TouchableOpacity
+                      key={t}
+                      style={[styles.filterChip, requestFilterType === t && styles.activeFilterChip]}
+                      onPress={() => setRequestFilterType(t)}
+                    >
+                      <Text style={[styles.filterChipText, requestFilterType === t && styles.activeFilterChipText]}>
+                        {t === 'DEPOSIT' ? '💰 Deposits' : t === 'WITHDRAWAL' ? '💸 Withdrawals' : '🌐 All Types'}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                {/* Status Filter Chips */}
+                <View style={[styles.filterChipRow, { marginTop: 6 }]}>
+                  <Text style={styles.filterLabel}>Status:</Text>
+                  {(['PENDING', 'APPROVED', 'REJECTED', 'ALL'] as const).map((s) => (
+                    <TouchableOpacity
+                      key={s}
+                      style={[
+                        styles.filterChip,
+                        requestFilterStatus === s && styles.activeFilterChip,
+                        s === 'PENDING' && requestFilterStatus === s && { backgroundColor: '#F59E0B', borderColor: '#F59E0B' },
+                      ]}
+                      onPress={() => setRequestFilterStatus(s)}
+                    >
+                      <Text style={[styles.filterChipText, requestFilterStatus === s && styles.activeFilterChipText]}>
+                        {s === 'PENDING' ? '⏳ Pending' : s === 'APPROVED' ? '✅ Approved' : s === 'REJECTED' ? '❌ Rejected' : 'All Status'}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
+              {/* Requests List */}
+              {requestsList.length === 0 ? (
+                <View style={styles.emptyRequestsBox}>
+                  <Text style={{ fontSize: 36, marginBottom: 8 }}>📭</Text>
+                  <Text style={styles.emptyRequestsTitle}>No Requests Found</Text>
+                  <Text style={styles.emptyRequestsSub}>
+                    No {requestFilterStatus.toLowerCase()} {requestFilterType.toLowerCase()} requests match your current filters.
+                  </Text>
+                </View>
+              ) : (
+                requestsList.map((item) => {
+                  const isDeposit = item.type === 'DEPOSIT';
+                  const userObj = item.userId || {};
+                  const isPending = item.status === 'PENDING';
+                  const isApproved = item.status === 'APPROVED' || item.status === 'SUCCESS';
+                  const isRejected = item.status === 'REJECTED' || item.status === 'FAILED';
+
+                  return (
+                    <View
+                      key={item._id}
+                      style={[
+                        styles.requestCard,
+                        isPending && styles.pendingRequestCard,
+                        isApproved && styles.approvedRequestCard,
+                        isRejected && styles.rejectedRequestCard,
+                      ]}
+                    >
+                      {/* Card Top Row */}
+                      <View style={styles.requestCardTop}>
+                        <View style={{ flex: 1 }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                            <Text style={styles.requestTypeIcon}>{isDeposit ? '💰' : '💸'}</Text>
+                            <Text style={styles.requestTypeName}>
+                              {isDeposit ? 'MANUAL DEPOSIT REQUEST' : 'MANUAL WITHDRAWAL REQUEST'}
+                            </Text>
+                          </View>
+                          <Text style={styles.requestUserText}>
+                            User: <Text style={{ fontWeight: '800', color: '#0F172A' }}>{userObj.username || 'Unknown'}</Text> (Phone: {userObj.phone || 'N/A'})
+                          </Text>
+                          <Text style={styles.requestTimeText}>{formatDateTime(item.createdAt)}</Text>
+                        </View>
+
+                        <View style={{ alignItems: 'flex-end' }}>
+                          <Text style={[styles.requestAmountText, isDeposit ? { color: '#059669' } : { color: '#D97706' }]}>
+                            ₹{Math.abs(item.amount).toFixed(2)}
+                          </Text>
+                          <View
+                            style={[
+                              styles.requestStatusBadge,
+                              isPending && { backgroundColor: '#FEF3C7' },
+                              isApproved && { backgroundColor: '#DCFCE7' },
+                              isRejected && { backgroundColor: '#FEE2E2' },
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.requestStatusBadgeText,
+                                isPending && { color: '#B45309' },
+                                isApproved && { color: '#15803D' },
+                                isRejected && { color: '#B91C1C' },
+                              ]}
+                            >
+                              {item.status}
+                            </Text>
+                          </View>
+                        </View>
+                      </View>
+
+                      {/* Detail Info Row */}
+                      <View style={styles.requestDetailBox}>
+                        {isDeposit ? (
+                          <View style={styles.detailRow}>
+                            <Text style={styles.detailLabel}>12-Digit Reference UTR:</Text>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                              <Text style={styles.detailValueHighlight}>{item.utr || 'N/A'}</Text>
+                              {item.utr && (
+                                <TouchableOpacity
+                                  style={styles.smallCopyBtn}
+                                  onPress={() => showToast('Copied! 📋', item.utr, 'success')}
+                                >
+                                  <Text style={styles.smallCopyBtnText}>COPY UTR</Text>
+                                </TouchableOpacity>
+                              )}
+                            </View>
+                          </View>
+                        ) : (
+                          <View style={styles.detailRow}>
+                            <Text style={styles.detailLabel}>User Destination UPI ID:</Text>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                              <Text style={styles.detailValueHighlight}>{item.paymentAddress || 'N/A'}</Text>
+                              {item.paymentAddress && (
+                                <TouchableOpacity
+                                  style={styles.smallCopyBtn}
+                                  onPress={() => showToast('Copied! 📋', item.paymentAddress, 'success')}
+                                >
+                                  <Text style={styles.smallCopyBtnText}>COPY UPI</Text>
+                                </TouchableOpacity>
+                              )}
+                            </View>
+                          </View>
+                        )}
+
+                        {/* User Wallet Balances Snapshot */}
+                        <View style={styles.userBalanceSnapshot}>
+                          <Text style={styles.snapshotText}>
+                            Wallet: <Text style={{ fontWeight: '800' }}>₹{((userObj.depositBalance ?? 0) + (userObj.winningsBalance ?? 0)).toFixed(2)}</Text> | Dep: ₹{(userObj.depositBalance ?? 0).toFixed(2)} | Win: ₹{(userObj.winningsBalance ?? 0).toFixed(2)} | Locked: ₹{(userObj.lockedBalance ?? 0).toFixed(2)}
+                          </Text>
+                        </View>
+
+                        {/* Rejection Reason if any */}
+                        {item.rejectionReason && (
+                          <View style={styles.rejectionReasonBox}>
+                            <Text style={styles.rejectionReasonTitle}>Rejection Reason:</Text>
+                            <Text style={styles.rejectionReasonText}>{item.rejectionReason}</Text>
+                          </View>
+                        )}
+                      </View>
+
+                      {/* Action Buttons for Pending Requests */}
+                      {isPending && (
+                        <View style={styles.requestActionRow}>
+                          {isDeposit ? (
+                            <>
+                              <TouchableOpacity
+                                style={[styles.actionBtn, styles.approveBtn]}
+                                onPress={() => handleApproveDeposit(item._id, item.amount, userObj.username || 'User')}
+                              >
+                                <Text style={styles.actionBtnText}>✅ APPROVE & CREDIT ₹{item.amount}</Text>
+                              </TouchableOpacity>
+                              <TouchableOpacity
+                                style={[styles.actionBtn, styles.rejectBtn]}
+                                onPress={() => handleRejectDeposit(item._id, item.amount, userObj.username || 'User')}
+                              >
+                                <Text style={styles.actionBtnText}>❌ REJECT DEPOSIT</Text>
+                              </TouchableOpacity>
+                            </>
+                          ) : (
+                            <>
+                              <TouchableOpacity
+                                style={[styles.actionBtn, styles.approveBtn]}
+                                onPress={() =>
+                                  handleApproveWithdrawal(item._id, item.amount, item.paymentAddress || '', userObj.username || 'User')
+                                }
+                              >
+                                <Text style={styles.actionBtnText}>💸 APPROVE & PAYOUT UTR</Text>
+                              </TouchableOpacity>
+                              <TouchableOpacity
+                                style={[styles.actionBtn, styles.rejectBtn]}
+                                onPress={() => handleRejectWithdrawal(item._id, item.amount, userObj.username || 'User')}
+                              >
+                                <Text style={styles.actionBtnText}>❌ REJECT & REFUND</Text>
+                              </TouchableOpacity>
+                            </>
+                          )}
+                        </View>
+                      )}
+                    </View>
+                  );
+                })
+              )}
+            </View>
+          )}
+
           {/* TAB A: Revenue & Earnings */}
           {activeTab === 'AUDIT' && auditData && (
             <View>
@@ -1147,6 +1625,38 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({ onBack }) =>
           </View>
         </Modal>
       )}
+
+      {/* Input Modal for Payout UTR & Rejection Reason */}
+      <Modal visible={inputModal.visible} transparent animationType="fade" onRequestClose={() => setInputModal((prev) => ({ ...prev, visible: false }))}>
+        <View style={styles.alertOverlay}>
+          <View style={styles.inputModalCard}>
+            <Text style={styles.inputModalTitle}>{inputModal.title}</Text>
+            <Text style={styles.inputModalSub}>{inputModal.message}</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder={inputModal.placeholder}
+              placeholderTextColor="#94A3B8"
+              value={inputModal.value}
+              onChangeText={(val) => setInputModal((prev) => ({ ...prev, value: val }))}
+              autoFocus
+            />
+            <View style={styles.modalActionRow}>
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.modalCancelBtn]}
+                onPress={() => setInputModal((prev) => ({ ...prev, visible: false }))}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.modalSaveBtn]}
+                onPress={() => inputModal.onConfirm(inputModal.value)}
+              >
+                <Text style={styles.modalSaveText}>{inputModal.confirmText}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -1981,6 +2491,253 @@ const styles = StyleSheet.create({
     backgroundColor: '#CBD5E1',
     opacity: 0.6,
   },
+  filterChipRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 8,
+  },
+  filterLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#64748B',
+    marginRight: 4,
+  },
+  filterChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  activeFilterChip: {
+    backgroundColor: '#4F46E5',
+    borderColor: '#4F46E5',
+  },
+  filterChipText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#475569',
+  },
+  activeFilterChipText: {
+    color: '#FFFFFF',
+  },
+  emptyRequestsBox: {
+    alignItems: 'center',
+    paddingVertical: 40,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    marginTop: 10,
+  },
+  emptyRequestsTitle: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#334155',
+  },
+  emptyRequestsSub: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 2,
+    textAlign: 'center',
+    maxWidth: 260,
+  },
+  requestCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 12,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+  },
+  pendingRequestCard: {
+    borderColor: '#F59E0B',
+    backgroundColor: '#FFFDF5',
+  },
+  approvedRequestCard: {
+    borderColor: '#10B981',
+  },
+  rejectedRequestCard: {
+    borderColor: '#EF4444',
+  },
+  requestCardTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  requestTypeIcon: {
+    fontSize: 14,
+  },
+  requestTypeName: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: '#4F46E5',
+    letterSpacing: 0.5,
+  },
+  requestUserText: {
+    fontSize: 12,
+    color: '#475569',
+    marginTop: 3,
+  },
+  requestTimeText: {
+    fontSize: 9,
+    color: '#94A3B8',
+    marginTop: 2,
+    fontWeight: '600',
+  },
+  requestAmountText: {
+    fontSize: 18,
+    fontWeight: '900',
+  },
+  requestStatusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    marginTop: 4,
+  },
+  requestStatusBadgeText: {
+    fontSize: 9,
+    fontWeight: '900',
+  },
+  requestDetailBox: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    padding: 10,
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  detailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  detailLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  detailValueHighlight: {
+    fontSize: 12,
+    fontWeight: '900',
+    color: '#0F172A',
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  smallCopyBtn: {
+    backgroundColor: '#4F46E5',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  smallCopyBtnText: {
+    color: '#FFFFFF',
+    fontSize: 8,
+    fontWeight: '900',
+  },
+  userBalanceSnapshot: {
+    marginTop: 6,
+    paddingTop: 6,
+    borderTopWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  snapshotText: {
+    fontSize: 9,
+    color: '#475569',
+  },
+  rejectionReasonBox: {
+    backgroundColor: '#FEE2E2',
+    borderRadius: 8,
+    padding: 6,
+    marginTop: 6,
+  },
+  rejectionReasonTitle: {
+    fontSize: 9,
+    fontWeight: '900',
+    color: '#991B1B',
+  },
+  rejectionReasonText: {
+    fontSize: 10,
+    color: '#B91C1C',
+    fontWeight: '600',
+  },
+  requestActionRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 12,
+  },
+  actionBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionBtnText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  tabBarWrapper: {
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderColor: '#E2E8F0',
+    paddingVertical: 10,
+  },
+  tabBarScrollContainer: {
+    paddingHorizontal: 14,
+    gap: 8,
+    alignItems: 'center',
+  },
+  tabPill: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  activeTabPill: {
+    backgroundColor: '#4F46E5',
+    borderColor: '#4F46E5',
+    shadowColor: '#4F46E5',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  tabPillText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#64748B',
+  },
+  activeTabPillText: {
+    color: '#FFFFFF',
+  },
+  inputModalCard: {
+    width: '100%',
+    maxWidth: 360,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 20,
+  },
+  inputModalTitle: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#0F172A',
+  },
+  inputModalSub: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 4,
+    marginBottom: 12,
+    lineHeight: 15,
+  },
 });
 
-export default AdminPanelScreen;

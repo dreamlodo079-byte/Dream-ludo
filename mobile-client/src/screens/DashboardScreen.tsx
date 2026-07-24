@@ -27,6 +27,7 @@ import { LiveArenaScreen } from './LiveArenaScreen';
 import { AdminPanelScreen } from './AdminPanelScreen';
 import { MatchmakingCardOverlay } from '../components/MatchmakingCardOverlay';
 import { CustomAlertModal, CustomAlertOptions } from '../components/CustomAlertModal';
+import { NotificationCenter } from '../components/NotificationCenter';
 
 const API_SERVER_URL = process.env.EXPO_PUBLIC_SERVER_URL || 'http://localhost:5000';
 const ENTRY_FEES = [50, 100, 500, 1000, 0];
@@ -559,11 +560,17 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
       {/* Sub-view switcher */}
       {currentView === 'HOME' && (
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-          {/* Luxury Top Header */}
+          {/* Luxury Top Header (Notification Bell + Wallet Balance Pill + Crown Avatar) */}
           <View style={styles.header}>
             <Text style={styles.logoText}>DREAM LUDO</Text>
 
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              {/* Notification Center Golden Bell */}
+              <View style={styles.headerBellPill}>
+                <NotificationCenter currentUser={currentUser} socket={socket} />
+              </View>
+
+              {/* Wallet Balance Pill */}
               <TouchableOpacity style={styles.walletPill} onPress={() => setCurrentView('PROFILE')}>
                 <Svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4F46E5" strokeWidth="2.5" style={{ marginRight: 6 }}>
                   <Rect x="2" y="5" width="20" height="14" rx="2" />
@@ -572,6 +579,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 <Text style={styles.walletBalance}>₹{balances.total.toFixed(0)}</Text>
               </TouchableOpacity>
 
+              {/* Profile Crown Avatar */}
               <TouchableOpacity style={styles.avatarHeaderBtn} onPress={() => setCurrentView('PROFILE')}>
                 <Text style={{ fontSize: 20 }}>{(currentUser as any)?.avatar || '👑'}</Text>
               </TouchableOpacity>
@@ -2234,5 +2242,13 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '700',
+  },
+  headerBellPill: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 20,
+    paddingHorizontal: 2,
+    paddingVertical: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

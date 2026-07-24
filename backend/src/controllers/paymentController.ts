@@ -185,7 +185,7 @@ paymentRouter.post(['/webhook', '/v1/payments/webhook'], async (req: Request, re
         type: TransactionType.DEPOSIT,
         status: status === 'SUCCESS' ? TransactionStatus.SUCCESS : TransactionStatus.FAILED,
         referenceId: transactionId,
-        utr: utr || null,
+        utr: utr || undefined,
       });
 
       await depositTxn.save({ session });

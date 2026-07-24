@@ -16,6 +16,8 @@ export const connectDB = async (): Promise<void> => {
       w: 'majority'                 // Guarantees transaction validation across Atlas cluster replica sets
     });
     console.log("Production MongoDB Pool Initialized Successfully.");
+    const { syncTransactionIndexes } = require('../models/Transaction');
+    await syncTransactionIndexes();
   } catch (error: any) {
     console.error("Database connection failure:", error?.message || error);
     if (error?.message?.includes('whitelisted') || error?.name === 'MongooseServerSelectionError') {
