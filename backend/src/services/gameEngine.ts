@@ -10,6 +10,7 @@ export interface Player {
   joinedAt?: number; // Queue join timestamp for re-queuing
   isPromoter?: boolean;
   hasLeft?: boolean;
+  missedTurns?: number;
 }
 
 export interface MatchState {
@@ -86,9 +87,10 @@ export const createInitialState = (
   gameMode: 'QUICK' | 'REGULAR' | 'ROOMS' = 'REGULAR',
   customRules?: { turnTimer?: number; tokenCount?: number }
 ): MatchState => {
-  const tokenCount = gameMode === 'QUICK' ? 2 : (gameMode === 'ROOMS' && customRules?.tokenCount) || 4;
-  const initialTokens = Array.from({ length: tokenCount }, () => -1);
-  const initialPreTurnTokens = Array.from({ length: playersInit.length }, () => Array.from({ length: tokenCount }, () => -1));
+  const tokenCount = (gameMode === 'ROOMS' && customRules?.tokenCount) || 4;
+  const initialPos = gameMode === 'QUICK' ? 0 : -1;
+  const initialTokens = Array.from({ length: tokenCount }, () => initialPos);
+  const initialPreTurnTokens = Array.from({ length: playersInit.length }, () => Array.from({ length: tokenCount }, () => initialPos));
 
   let colors: ('red' | 'blue' | 'yellow' | 'green')[] = [];
   if (playersInit.length === 2) colors = ['red', 'green'];
@@ -404,7 +406,7 @@ export const executeMove = (state: MatchState, tokenIndex: number): { capturedTo
   if (hasCaptured && capturedToken) {
     const opponent = state.players[capturedToken.playerIndex];
     oppPosBeforeReset = opponent.tokens[capturedToken.tokenIndex];
-    opponent.tokens[capturedToken.tokenIndex] = -1; // Send back to yard
+    opponent.tokens[capturedToken.tokenIndex] = state.gameMode === 'QUICK' ? 0 : -1; // Send back to start (0) in QUICK mode, or yard (-1)
   }
 
   // Calculate scores for QUICK mode
@@ -424,7 +426,7 @@ export const executeMove = (state: MatchState, tokenIndex: number): { capturedTo
       pointsEarned += 10; // 1 opponent captured = 10 points
       if (capturedToken && oppPosBeforeReset >= 0) {
         const opponentIndex = capturedToken.playerIndex;
-        const pointsLost = oppPosBeforeReset + 1;
+        const pointsLost = oppPosBeforeReset;
         state.scores[opponentIndex] = Math.max(0, state.scores[opponentIndex] - pointsLost);
       }
     }

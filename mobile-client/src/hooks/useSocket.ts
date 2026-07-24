@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import io, { Socket } from 'socket.io-client';
+import SoundManager from '../utils/SoundManager';
 
 const SOCKET_SERVER_URL = process.env.EXPO_PUBLIC_SERVER_URL || 'http://localhost:5000';
 
@@ -64,6 +65,9 @@ export const useSocket = (userId: string | null) => {
     socket.on('TURN_SKIPPED', (data: any) => {
       setAlertMessage('Turn skipped due to inactivity.');
       setMatchState(data.state);
+      if (data.skippedPlayerId === userId) {
+        SoundManager.playLoseHeart();
+      }
     });
 
     socket.on('TIMER_TICK', (data: { turnTimer: number; activePlayerIndex: number; matchTimer?: number; scores?: number[] }) => {
