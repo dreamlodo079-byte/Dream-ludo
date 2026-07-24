@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -114,9 +114,12 @@ const COMMON_TRACK_COORDS = [
 const SAFE_COMMON_INDICES = [1, 9, 14, 22, 27, 35, 40, 48];
 const PLAYER_START_OFFSETS = [1, 14, 27, 40];
 
-const getCommonIndex = (playerIndex: number, pos: number): number => {
+const colorToIndex: Record<string, number> = { red: 0, yellow: 1, green: 2, blue: 3 };
+
+const getCommonIndex = (colorStr: string, pos: number): number => {
   if (pos < 0 || pos > 50) return -1;
-  const startOffset = PLAYER_START_OFFSETS[playerIndex] || 1;
+  const cIdx = colorToIndex[colorStr] ?? 0;
+  const startOffset = PLAYER_START_OFFSETS[cIdx] || 1;
   return (startOffset + pos) % 52;
 };
 
@@ -612,7 +615,9 @@ export const GameScreen: React.FC<GameScreenProps> = ({
       return { subX: 0, subY: 0, scale: 1.0, stackCount: 1 };
     }
 
-    const startOffset = PLAYER_START_OFFSETS[pIdx];
+    const pColor = matchState.players[pIdx]?.color || 'red';
+    const cIdx = colorToIndex[pColor] ?? pIdx;
+    const startOffset = PLAYER_START_OFFSETS[cIdx];
     let cellId: string;
     if (pos === 56) {
       cellId = `goal_${pIdx}`;
@@ -625,7 +630,9 @@ export const GameScreen: React.FC<GameScreenProps> = ({
 
     const coOccupying: Array<{ pIdx: number; tIdx: number; globalIdx: number }> = [];
     matchState.players.forEach((player: any, pIndex: number) => {
-      const pStart = PLAYER_START_OFFSETS[pIndex];
+      const oppColor = player.color || 'red';
+      const oppCIdx = colorToIndex[oppColor] ?? pIndex;
+      const pStart = PLAYER_START_OFFSETS[oppCIdx];
       player.tokens.forEach((otherPos: number, tokenIndex: number) => {
         let otherCellId: string | null = null;
         if (otherPos === 56) {
@@ -681,25 +688,27 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   };
 
   const getTokenCoords = (playerIndex: number, tokenIndex: number, pos: number): { x: number; y: number } => {
+    const pColor = matchState?.players?.[playerIndex]?.color || 'red';
+    const cIdx = colorToIndex[pColor] ?? playerIndex;
     let gridX = 0;
     let gridY = 0;
 
     if (pos === -1) {
-      const yardCoords = ALL_YARDS[playerIndex] || RED_YARD_TOKEN_COORDS;
+      const yardCoords = ALL_YARDS[cIdx] || RED_YARD_TOKEN_COORDS;
       gridX = yardCoords[tokenIndex].x;
       gridY = yardCoords[tokenIndex].y;
     } else if (pos === 56) {
-      if (playerIndex === 0) { gridX = 6.5; gridY = 7.5; }
-      else if (playerIndex === 1) { gridX = 7.5; gridY = 6.5; }
-      else if (playerIndex === 2) { gridX = 8.5; gridY = 7.5; }
+      if (cIdx === 0) { gridX = 6.5; gridY = 7.5; }
+      else if (cIdx === 1) { gridX = 7.5; gridY = 6.5; }
+      else if (cIdx === 2) { gridX = 8.5; gridY = 7.5; }
       else { gridX = 7.5; gridY = 8.5; }
     } else if (pos >= 51 && pos <= 55) {
-      const pathCoords = ALL_PATHS[playerIndex] || RED_HOME_PATH_COORDS;
+      const pathCoords = ALL_PATHS[cIdx] || RED_HOME_PATH_COORDS;
       const idx = pos - 51;
       gridX = pathCoords[idx].x + 0.5;
       gridY = pathCoords[idx].y + 0.5;
     } else {
-      const startOffset = PLAYER_START_OFFSETS[playerIndex];
+      const startOffset = PLAYER_START_OFFSETS[cIdx];
       const commonIdx = (startOffset + pos) % 52;
       const coord = COMMON_TRACK_COORDS[commonIdx];
       gridX = coord.x + 0.5;
@@ -749,14 +758,16 @@ export const GameScreen: React.FC<GameScreenProps> = ({
         const visualPos = visualPositions.current[tokenIdx];
 
         if (serverPos > visualPos && visualPos !== -1) {
-          const attackerCommon = getCommonIndex(pIdx, serverPos);
+          const attackerColor = matchState.players[pIdx]?.color || 'red';
+          const attackerCommon = getCommonIndex(attackerColor, serverPos);
           matchState.players.forEach((oppPlayer: any, oppIdx: number) => {
             if (oppIdx === pIdx) return;
             oppPlayer.tokens.forEach((oppServerPos: number, oppTIdx: number) => {
               const oppTokenIdx = oppIdx * 4 + oppTIdx;
               const oppVisualPos = visualPositions.current[oppTokenIdx];
               if (oppServerPos === -1 && oppVisualPos !== -1) {
-                const victimCommon = getCommonIndex(oppIdx, oppVisualPos);
+                const victimColor = matchState.players[oppIdx]?.color || 'red';
+                const victimCommon = getCommonIndex(victimColor, oppVisualPos);
                 if (attackerCommon !== -1 && attackerCommon === victimCommon) {
                   activeCapture = {
                     attackerIdx: tokenIdx,
@@ -1055,9 +1066,10 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   const myColor = currentUser ? matchState?.players.find((p: any) => p.id === currentUser._id)?.color : 'blue';
   let boardRotation = '0deg';
   let counterRotation = '0deg';
-  if (myColor === 'red') { boardRotation = '-90deg'; counterRotation = '90deg'; }
-  else if (myColor === 'yellow') { boardRotation = '180deg'; counterRotation = '-180deg'; }
-  else if (myColor === 'green') { boardRotation = '90deg'; counterRotation = '-90deg'; }
+  let counterRotationAngle = 0;
+  if (myColor === 'red') { boardRotation = '-90deg'; counterRotation = '90deg'; counterRotationAngle = 90; }
+  else if (myColor === 'yellow') { boardRotation = '180deg'; counterRotation = '-180deg'; counterRotationAngle = -180; }
+  else if (myColor === 'green') { boardRotation = '90deg'; counterRotation = '-90deg'; counterRotationAngle = -90; }
 
   const getScreenWrapperStyle = (playerColor: string) => {
     if (myColor === 'red') {
@@ -1083,6 +1095,56 @@ export const GameScreen: React.FC<GameScreenProps> = ({
     }
     return { style: styles.topLeftPlayerWrapper, align: 'left' };
   };
+
+  const playerScores = useMemo(() => {
+    return matchState?.players?.map((_, idx) => matchState.scores?.[idx] || 0) || [];
+  }, [matchState?.scores, matchState?.players]);
+
+  const playerRanks = useMemo(() => {
+    if (!playerScores.length) return [];
+    const sortedScores = [...playerScores].sort((a, b) => b - a);
+    return playerScores.map(score => sortedScores.indexOf(score) + 1);
+  }, [playerScores]);
+
+  const getRankText = (rank: number) => {
+    if (rank === 1) return '1ST MOVER';
+    if (rank === 2) return '2ND MOVER';
+    if (rank === 3) return '3RD MOVER';
+    return '4TH MOVER';
+  };
+
+  const renderLobbyContent = (colorName: 'red'|'yellow'|'green'|'blue', cx: number, cy: number, tokenCoords: any[], colorTheme: any) => {
+    if (matchState.gameMode === 'QUICK') {
+      const pIdx = matchState.players.findIndex((p: any) => p.color === colorName);
+      if (pIdx === -1) return null;
+      const score = playerScores[pIdx] || 0;
+      const rank = playerRanks[pIdx] || 4;
+      const rankText = getRankText(rank);
+      
+      return (
+        <G rotation={counterRotationAngle} origin={`${cx * CELL_SIZE}, ${cy * CELL_SIZE}`}>
+          <Circle cx={cx * CELL_SIZE} cy={(cy - 0.2) * CELL_SIZE} r={CELL_SIZE * 1.8} fill="#FFFFFF" />
+          <Circle cx={cx * CELL_SIZE} cy={(cy - 0.2) * CELL_SIZE} r={CELL_SIZE * 1.8} fill="none" stroke="#E2E8F0" strokeWidth={2} />
+          <SvgText x={cx * CELL_SIZE} y={(cy - 0.8) * CELL_SIZE} fill="#334155" fontSize={CELL_SIZE * 0.4} fontWeight="bold" textAnchor="middle">SCORE</SvgText>
+          <SvgText x={cx * CELL_SIZE} y={(cy + 0.3) * CELL_SIZE} fill="#0F172A" fontSize={CELL_SIZE * 1.2} fontWeight="bold" textAnchor="middle">{score}</SvgText>
+          <Rect x={(cx - 1.5) * CELL_SIZE} y={(cy + 1.2) * CELL_SIZE} width={CELL_SIZE * 3} height={CELL_SIZE * 0.8} rx={CELL_SIZE * 0.4} fill={colorTheme.primary} stroke="#FFFFFF" strokeWidth={1} />
+          <SvgText x={cx * CELL_SIZE} y={(cy + 1.75) * CELL_SIZE} fill="#FFFFFF" fontSize={CELL_SIZE * 0.35} fontWeight="bold" textAnchor="middle">{rankText}</SvgText>
+        </G>
+      );
+    }
+    return (
+      <G rotation={counterRotationAngle} origin={`${cx * CELL_SIZE}, ${cy * CELL_SIZE}`}>
+        <Rect x={(cx - 2.2) * CELL_SIZE} y={(cy - 2.2) * CELL_SIZE} width={CELL_SIZE * 4.4} height={CELL_SIZE * 4.4} fill="#FFFFFF" rx={12} />
+        <Rect x={(cx - 1.8) * CELL_SIZE} y={(cy - 1.8) * CELL_SIZE} width={CELL_SIZE * 3.6} height={CELL_SIZE * 3.6} fill="#FFFFFF" rx={8} />
+        {tokenCoords.map((coord, i) => (
+          <G key={`${colorName}_yard_${i}`}>
+            <Circle cx={coord.x * CELL_SIZE} cy={coord.y * CELL_SIZE} r={CELL_SIZE * 0.45} fill={colorTheme.light} />
+          </G>
+        ))}
+      </G>
+    );
+  };
+
 
   return (
     <View style={styles.mainContainer}>
@@ -1151,7 +1213,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
                     onRoll={handleRollDice}
                     avatarUri={require('../../assets/avatar.png')}
                     diceTransform={matchState.activePlayerIndex === idx ? [{ scale: diceScale }, { rotate: rotZInterpolate }] : undefined}
-                    score={matchState.gameMode === 'QUICK' ? (matchState.scores ? (matchState.scores[idx] ?? 0) : 0) : (matchState.scores ? matchState.scores[idx] : undefined)}
+                    score={matchState.gameMode === 'QUICK' ? undefined : (matchState.scores ? matchState.scores[idx] : undefined)}
                   />
                 </View>
               );
@@ -1193,150 +1255,29 @@ export const GameScreen: React.FC<GameScreenProps> = ({
                   <Rect x={0} y={0} width={BOARD_SIZE} height={BOARD_SIZE} fill="#FFFFFF" />
 
                   {/* ============ RED YARD (Top-Left) ============ */}
-                  <Rect
-                    x={0}
-                    y={0}
-                    width={CELL_SIZE * 6}
-                    height={CELL_SIZE * 6}
-                    fill="url(#redGrad)"
-                  />
-                  <Rect
-                    x={CELL_SIZE * 0.8}
-                    y={CELL_SIZE * 0.8}
-                    width={CELL_SIZE * 4.4}
-                    height={CELL_SIZE * 4.4}
-                    fill="#FFFFFF"
-                    rx={12}
-                  />
-                  <Rect
-                    x={CELL_SIZE * 1.2}
-                    y={CELL_SIZE * 1.2}
-                    width={CELL_SIZE * 3.6}
-                    height={CELL_SIZE * 3.6}
-                    fill="#FFFFFF"
-                    rx={8}
-                  />
-                  {RED_YARD_TOKEN_COORDS.map((coord, i) => (
-                    <G key={`red_yard_${i}`}>
-                      <Circle
-                        cx={coord.x * CELL_SIZE}
-                        cy={coord.y * CELL_SIZE}
-                        r={CELL_SIZE * 0.45}
-                        fill={COLORS.red.light}
-                      />
-                    </G>
-                  ))}
+                  <Rect x={0} y={0} width={CELL_SIZE * 6} height={CELL_SIZE * 6} fill="url(#redGrad)" />
+                  {renderLobbyContent('red', 3, 3, RED_YARD_TOKEN_COORDS, COLORS.red)}
 
                   {/* ============ YELLOW YARD (Top-Right) ============ */}
-                  <Rect
-                    x={CELL_SIZE * 9}
-                    y={0}
-                    width={CELL_SIZE * 6}
-                    height={CELL_SIZE * 6}
-                    fill="url(#yellowGrad)"
-                  />
-                  <Rect
-                    x={CELL_SIZE * 9.8}
-                    y={CELL_SIZE * 0.8}
-                    width={CELL_SIZE * 4.4}
-                    height={CELL_SIZE * 4.4}
-                    fill="#FFFFFF"
-                    rx={12}
-                  />
-                  <Rect
-                    x={CELL_SIZE * 10.2}
-                    y={CELL_SIZE * 1.2}
-                    width={CELL_SIZE * 3.6}
-                    height={CELL_SIZE * 3.6}
-                    fill="#FFFFFF"
-                    rx={8}
-                  />
-                  {[
+                  <Rect x={CELL_SIZE * 9} y={0} width={CELL_SIZE * 6} height={CELL_SIZE * 6} fill="url(#yellowGrad)" />
+                  {renderLobbyContent('yellow', 12, 3, [
                     { x: 10.8, y: 1.8 }, { x: 13.2, y: 1.8 },
                     { x: 10.8, y: 4.2 }, { x: 13.2, y: 4.2 },
-                  ].map((coord, i) => (
-                    <G key={`yellow_yard_${i}`}>
-                      <Circle
-                        cx={coord.x * CELL_SIZE}
-                        cy={coord.y * CELL_SIZE}
-                        r={CELL_SIZE * 0.45}
-                        fill={COLORS.yellow.light}
-                      />
-                    </G>
-                  ))}
+                  ], COLORS.yellow)}
 
                   {/* ============ GREEN YARD (Bottom-Right) ============ */}
-                  <Rect
-                    x={CELL_SIZE * 9}
-                    y={CELL_SIZE * 9}
-                    width={CELL_SIZE * 6}
-                    height={CELL_SIZE * 6}
-                    fill="url(#greenGrad)"
-                  />
-                  <Rect
-                    x={CELL_SIZE * 9.8}
-                    y={CELL_SIZE * 9.8}
-                    width={CELL_SIZE * 4.4}
-                    height={CELL_SIZE * 4.4}
-                    fill="#FFFFFF"
-                    rx={12}
-                  />
-                  <Rect
-                    x={CELL_SIZE * 10.2}
-                    y={CELL_SIZE * 10.2}
-                    width={CELL_SIZE * 3.6}
-                    height={CELL_SIZE * 3.6}
-                    fill="#FFFFFF"
-                    rx={8}
-                  />
-                  {GREEN_YARD_TOKEN_COORDS.map((coord, i) => (
-                    <G key={`green_yard_${i}`}>
-                      <Circle
-                        cx={coord.x * CELL_SIZE}
-                        cy={coord.y * CELL_SIZE}
-                        r={CELL_SIZE * 0.45}
-                        fill={COLORS.green.light}
-                      />
-                    </G>
-                  ))}
+                  <Rect x={CELL_SIZE * 9} y={CELL_SIZE * 9} width={CELL_SIZE * 6} height={CELL_SIZE * 6} fill="url(#greenGrad)" />
+                  {renderLobbyContent('green', 12, 12, [
+                    { x: 10.8, y: 10.8 }, { x: 13.2, y: 10.8 },
+                    { x: 10.8, y: 13.2 }, { x: 13.2, y: 13.2 },
+                  ], COLORS.green)}
 
                   {/* ============ BLUE YARD (Bottom-Left) ============ */}
-                  <Rect
-                    x={0}
-                    y={CELL_SIZE * 9}
-                    width={CELL_SIZE * 6}
-                    height={CELL_SIZE * 6}
-                    fill="url(#blueGrad)"
-                  />
-                  <Rect
-                    x={CELL_SIZE * 0.8}
-                    y={CELL_SIZE * 9.8}
-                    width={CELL_SIZE * 4.4}
-                    height={CELL_SIZE * 4.4}
-                    fill="#FFFFFF"
-                    rx={12}
-                  />
-                  <Rect
-                    x={CELL_SIZE * 1.2}
-                    y={CELL_SIZE * 10.2}
-                    width={CELL_SIZE * 3.6}
-                    height={CELL_SIZE * 3.6}
-                    fill="#FFFFFF"
-                    rx={8}
-                  />
-                  {[
+                  <Rect x={0} y={CELL_SIZE * 9} width={CELL_SIZE * 6} height={CELL_SIZE * 6} fill="url(#blueGrad)" />
+                  {renderLobbyContent('blue', 3, 12, [
                     { x: 1.8, y: 10.8 }, { x: 4.2, y: 10.8 },
                     { x: 1.8, y: 13.2 }, { x: 4.2, y: 13.2 },
-                  ].map((coord, i) => (
-                    <G key={`blue_yard_${i}`}>
-                      <Circle
-                        cx={coord.x * CELL_SIZE}
-                        cy={coord.y * CELL_SIZE}
-                        r={CELL_SIZE * 0.45}
-                        fill={COLORS.blue.light}
-                      />
-                    </G>
-                  ))}
+                  ], COLORS.blue)}
 
                   {/* ============ CENTER HOME TRIANGLES ============ */}
                   <Polygon
@@ -1373,6 +1314,11 @@ export const GameScreen: React.FC<GameScreenProps> = ({
                     const isYellowStart = index === 14;
                     const isGreenStart = index === 27;
                     const isBlueStart = index === 40;
+                    
+                    const isRedEntrance = index === 51;
+                    const isYellowEntrance = index === 12;
+                    const isGreenEntrance = index === 25;
+                    const isBlueEntrance = index === 38;
 
                     let fillSrc = '#FFFFFF';
                     let borderColor = '#94A3B8';
@@ -1397,6 +1343,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
                     } else if (isSafe) {
                       fillSrc = '#F1F5F9';
                     }
+                    const isStartPosition = isRedStart || isYellowStart || isGreenStart || isBlueStart;
 
                     return (
                       <G key={index}>
@@ -1416,37 +1363,37 @@ export const GameScreen: React.FC<GameScreenProps> = ({
                               coord.y * CELL_SIZE + CELL_SIZE / 2,
                               CELL_SIZE * 0.32
                             )}
-                            fill="url(#starGrad)"
-                            stroke="#B45309"
-                            strokeWidth={0.8}
+                            fill={isStartPosition ? "#FFFFFF" : "url(#starGrad)"}
+                            stroke={isStartPosition ? "none" : "#B45309"}
+                            strokeWidth={isStartPosition ? 0 : 0.8}
                           />
                         )}
-                        {/* Start position arrows */}
-                        {isRedStart && (
+                        {/* Entrance position arrows */}
+                        {isRedEntrance && (
                           <Path
-                            d={getArrowPath(coord.x * CELL_SIZE + CELL_SIZE / 2, coord.y * CELL_SIZE + CELL_SIZE / 2, CELL_SIZE, 'right')}
-                            fill="#FFF"
+                            d={getArrowPath(coord.x * CELL_SIZE + CELL_SIZE / 2 + CELL_SIZE * 0.12, coord.y * CELL_SIZE + CELL_SIZE / 2, CELL_SIZE, 'right')}
+                            fill="url(#redGrad)"
                             opacity={0.9}
                           />
                         )}
-                        {isGreenStart && (
+                        {isYellowEntrance && (
                           <Path
-                            d={getArrowPath(coord.x * CELL_SIZE + CELL_SIZE / 2, coord.y * CELL_SIZE + CELL_SIZE / 2, CELL_SIZE, 'left')}
-                            fill="#FFF"
+                            d={getArrowPath(coord.x * CELL_SIZE + CELL_SIZE / 2, coord.y * CELL_SIZE + CELL_SIZE / 2 + CELL_SIZE * 0.12, CELL_SIZE, 'down')}
+                            fill="url(#yellowGrad)"
                             opacity={0.9}
                           />
                         )}
-                        {isYellowStart && (
+                        {isGreenEntrance && (
                           <Path
-                            d={getArrowPath(coord.x * CELL_SIZE + CELL_SIZE / 2, coord.y * CELL_SIZE + CELL_SIZE / 2, CELL_SIZE, 'down')}
-                            fill="#FFF"
+                            d={getArrowPath(coord.x * CELL_SIZE + CELL_SIZE / 2 - CELL_SIZE * 0.12, coord.y * CELL_SIZE + CELL_SIZE / 2, CELL_SIZE, 'left')}
+                            fill="url(#greenGrad)"
                             opacity={0.9}
                           />
                         )}
-                        {isBlueStart && (
+                        {isBlueEntrance && (
                           <Path
-                            d={getArrowPath(coord.x * CELL_SIZE + CELL_SIZE / 2, coord.y * CELL_SIZE + CELL_SIZE / 2, CELL_SIZE, 'up')}
-                            fill="#FFF"
+                            d={getArrowPath(coord.x * CELL_SIZE + CELL_SIZE / 2, coord.y * CELL_SIZE + CELL_SIZE / 2 - CELL_SIZE * 0.12, CELL_SIZE, 'up')}
+                            fill="url(#blueGrad)"
                             opacity={0.9}
                           />
                         )}

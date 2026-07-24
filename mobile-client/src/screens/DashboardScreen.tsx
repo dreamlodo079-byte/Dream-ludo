@@ -332,7 +332,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
     }).start();
   }, [width, activeSegment, segmentTranslateX]);
 
-  const handleJoinMatchmaking = async () => {
+  const handleJoinMatchmaking = async (overrideMode?: string) => {
     if (!socketId) {
       showCustomAlert('Connection Notice', 'Establishing server link, please try again in a moment.', 'info');
       return;
@@ -370,7 +370,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         username: currentUser.username,
         socketId,
         entryFee: selectedTier,
-        mode: activeSegment,
+        mode: overrideMode || activeSegment,
       });
 
       if (!response.data.success) {
@@ -1099,8 +1099,9 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   <AnimatedPressable
                     style={[styles.primaryActionBtn, { backgroundColor: selectedTier === 0 ? '#059669' : (selectedModeModal === 'QUICK' ? '#059669' : '#4F46E5'), marginTop: 16 }]}
                     onPress={() => {
+                      const modeToJoin = selectedModeModal || 'REGULAR';
                       setSelectedModeModal(null);
-                      handleJoinMatchmaking();
+                      handleJoinMatchmaking(modeToJoin);
                     }}
                   >
                     <Text style={styles.primaryActionText}>
