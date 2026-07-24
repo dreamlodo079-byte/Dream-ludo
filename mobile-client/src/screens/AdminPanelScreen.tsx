@@ -310,6 +310,35 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({ onBack }) =>
     );
   };
 
+  const handleSavePlatformConfig = async () => {
+    const cleanUpi = platformUpiInput.trim();
+    if (!cleanUpi) {
+      showToast('Invalid UPI ID', 'Please enter a valid Platform Payee UPI ID.', 'error');
+      return;
+    }
+
+    try {
+      setIsSavingConfig(true);
+      const token = await fetchAuthToken();
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
+      const res = await axios.put(
+        `${API_SERVER_URL}/api/v1/admin/config`,
+        { platformUpiId: cleanUpi },
+        { headers }
+      );
+
+      if (res.data.success && res.data.platformUpiId) {
+        showToast('Platform Settings Saved', `Live Payee UPI ID updated to ${res.data.platformUpiId}`, 'success');
+        setPlatformUpiInput(res.data.platformUpiId);
+      }
+    } catch (err: any) {
+      showToast('Save Failed', err.response?.data?.error || err.message || 'Failed to update platform UPI ID.', 'error');
+    } finally {
+      setIsSavingConfig(false);
+    }
+  };
+
   const fetchAuthToken = async () => {
     try {
       const defaultAuth = axios.defaults.headers.common['Authorization'] as string;
@@ -341,15 +370,14 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({ onBack }) =>
             `${API_SERVER_URL}/api/admin/requests?type=${requestFilterType}&status=${requestFilterStatus}`,
             { headers }
           ),
-          axios.get(`${API_SERVER_URL}/api/admin/config`, { headers }).catch(() => null),
+          axios.get(`${API_SERVER_URL}/api/v1/admin/config`, { headers }).catch(() => null),
         ]);
 
         if (reqRes.data.success) {
           setRequestsList(reqRes.data.requests || []);
         }
-        if (cfgRes?.data?.success) {
-          setPlatformUpiInput(cfgRes.data.platformUpiId || 'dreamludoplatform@bank');
-          setPlatformQrInput(cfgRes.data.platformQrUrl || '');
+        if (cfgRes?.data?.success && cfgRes.data.platformUpiId) {
+          setPlatformUpiInput(cfgRes.data.platformUpiId);
         }
       } else if (tab === 'AUDIT') {
         const res = await axios.get(`${API_SERVER_URL}/api/admin/audit`, { headers });
@@ -646,31 +674,6 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({ onBack }) =>
       }
     } finally {
       setActionLoading(null);
-    }
-  };
-  const handleSavePlatformConfig = async () => {
-    if (!platformUpiInput.trim()) {
-      showToast('Validation Error', 'Platform UPI ID cannot be empty.', 'error');
-      return;
-    }
-
-    setIsSavingConfig(true);
-    try {
-      const token = await fetchAuthToken();
-      const headers = token ? { Authorization: `Bearer ${token}` } : {};
-      const res = await axios.put(
-        `${API_SERVER_URL}/api/admin/config`,
-        { platformUpiId: platformUpiInput.trim(), platformQrUrl: platformQrInput.trim() },
-        { headers }
-      );
-
-      if (res.data.success) {
-        showToast('Config Saved! ⚙️', 'Platform UPI ID & QR settings updated successfully.', 'success');
-      }
-    } catch (err: any) {
-      showToast('Save Failed', err.response?.data?.error || err.message, 'error');
-    } finally {
-      setIsSavingConfig(false);
     }
   };
 
@@ -1754,6 +1757,9 @@ const styles = StyleSheet.create({
   bodyContent: {
     padding: 16,
     paddingBottom: 140,
+    width: '100%',
+    maxWidth: 800,
+    alignSelf: 'center',
   },
   sectionCard: {
     backgroundColor: '#FFFFFF',

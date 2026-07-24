@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Dream Ludo - Play Real Money Ludo & Win Cash Instantly!</title>
+  <meta name="description" content="Download official Dream Ludo APK to play 1v1 real money Ludo matches. Win cash prizes and withdraw instantly via UPI!" />
+  <meta name="theme-color" content="#0F172A" />
+
+  <!-- Google Fonts: Inter & Outfit -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&family=Outfit:wght@700;800;900&display=swap" rel="stylesheet" />
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      background-color: #070A13;
+      color: #F8FAFC;
+      display: flex;
+      justify-content: center;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Mobile-First Frame Container */
+    .mobile-wrapper {
+      width: 100%;
+      max-width: 480px;
+      background: linear-gradient(180deg, #0B0F19 0%, #17153A 35%, #0D111E 100%);
+      min-height: 100vh;
+      position: relative;
+      padding: 18px 16px 90px;
+      box-shadow: 0 0 60px rgba(0, 0, 0, 0.9);
+      border-left: 1px solid rgba(255, 255, 255, 0.06);
+      border-right: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    /* Top Bar Header */
+    .top-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-bottom: 14px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      margin-bottom: 20px;
+    }
+
+    .brand-logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .app-icon-img {
+      width: 50px;
+      height: 50px;
+      border-radius: 14px;
+      border: 2px solid #6366F1;
+      box-shadow: 0 4px 16px rgba(99, 102, 241, 0.45);
+      object-fit: cover;
+    }
+
+    .brand-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 21px;
+      font-weight: 900;
+      background: linear-gradient(135deg, #FFFFFF 0%, #E0E7FF 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      letter-spacing: 0.5px;
+    }
+
+    .brand-sub {
+      font-size: 10px;
+      color: #10B981;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .online-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background-color: #10B981;
+      box-shadow: 0 0 8px #10B981;
+    }
+
+    .trust-pill {
+      background: rgba(16, 185, 129, 0.12);
+      border: 1.5px solid #10B981;
+      color: #10B981;
+      font-size: 10px;
+      font-weight: 900;
+      padding: 6px 12px;
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    /* Hero Banner Section */
+    .hero-card {
+      background: rgba(255, 255, 255, 0.04);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1.5px solid rgba(255, 255, 255, 0.12);
+      border-radius: 26px;
+      padding: 24px 20px;
+      text-align: center;
+      margin-bottom: 20px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+    }
+
+    .hero-card::before {
+      content: '';
+      position: absolute;
+      top: -40%;
+      left: -40%;
+      width: 180%;
+      height: 180%;
+      background: radial-gradient(circle, rgba(99, 102, 241, 0.18) 0%, transparent 65%);
+      pointer-events: none;
+    }
+
+    /* Big Center App Icon Showcase */
+    .hero-app-showcase {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 16px;
+    }
+
+    .hero-app-icon {
+      width: 86px;
+      height: 86px;
+      border-radius: 22px;
+      border: 3px solid #818CF8;
+      box-shadow: 0 8px 30px rgba(99, 102, 241, 0.6);
+      transform: scale(1);
+      transition: transform 0.3s ease;
+    }
+
+    .welcome-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: linear-gradient(90deg, #F59E0B 0%, #D97706 100%);
+      color: #FFFFFF;
+      font-size: 11px;
+      font-weight: 900;
+      padding: 6px 16px;
+      border-radius: 20px;
+      margin-bottom: 14px;
+      box-shadow: 0 4px 14px rgba(245, 158, 11, 0.35);
+      letter-spacing: 0.5px;
+    }
+
+    .hero-headline {
+      font-family: 'Outfit', sans-serif;
+      font-size: 27px;
+      font-weight: 900;
+      color: #FFFFFF;
+      line-height: 1.25;
+      margin-bottom: 8px;
+    }
+
+    .hero-headline span {
+      color: #10B981;
+    }
+
+    .hero-subtitle {
+      font-size: 12px;
+      color: #94A3B8;
+      line-height: 1.5;
+      margin-bottom: 20px;
+      font-weight: 500;
+    }
+
+    /* Rating & Downloads Counter */
+    .rating-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      margin-bottom: 18px;
+      background: rgba(15, 23, 42, 0.6);
+      padding: 8px 14px;
+      border-radius: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .rating-col {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-weight: 800;
+      color: #F1F5F9;
+    }
+
+    .rating-divider {
+      width: 1px;
+      height: 14px;
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    /* Primary CTA Button */
+    .download-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      width: 100%;
+      background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+      color: #FFFFFF;
+      text-decoration: none;
+      padding: 16px 20px;
+      border-radius: 18px;
+      font-size: 15px;
+      font-weight: 900;
+      letter-spacing: 0.8px;
+      box-shadow: 0 8px 24px rgba(16, 185, 129, 0.4);
+      border: 2px solid #34D399;
+      transition: transform 0.2s ease;
+      animation: pulse-green 2s infinite;
+    }
+
+    .download-btn:active {
+      transform: scale(0.97);
+    }
+
+    @keyframes pulse-green {
+      0% {
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+      }
+      70% {
+        box-shadow: 0 0 0 12px rgba(16, 185, 129, 0);
+      }
+      100% {
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+      }
+    }
+
+    .file-info {
+      font-size: 10px;
+      color: #64748B;
+      margin-top: 10px;
+      font-weight: 700;
+    }
+
+    /* Feature Section Header */
+    .section-title {
+      font-size: 13px;
+      font-weight: 900;
+      color: #FFFFFF;
+      letter-spacing: 0.5px;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Feature Cards Grid */
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .feature-card {
+      background: rgba(255, 255, 255, 0.035);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 18px;
+      padding: 14px;
+      text-align: left;
+    }
+
+    .feature-icon {
+      font-size: 22px;
+      margin-bottom: 6px;
+    }
+
+    .feature-name {
+      font-size: 12px;
+      font-weight: 800;
+      color: #F1F5F9;
+      margin-bottom: 2px;
+    }
+
+    .feature-desc {
+      font-size: 10px;
+      color: #64748B;
+      line-height: 1.4;
+    }
+
+    /* How to Install Card */
+    .steps-card {
+      background: rgba(255, 255, 255, 0.035);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 20px;
+      padding: 18px;
+      margin-bottom: 20px;
+    }
+
+    .step-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .step-row:last-child {
+      margin-bottom: 0;
+    }
+
+    .step-num {
+      width: 28px;
+      height: 28px;
+      border-radius: 14px;
+      background: #4F46E5;
+      color: #FFFFFF;
+      font-size: 12px;
+      font-weight: 900;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      box-shadow: 0 4px 10px rgba(79, 70, 229, 0.4);
+    }
+
+    .step-text-title {
+      font-size: 12px;
+      font-weight: 800;
+      color: #F1F5F9;
+    }
+
+    .step-text-sub {
+      font-size: 10px;
+      color: #94A3B8;
+      margin-top: 2px;
+    }
+
+    /* Footer */
+    .footer {
+      text-align: center;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+      padding-top: 20px;
+    }
+
+    .disclaimer {
+      font-size: 9px;
+      color: #475569;
+      line-height: 1.5;
+      margin-bottom: 10px;
+    }
+
+    .copyright {
+      font-size: 10px;
+      color: #64748B;
+      font-weight: 700;
+    }
+
+    /* Sticky Bottom Download CTA */
+    .sticky-bottom-bar {
+      position: fixed;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 100%;
+      max-width: 480px;
+      background: rgba(11, 15, 25, 0.95);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border-top: 1.5px solid rgba(16, 185, 129, 0.35);
+      padding: 10px 16px;
+      z-index: 99;
+    }
+
+    .sticky-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+      color: #FFFFFF;
+      text-decoration: none;
+      padding: 14px;
+      border-radius: 14px;
+      font-size: 14px;
+      font-weight: 900;
+      letter-spacing: 0.5px;
+      box-shadow: 0 4px 18px rgba(16, 185, 129, 0.4);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="mobile-wrapper">
+    <!-- Top Header Bar -->
+    <header class="top-header">
+      <div class="brand-logo">
+        <img src="/app-icon.png" alt="Dream Ludo App Icon" class="app-icon-img" />
+        <div>
+          <div class="brand-title">DREAM LUDO</div>
+          <div class="brand-sub">
+            <span class="online-dot"></span> REAL MONEY GAMING
+          </div>
+        </div>
+      </div>
+
+      <div class="trust-pill">
+        <span>🛡️</span> 100% SAFE
+      </div>
+    </header>
+
+    <!-- Main Hero Download Section -->
+    <section class="hero-card">
+      <!-- App Icon Spotlight -->
+      <div class="hero-app-showcase">
+        <img src="/app-icon.png" alt="Dream Ludo" class="hero-app-icon" />
+      </div>
+
+      <div class="welcome-chip">
+        🎁 GET ₹10 FREE SIGNUP BONUS
+      </div>
+
+      <h1 class="hero-headline">
+        PLAY LUDO & WIN <span>REAL CASH!</span>
+      </h1>
+
+      <p class="hero-subtitle">
+        Join 1,000,000+ Players in 1v1 Real Money Matches. Automated Instant UPI Deposit & Withdrawals!
+      </p>
+
+      <!-- Rating & Downloads Metrics -->
+      <div class="rating-row">
+        <div class="rating-col">
+          <span style="color: #F59E0B;">⭐ 4.9/5</span>
+          <span>(120K+ Reviews)</span>
+        </div>
+        <div class="rating-divider"></div>
+        <div class="rating-col">
+          <span>📥 1M+ Downloads</span>
+        </div>
+      </div>
+
+      <a href="/download/apk" class="download-btn" id="downloadBtn">
+        <span>⚡ DOWNLOAD OFFICIAL APK NOW</span>
+      </a>
+
+      <div class="file-info">
+        v1.0.4 • 24.5 MB • Android 6.0+ Supported
+      </div>
+    </section>
+
+    <!-- App Highlights Grid -->
+    <h2 class="section-title">⚡ WHY PLAY DREAM LUDO?</h2>
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon">💰</div>
+        <div class="feature-name">₹1 to ₹10,000</div>
+        <div class="feature-desc">Play 1v1 stakes with minimum entry fee.</div>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">⚡</div>
+        <div class="feature-name">Instant Auto-Deposit</div>
+        <div class="feature-desc">Dynamic QR auto-credits your wallet in 1s.</div>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">💸</div>
+        <div class="feature-name">Instant Payouts</div>
+        <div class="feature-desc">Withdraw winnings straight to your UPI account.</div>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">🛡️</div>
+        <div class="feature-name">100% Fair Play</div>
+        <div class="feature-desc">RNG certified dice rolling & anti-cheat shield.</div>
+      </div>
+    </div>
+
+    <!-- How to Install Guide -->
+    <h2 class="section-title">📲 3-STEP INSTALLATION GUIDE</h2>
+    <div class="steps-card">
+      <div class="step-row">
+        <div class="step-num">1</div>
+        <div>
+          <div class="step-text-title">Tap 'Download Official APK' Button</div>
+          <div class="step-text-sub">Download official Dream Ludo APK file (24.5 MB).</div>
+        </div>
+      </div>
+
+      <div class="step-row">
+        <div class="step-num">2</div>
+        <div>
+          <div class="step-text-title">Enable Unknown Sources</div>
+          <div class="step-text-sub">If prompted by phone, allow installation from browser.</div>
+        </div>
+      </div>
+
+      <div class="step-row">
+        <div class="step-num">3</div>
+        <div>
+          <div class="step-text-title">Open & Claim ₹10 Cash</div>
+          <div class="step-text-sub">Sign up with your phone number and claim welcome bonus!</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <p class="disclaimer">
+        Disclaimer: This game involves an element of financial risk and may be addictive. Please play responsibly. Strictly for 18+ players only.
+      </p>
+      <p class="copyright">
+        © 2026 Dream Ludo. All Rights Reserved.
+      </p>
+    </footer>
+  </div>
+
+  <!-- Sticky Bottom Download Bar for Mobile Viewports -->
+  <div class="sticky-bottom-bar">
+    <a href="/download/apk" class="sticky-btn">
+      <span>⬇️ DOWNLOAD DREAM LUDO APK</span>
+    </a>
+  </div>
+
+</body>
+</html>

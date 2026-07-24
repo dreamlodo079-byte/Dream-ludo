@@ -360,8 +360,19 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
       return;
     }
 
-    // Instantly launch native device UPI apps (GPay, PhonePe, Paytm)
-    const upiUri = `upi://pay?pa=${encodeURIComponent('6261069826-2.wallet@phonepe')}&pn=${encodeURIComponent('Dream Ludo')}&am=${amount.toFixed(2)}&cu=INR`;
+    // Always fetch the live updated Platform UPI ID from backend MongoDB config
+    let livePayeeUpi = '6261069826-2.wallet@phonepe';
+    try {
+      const res = await axios.get(`${API_SERVER_URL}/api/v1/wallet/config`);
+      if (res.data?.success && res.data?.platformUpiId) {
+        livePayeeUpi = res.data.platformUpiId.trim();
+      }
+    } catch (e) {
+      console.warn('Config fetch error in handleDeposit:', e);
+    }
+
+    // Launch native device UPI apps with the LIVE configured payee UPI ID
+    const upiUri = `upi://pay?pa=${encodeURIComponent(livePayeeUpi)}&pn=${encodeURIComponent('Dream Ludo')}&am=${amount.toFixed(2)}&cu=INR`;
     try {
       const supported = await Linking.canOpenURL(upiUri);
       if (supported) {
@@ -1991,6 +2002,9 @@ const styles = StyleSheet.create({
   contentContainer: {
     padding: 20,
     paddingBottom: 110, // Account for Bottom Floating Capsule Footer bar spacing
+    width: '100%',
+    maxWidth: 640,
+    alignSelf: 'center',
   },
   authContainer: {
     flex: 1,
