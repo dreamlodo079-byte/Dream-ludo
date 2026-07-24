@@ -4,6 +4,8 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import helmet from 'helmet';
 import jwt from 'jsonwebtoken';
+import path from 'path';
+import fs from 'fs';
 import { connectDB, runInTransaction } from './config/db';
 import { connectRedis } from './config/redis';
 import { seedPlatformDatabase } from './config/seed';
@@ -73,6 +75,23 @@ app.use('/api/leaderboard', leaderboardRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/admin', adminWalletRouter);
 app.use('/api/v1/admin', adminWalletRouter);
+
+// Serve public mobile-first APK download landing page
+const publicDir = path.join(__dirname, '../public');
+app.use(express.static(publicDir));
+app.use(express.static('public'));
+
+// Direct APK Download Endpoint
+app.get(['/download/apk', '/dream-ludo.apk', '/download'], (_req, res) => {
+  const apkPath = path.join(publicDir, 'downloads/dream-ludo.apk');
+  if (fs.existsSync(apkPath)) {
+    return res.download(apkPath, 'Dream-Ludo.apk');
+  }
+
+  res.setHeader('Content-Type', 'application/vnd.android.package-archive');
+  res.setHeader('Content-Disposition', 'attachment; filename="Dream-Ludo.apk"');
+  return res.send(Buffer.from('Dream Ludo APK Build Artifact Placeholder.'));
+});
 
 // Daily challenges query route
 app.get('/api/challenges/:userId', async (req, res) => {

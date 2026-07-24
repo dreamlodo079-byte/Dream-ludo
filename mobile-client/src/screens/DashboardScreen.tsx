@@ -1330,6 +1330,9 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 28,
     padding: 20,
     maxHeight: '85%',
+    width: '100%',
+    maxWidth: 640,
+    alignSelf: 'center',
   },
   modalHeaderRow: {
     flexDirection: 'row',

@@ -11,7 +11,7 @@ import { ChallengeScreen } from './src/screens/ChallengeScreen';
 import { WalletProvider, useWallet } from './src/hooks/useWallet';
 import { MatchmakingCardOverlay } from './src/components/MatchmakingCardOverlay';
 import { CustomToast, ToastOptions } from './src/components/CustomToast';
-import { CustomAlertModal, CustomAlertOptions } from './src/components/CustomAlertModal';
+import { saveUserSession, loadUserSession, saveCurrentView, clearUserSession } from './src/utils/storage';
 
 const API_SERVER_URL = process.env.EXPO_PUBLIC_SERVER_URL || 'http://localhost:5000';
 
@@ -24,6 +24,7 @@ interface UserProfile {
   kycType?: 'PAN' | 'AADHAAR' | null;
   kycDocumentNumber?: string | null;
   kycName?: string | null;
+  avatar?: string;
 }
 
 export default function App() {
@@ -69,26 +70,33 @@ function AppContent() {
   const [matchedOpponent, setMatchedOpponent] = useState<any>(null);
   const [toast, setToast] = useState<ToastOptions>({ visible: false, message: '', type: 'info' });
 
-  // Load session from localStorage on startup
+  // Load persistent user session on startup across iOS, Android, and Web
   useEffect(() => {
-    if (Platform.OS === 'web') {
-      const savedUser = localStorage.getItem('currentUser');
-      const savedView = localStorage.getItem('view');
-      const savedToken = localStorage.getItem('authToken');
-      if (savedUser) {
-        setCurrentUser(JSON.parse(savedUser));
-        if (savedToken) {
-          axios.defaults.headers.common['x-auth-token'] = savedToken;
+    const initSession = async () => {
+      const { user, token, lastView } = await loadUserSession();
+      if (user) {
+        setCurrentUser(user);
+        setView(lastView === 'game' ? 'dashboard' : (lastView as any) || 'dashboard');
+
+        // Refresh profile silently in background
+        try {
+          const res = await axios.get(`${API_SERVER_URL}/api/users/profile/${user._id}`);
+          if (res.data?.user) {
+            setCurrentUser(res.data.user);
+            await saveUserSession(res.data.user, token || undefined);
+          }
+        } catch (e) {
+          // Keep saved user
         }
-        setView(savedView === 'game' ? 'dashboard' : (savedView as any) || 'dashboard');
       }
-    }
+    };
+    initSession();
   }, []);
 
-  // Sync view to localStorage on view changes
+  // Sync view changes to persistent storage
   useEffect(() => {
-    if (Platform.OS === 'web' && currentUser) {
-      localStorage.setItem('view', view);
+    if (currentUser) {
+      saveCurrentView(view);
     }
   }, [view, currentUser]);
 
@@ -185,19 +193,10 @@ function AppContent() {
     }
   }, [winnerInfo, currentUser, fetchWallet]);
 
-  const handleLoginSuccess = (user: UserProfile, token?: string) => {
+  const handleLoginSuccess = async (user: UserProfile, token?: string) => {
     setCurrentUser(user);
     setView('dashboard');
-    if (token) {
-      axios.defaults.headers.common['x-auth-token'] = token;
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-    }
-    if (Platform.OS === 'web') {
-      localStorage.setItem('currentUser', JSON.stringify(user));
-      if (token) {
-        localStorage.setItem('authToken', token);
-      }
-    }
+    await saveUserSession(user, token);
   };
 
   const handleLeaveMatch = () => {
@@ -206,21 +205,15 @@ function AppContent() {
     setView('dashboard');
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     setCurrentUser(null);
     setView('auth');
-    if (Platform.OS === 'web') {
-      localStorage.removeItem('currentUser');
-      localStorage.removeItem('authToken');
-      localStorage.removeItem('view');
-    }
+    await clearUserSession();
   };
 
-  const handleUserUpdate = (updatedUser: any) => {
+  const handleUserUpdate = async (updatedUser: any) => {
     setCurrentUser(updatedUser);
-    if (Platform.OS === 'web') {
-      localStorage.setItem('currentUser', JSON.stringify(updatedUser));
-    }
+    await saveUserSession(updatedUser);
   };
 
   return (
@@ -241,13 +234,22 @@ function AppContent() {
             currentUser={currentUser}
             socketId={socket?.id || null}
             socket={socket}
-            onMatchFound={(roomId) => {
+            onMatchFound={(roomId: string) => {
               setActiveRoomId(roomId);
               setView('game');
             }}
-            onGoToWallet={() => {}}
+            onGoToWallet={() => setView('wallet')}
             onGoToLeaderboard={() => setView('leaderboard')}
             onGoToChallenges={() => setView('challenges')}
+            onLogout={handleLogout}
+            onUserUpdate={handleUserUpdate}
+          />
+        )}
+
+        {view === 'wallet' && currentUser && (
+          <AuthWalletScreen
+            currentUser={currentUser}
+            onLoginSuccess={handleLoginSuccess}
             onLogout={handleLogout}
             onUserUpdate={handleUserUpdate}
           />
@@ -293,11 +295,55 @@ function AppContent() {
         durationSeconds={30}
         entryFee={matchFoundData?.entryFee}
       />
+
       {/* Top Floating Toast Notification */}
       <CustomToast
         toast={toast}
         onDismiss={() => setToast((prev) => ({ ...prev, visible: false }))}
       />
+
+      {/* Bottom Global Navigation Bar */}
+      {currentUser && (view === 'dashboard' || view === 'wallet' || view === 'leaderboard' || view === 'challenges') && (
+        <View style={styles.navBarWrapper}>
+          <View style={styles.navBarCapsule}>
+            <TouchableOpacity 
+              style={[styles.navTab, view === 'dashboard' && styles.navTabActive]} 
+              onPress={() => setView('dashboard')}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.navIcon}>🏠</Text>
+              <Text style={[styles.navText, view === 'dashboard' && styles.navTextActive]}>HOME</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={[styles.navTab, view === 'challenges' && styles.navTabActive]} 
+              onPress={() => setView('challenges')}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.navIcon}>🎯</Text>
+              <Text style={[styles.navText, view === 'challenges' && styles.navTextActive]}>TASKS</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={[styles.navTab, view === 'leaderboard' && styles.navTabActive]} 
+              onPress={() => setView('leaderboard')}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.navIcon}>🏆</Text>
+              <Text style={[styles.navText, view === 'leaderboard' && styles.navTextActive]}>RANKS</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={[styles.navTab, view === 'wallet' && styles.navTabActive]} 
+              onPress={() => setView('wallet')}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.navIcon}>👤</Text>
+              <Text style={[styles.navText, view === 'wallet' && styles.navTextActive]}>PROFILE</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -312,5 +358,53 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 600,
     alignSelf: 'center',
+  },
+  navBarWrapper: {
+    position: 'absolute',
+    bottom: 20,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  navBarCapsule: {
+    flexDirection: 'row',
+    backgroundColor: '#0F172A',
+    borderRadius: 30,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.35,
+    shadowRadius: 20,
+    elevation: 10,
+    gap: 8,
+    maxWidth: 400,
+    width: '90%',
+  },
+  navTab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 22,
+    gap: 6,
+  },
+  navTabActive: {
+    backgroundColor: '#4F46E5',
+  },
+  navIcon: {
+    fontSize: 16,
+  },
+  navText: {
+    color: '#94A3B8',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  navTextActive: {
+    color: '#FFFFFF',
   },
 });

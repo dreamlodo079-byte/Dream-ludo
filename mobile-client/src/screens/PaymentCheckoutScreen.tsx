@@ -294,6 +294,9 @@ const styles = StyleSheet.create({
   content: {
     padding: 16,
     paddingBottom: 140,
+    width: '100%',
+    maxWidth: 640,
+    alignSelf: 'center',
   },
   topBar: {
     flexDirection: 'row',
@@ -407,6 +410,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: '#E2E8F0',
     marginBottom: 16,
+    width: '100%',
   },
   cardHeaderRow: {
     flexDirection: 'row',
