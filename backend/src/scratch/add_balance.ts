@@ -9,33 +9,37 @@ const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/dream_ludo
 async function run() {
   console.log('Connecting to database...');
   await mongoose.connect(MONGO_URI);
-  console.log('Connected!');
+  console.log('Connected to MongoDB!');
 
-  const phone = '9405107842';
-  const user = await User.findOne({ phone });
+  const phoneInput = '7389927777';
+  const normalizedPhone = phoneInput.trim().slice(-10);
+
+  // Search for user matching phone number
+  const user = await User.findOne({
+    $or: [{ phone: phoneInput }, { phone: normalizedPhone }, { phone: `+91${normalizedPhone}` }]
+  });
 
   if (!user) {
-    console.error(`User with phone number ${phone} not found!`);
+    console.error(`User with phone number ${phoneInput} not found!`);
     await mongoose.disconnect();
     return;
   }
 
-  console.log(`Found user: ${user.username} (ID: ${user._id})`);
-  console.log(`Current Balances -> Deposit: ₹${user.depositBalance}, Winnings: ₹${user.winningsBalance}`);
+  console.log(`Found User: ${user.username} | Phone: ${user.phone} | ID: ${user._id}`);
+  console.log(`Initial Balances -> Deposit: ₹${user.depositBalance || 0}, Winnings: ₹${user.winningsBalance || 0}, Bonus: ₹${user.bonusBalance || 0}`);
 
-  // Add ₹5000 deposit and ₹5000 winnings
-  user.depositBalance += 5000;
-  user.winningsBalance += 5000;
+  // Credit ₹1000 Winnings Balance
+  user.winningsBalance = (user.winningsBalance || 0) + 1000;
 
   await user.save();
 
-  console.log(`Updated Balances -> Deposit: ₹${user.depositBalance}, Winnings: ₹${user.winningsBalance}`);
-  console.log('Balance added successfully!');
+  console.log(`Updated Balances -> Deposit: ₹${user.depositBalance || 0}, Winnings: ₹${user.winningsBalance || 0}, Bonus: ₹${user.bonusBalance || 0}`);
+  console.log(`SUCCESSFULLY ADDED ₹1000 WINNINGS BALANCE TO ${user.username} (${user.phone})!`);
 
   await mongoose.disconnect();
 }
 
 run().catch((err) => {
-  console.error('Error running script:', err);
+  console.error('Error executing script:', err);
   mongoose.disconnect();
 });

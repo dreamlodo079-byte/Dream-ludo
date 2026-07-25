@@ -12,6 +12,7 @@ import {
   RefreshControl,
   TextInput,
   Modal,
+  Image,
 } from 'react-native';
 import Svg, { Path, Circle, Rect, Line, Polyline } from 'react-native-svg';
 import axios from 'axios';
@@ -682,7 +683,10 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({ onBack }) =>
       {/* Admin Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <Text style={styles.headerTitle}>🎛️ ADMIN TERMINAL</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Image source={require('../../assets/Dlogo.png')} style={{ width: 28, height: 28, borderRadius: 6, marginRight: 8 }} />
+            <Text style={styles.headerTitle}>ADMIN TERMINAL</Text>
+          </View>
           <View style={styles.securityBadge}>
             <View style={styles.securityDot} />
             <Text style={styles.securityText}>ADMIN ACCESS</Text>

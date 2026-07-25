@@ -14,6 +14,8 @@ import {
   Modal,
   KeyboardAvoidingView,
   Platform,
+  Image,
+  StatusBar,
 } from 'react-native';
 import axios from 'axios';
 import Svg, { Circle, Path, Rect, Defs, RadialGradient, Stop, Polyline, LinearGradient } from 'react-native-svg';
@@ -562,9 +564,12 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
           {/* Luxury Top Header (Notification Bell + Wallet Balance Pill + Crown Avatar) */}
           <View style={styles.header}>
-            <Text style={styles.logoText}>DREAM LUDO</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Image source={require('../../assets/Dlogo.png')} style={{ width: 30, height: 30, borderRadius: 7, marginRight: 6 }} />
+              <Text style={styles.logoText}>DREAM LUDO</Text>
+            </View>
 
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
               {/* Notification Center Golden Bell */}
               <View style={styles.headerBellPill}>
                 <NotificationCenter currentUser={currentUser} socket={socket} />
@@ -572,7 +577,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
 
               {/* Wallet Balance Pill */}
               <TouchableOpacity style={styles.walletPill} onPress={() => setCurrentView('PROFILE')}>
-                <Svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4F46E5" strokeWidth="2.5" style={{ marginRight: 6 }}>
+                <Svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#4F46E5" strokeWidth="2.5" style={{ marginRight: 4 }}>
                   <Rect x="2" y="5" width="20" height="14" rx="2" />
                   <Path d="M2 10h20M6 14h4" />
                 </Svg>
@@ -581,7 +586,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
 
               {/* Profile Crown Avatar */}
               <TouchableOpacity style={styles.avatarHeaderBtn} onPress={() => setCurrentView('PROFILE')}>
-                <Text style={{ fontSize: 20 }}>{(currentUser as any)?.avatar || '👑'}</Text>
+                <Text style={{ fontSize: 18 }}>{(currentUser as any)?.avatar || '👑'}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -1640,12 +1645,12 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   header: {
-    height: 70,
+    height: 60,
     backgroundColor: '#FFFFFF',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 12,
     borderBottomWidth: 1,
     borderColor: '#E2E8F0',
     shadowColor: '#334155',
@@ -1653,13 +1658,13 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.04,
     shadowRadius: 8,
     elevation: 3,
-    marginTop: Platform.OS === 'android' ? 24 : 0,
+    marginTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 24) : 0,
   },
   logoText: {
-    fontSize: 22,
+    fontSize: 16,
     fontWeight: '900',
     color: '#4F46E5', // Premium indigo accent
-    letterSpacing: 3,
+    letterSpacing: 1.2,
   },
   walletPill: {
     flexDirection: 'row',

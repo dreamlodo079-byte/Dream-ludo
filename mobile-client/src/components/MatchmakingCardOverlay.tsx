@@ -505,7 +505,7 @@ export const MatchmakingCardOverlay: React.FC<MatchmakingCardOverlayProps> = ({
 
               {/* Center Radar Beacon Core */}
               <View style={styles.radarCenterBeacon}>
-                <View style={styles.radarCenterCore} />
+                <Image source={require('../../assets/Dlogo.png')} style={{ width: 44, height: 44, borderRadius: 10 }} />
               </View>
 
               {/* Simulated Teeming Discovered Player Dots (Randomized Coordinates) */}

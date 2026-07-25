@@ -43,6 +43,7 @@ interface UserProfile {
   _id: string;
   phone: string;
   username: string;
+  avatar?: string;
 }
 
 interface GameScreenProps {
@@ -304,6 +305,7 @@ const getArrowPath = (cx: number, cy: number, size: number, direction: 'up' | 'd
 // ============ PLAYER CARD (PREMIUM LIKE MPL/ZUPEE) ============
 interface PlayerCardProps {
   username: string;
+  avatar?: string;
   phone?: string;
   color: 'red' | 'green';
   isActive: boolean;
@@ -315,7 +317,7 @@ interface PlayerCardProps {
   isDiceAnimating: boolean;
   canRoll: boolean;
   onRoll: () => void;
-  avatarUri: any;
+  avatarUri?: any;
   diceTransform?: any[];
   score?: number;
   missedTurns?: number;
@@ -332,6 +334,7 @@ const maskPhone = (phone?: string) => {
 
 const PlayerCard: React.FC<PlayerCardProps> = ({
   username,
+  avatar,
   phone,
   color,
   isActive,
@@ -455,14 +458,25 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
     );
   };
 
-  const renderAvatar = () => (
-    <View style={{ alignItems: 'center' }}>
-      <View style={[styles.avatarBorderContainer, { borderColor: c.primary }]}>
-        <Image source={avatarUri} style={styles.avatarImageLarge} />
+  const renderAvatar = () => {
+    const isImage = avatar && (avatar.startsWith('http') || avatar.startsWith('file'));
+    return (
+      <View style={{ alignItems: 'center' }}>
+        <View style={[styles.avatarBorderContainer, { borderColor: c.primary, backgroundColor: '#0F172A' }]}>
+          {isImage ? (
+            <Image source={{ uri: avatar }} style={styles.avatarImageLarge} />
+          ) : avatar ? (
+            <Text style={{ fontSize: 36 }}>{avatar}</Text>
+          ) : avatarUri ? (
+            <Image source={avatarUri} style={styles.avatarImageLarge} />
+          ) : (
+            <Text style={{ fontSize: 36 }}>👑</Text>
+          )}
+        </View>
+        {renderHearts()}
       </View>
-      {renderHearts()}
-    </View>
-  );
+    );
+  };
 
   return (
     <View style={[styles.diagonalCardContainer, { alignItems: align === 'right' ? 'flex-end' : 'flex-start' }]}>
@@ -513,7 +527,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
 }) => {
   const { width, height } = useWindowDimensions();
   const MAX_BOARD_WIDTH = Math.min(width - 20, 500);
-  const BOARD_SIZE = Math.max(200, Math.min(MAX_BOARD_WIDTH, height - 380));
+  const BOARD_SIZE = Math.max(200, Math.min(MAX_BOARD_WIDTH, height - 420));
   const CELL_SIZE = BOARD_SIZE / 15;
 
   const [diceDisplayVal, setDiceDisplayVal] = useState<number>(1);
@@ -1123,13 +1137,13 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   };
 
   const playerScores = useMemo(() => {
-    return matchState?.players?.map((_, idx) => matchState.scores?.[idx] || 0) || [];
+    return matchState?.players?.map((_: any, idx: number) => matchState.scores?.[idx] || 0) || [];
   }, [matchState?.scores, matchState?.players]);
 
   const playerRanks = useMemo(() => {
     if (!playerScores.length) return [];
-    const sortedScores = [...playerScores].sort((a, b) => b - a);
-    return playerScores.map(score => sortedScores.indexOf(score) + 1);
+    const sortedScores = [...playerScores].sort((a: number, b: number) => b - a);
+    return playerScores.map((score: number) => sortedScores.indexOf(score) + 1);
   }, [playerScores]);
 
   const getRankText = (rank: number) => {
@@ -1226,6 +1240,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
                 <View key={p.id} style={wrapperStyle}>
                   <PlayerCard
                     username={p.username || `Player ${idx + 1}`}
+                    avatar={p.avatar || (p.id === currentUser._id ? currentUser.avatar : undefined)}
                     phone={p.id === currentUser._id ? currentUser.phone : undefined}
                     color={p.color as any}
                     isActive={matchState.activePlayerIndex === idx}
@@ -1398,30 +1413,38 @@ export const GameScreen: React.FC<GameScreenProps> = ({
                         {/* Entrance position arrows */}
                         {isRedEntrance && (
                           <Path
-                            d={getArrowPath(coord.x * CELL_SIZE + CELL_SIZE / 2 + CELL_SIZE * 0.12, coord.y * CELL_SIZE + CELL_SIZE / 2, CELL_SIZE, 'right')}
+                            d={getArrowPath(coord.x * CELL_SIZE + CELL_SIZE / 2, coord.y * CELL_SIZE + CELL_SIZE / 2, CELL_SIZE, 'right')}
                             fill="url(#redGrad)"
-                            opacity={0.9}
+                            stroke="#FFFFFF"
+                            strokeWidth={1.5}
+                            opacity={0.95}
                           />
                         )}
                         {isYellowEntrance && (
                           <Path
-                            d={getArrowPath(coord.x * CELL_SIZE + CELL_SIZE / 2, coord.y * CELL_SIZE + CELL_SIZE / 2 + CELL_SIZE * 0.12, CELL_SIZE, 'down')}
+                            d={getArrowPath(coord.x * CELL_SIZE + CELL_SIZE / 2, coord.y * CELL_SIZE + CELL_SIZE / 2, CELL_SIZE, 'down')}
                             fill="url(#yellowGrad)"
-                            opacity={0.9}
+                            stroke="#FFFFFF"
+                            strokeWidth={1.5}
+                            opacity={0.95}
                           />
                         )}
                         {isGreenEntrance && (
                           <Path
-                            d={getArrowPath(coord.x * CELL_SIZE + CELL_SIZE / 2 - CELL_SIZE * 0.12, coord.y * CELL_SIZE + CELL_SIZE / 2, CELL_SIZE, 'left')}
+                            d={getArrowPath(coord.x * CELL_SIZE + CELL_SIZE / 2, coord.y * CELL_SIZE + CELL_SIZE / 2, CELL_SIZE, 'left')}
                             fill="url(#greenGrad)"
-                            opacity={0.9}
+                            stroke="#FFFFFF"
+                            strokeWidth={1.5}
+                            opacity={0.95}
                           />
                         )}
                         {isBlueEntrance && (
                           <Path
-                            d={getArrowPath(coord.x * CELL_SIZE + CELL_SIZE / 2, coord.y * CELL_SIZE + CELL_SIZE / 2 - CELL_SIZE * 0.12, CELL_SIZE, 'up')}
+                            d={getArrowPath(coord.x * CELL_SIZE + CELL_SIZE / 2, coord.y * CELL_SIZE + CELL_SIZE / 2, CELL_SIZE, 'up')}
                             fill="url(#blueGrad)"
-                            opacity={0.9}
+                            stroke="#FFFFFF"
+                            strokeWidth={1.5}
+                            opacity={0.95}
                           />
                         )}
                       </G>
@@ -2527,11 +2550,11 @@ const styles = StyleSheet.create({
   premiumPrizePoolValue: { fontSize: 18, color: '#FFFFFF', fontWeight: '900', marginTop: 2 },
   matchTimerCapsule: { backgroundColor: '#166534', paddingHorizontal: 16, paddingVertical: 6, borderRadius: 20, borderWidth: 2, borderColor: '#22C55E' },
   matchTimerText: { color: '#FFFFFF', fontWeight: '900', fontSize: 14, letterSpacing: 1 },
-  arenaContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', position: 'relative' },
-  topLeftPlayerWrapper: { position: 'absolute', top: -45, left: -10, zIndex: 100 },
-  topRightPlayerWrapper: { position: 'absolute', top: -45, right: -10, zIndex: 100 },
-  bottomLeftPlayerWrapper: { position: 'absolute', bottom: -45, left: -10, zIndex: 100 },
-  bottomRightPlayerWrapper: { position: 'absolute', bottom: -45, right: -10, zIndex: 100 },
+  arenaContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', position: 'relative', marginTop: -35 },
+  topLeftPlayerWrapper: { position: 'absolute', top: 10, left: -10, zIndex: 100 },
+  topRightPlayerWrapper: { position: 'absolute', top: 10, right: -10, zIndex: 100 },
+  bottomLeftPlayerWrapper: { position: 'absolute', bottom: 10, left: -10, zIndex: 100 },
+  bottomRightPlayerWrapper: { position: 'absolute', bottom: 10, right: -10, zIndex: 100 },
   diagonalCardContainer: { alignItems: 'center' },
   nameBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, marginBottom: 4 },
   nameBadgeText: { color: '#FFF', fontSize: 10, fontWeight: '900', letterSpacing: 0.5 },

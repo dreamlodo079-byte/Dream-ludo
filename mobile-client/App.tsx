@@ -301,49 +301,6 @@ function AppContent() {
         toast={toast}
         onDismiss={() => setToast((prev) => ({ ...prev, visible: false }))}
       />
-
-      {/* Bottom Global Navigation Bar */}
-      {currentUser && (view === 'dashboard' || view === 'wallet' || view === 'leaderboard' || view === 'challenges') && (
-        <View style={styles.navBarWrapper}>
-          <View style={styles.navBarCapsule}>
-            <TouchableOpacity 
-              style={[styles.navTab, view === 'dashboard' && styles.navTabActive]} 
-              onPress={() => setView('dashboard')}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.navIcon}>🏠</Text>
-              <Text style={[styles.navText, view === 'dashboard' && styles.navTextActive]}>HOME</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={[styles.navTab, view === 'challenges' && styles.navTabActive]} 
-              onPress={() => setView('challenges')}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.navIcon}>🎯</Text>
-              <Text style={[styles.navText, view === 'challenges' && styles.navTextActive]}>TASKS</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={[styles.navTab, view === 'leaderboard' && styles.navTabActive]} 
-              onPress={() => setView('leaderboard')}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.navIcon}>🏆</Text>
-              <Text style={[styles.navText, view === 'leaderboard' && styles.navTextActive]}>RANKS</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={[styles.navTab, view === 'wallet' && styles.navTabActive]} 
-              onPress={() => setView('wallet')}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.navIcon}>👤</Text>
-              <Text style={[styles.navText, view === 'wallet' && styles.navTextActive]}>PROFILE</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      )}
     </SafeAreaView>
   );
 }
@@ -358,53 +315,5 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 600,
     alignSelf: 'center',
-  },
-  navBarWrapper: {
-    position: 'absolute',
-    bottom: 20,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  navBarCapsule: {
-    flexDirection: 'row',
-    backgroundColor: '#0F172A',
-    borderRadius: 30,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.35,
-    shadowRadius: 20,
-    elevation: 10,
-    gap: 8,
-    maxWidth: 400,
-    width: '90%',
-  },
-  navTab: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    borderRadius: 22,
-    gap: 6,
-  },
-  navTabActive: {
-    backgroundColor: '#4F46E5',
-  },
-  navIcon: {
-    fontSize: 16,
-  },
-  navText: {
-    color: '#94A3B8',
-    fontSize: 10,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-  },
-  navTextActive: {
-    color: '#FFFFFF',
   },
 });

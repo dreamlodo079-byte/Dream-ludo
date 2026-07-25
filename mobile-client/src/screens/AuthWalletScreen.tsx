@@ -14,6 +14,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Share,
+  Image,
 } from 'react-native';
 import Svg, { Rect, Path, G, Defs, LinearGradient, Stop, Circle, Line, Polyline } from 'react-native-svg';
 import axios from 'axios';
@@ -612,8 +613,8 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
           <View style={styles.authCard}>
             {/* Logo & Brand */}
             <View style={styles.authLogoRow}>
-              <View style={styles.authLogoCircle}>
-                <Text style={styles.authLogoEmoji}>🎲</Text>
+              <View style={[styles.authLogoCircle, { backgroundColor: 'transparent', overflow: 'hidden' }]}>
+                <Image source={require('../../assets/Dlogo.png')} style={{ width: 68, height: 68, borderRadius: 16 }} />
               </View>
             </View>
             <Text style={styles.heading}>DREAM LUDO</Text>
