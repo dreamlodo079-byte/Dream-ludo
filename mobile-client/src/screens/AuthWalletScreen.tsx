@@ -614,7 +614,7 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
             {/* Logo & Brand */}
             <View style={styles.authLogoRow}>
               <View style={[styles.authLogoCircle, { backgroundColor: 'transparent', overflow: 'hidden' }]}>
-                <Image source={require('../../assets/Dlogo.png')} style={{ width: 68, height: 68, borderRadius: 16 }} />
+                <Image source={require('../../assets/logo_ludo.jpeg')} style={{ width: 68, height: 68, borderRadius: 16 }} />
               </View>
             </View>
             <Text style={styles.heading}>DREAM LUDO</Text>

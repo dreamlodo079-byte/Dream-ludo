@@ -565,7 +565,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           {/* Luxury Top Header (Notification Bell + Wallet Balance Pill + Crown Avatar) */}
           <View style={styles.header}>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Image source={require('../../assets/Dlogo.png')} style={{ width: 30, height: 30, borderRadius: 7, marginRight: 6 }} />
+              <Image source={require('../../assets/logo_ludo.jpeg')} style={{ width: 30, height: 30, borderRadius: 7, marginRight: 6 }} />
               <Text style={styles.logoText}>DREAM LUDO</Text>
             </View>
 

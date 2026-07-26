@@ -684,7 +684,7 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({ onBack }) =>
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Image source={require('../../assets/Dlogo.png')} style={{ width: 28, height: 28, borderRadius: 6, marginRight: 8 }} />
+            <Image source={require('../../assets/logo_ludo.jpeg')} style={{ width: 28, height: 28, borderRadius: 6, marginRight: 8 }} />
             <Text style={styles.headerTitle}>ADMIN TERMINAL</Text>
           </View>
           <View style={styles.securityBadge}>
