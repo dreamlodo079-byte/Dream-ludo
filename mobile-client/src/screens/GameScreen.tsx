@@ -286,19 +286,21 @@ const renderStar = (cx: number, cy: number, r: number) => {
 };
 
 const getStarPath = renderStar;
-
 // ============ ARROW PATH FOR HOME ENTRY ============
 const getArrowPath = (cx: number, cy: number, size: number, direction: 'up' | 'down' | 'left' | 'right') => {
-  const s = size * 0.35;
+  const s = size * 0.32;
+  // Shift arrow by s/3 toward tip so the triangle's centroid sits at (cx, cy).
+  // Without this, the visual center of mass leans toward the base (outer wall).
+  const d = s / 3;
   switch (direction) {
     case 'right':
-      return `M ${cx - s} ${cy - s} L ${cx + s} ${cy} L ${cx - s} ${cy + s} Z`;
+      return `M ${cx - s + d} ${cy - s} L ${cx + s + d} ${cy} L ${cx - s + d} ${cy + s} Z`;
     case 'left':
-      return `M ${cx + s} ${cy - s} L ${cx - s} ${cy} L ${cx + s} ${cy + s} Z`;
+      return `M ${cx + s - d} ${cy - s} L ${cx - s - d} ${cy} L ${cx + s - d} ${cy + s} Z`;
     case 'up':
-      return `M ${cx - s} ${cy + s} L ${cx} ${cy - s} L ${cx + s} ${cy + s} Z`;
+      return `M ${cx - s} ${cy + s - d} L ${cx} ${cy - s - d} L ${cx + s} ${cy + s - d} Z`;
     case 'down':
-      return `M ${cx - s} ${cy - s} L ${cx} ${cy + s} L ${cx + s} ${cy - s} Z`;
+      return `M ${cx - s} ${cy - s + d} L ${cx} ${cy + s + d} L ${cx + s} ${cy - s + d} Z`;
   }
 };
 
@@ -480,29 +482,19 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
 
   return (
     <View style={[styles.diagonalCardContainer, { alignItems: align === 'right' ? 'flex-end' : 'flex-start' }]}>
-      {align === 'right' && (
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-          {score !== undefined && renderScorePill()}
-          <View style={[styles.nameBadge, { backgroundColor: c.primary, marginBottom: 0 }]}>
-            <Text style={styles.nameBadgeText}>{username.toUpperCase()}</Text>
-          </View>
-        </View>
-      )}
-
       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
         {align === 'right' && renderDiceBubble()}
         {renderAvatar()}
         {align === 'left' && renderDiceBubble()}
       </View>
 
-      {align === 'left' && (
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
-          <View style={[styles.nameBadge, { backgroundColor: c.primary }]}>
-            <Text style={styles.nameBadgeText}>{maskPhone(phone)}</Text>
-          </View>
-          {score !== undefined && renderScorePill()}
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+        {align === 'right' && score !== undefined && renderScorePill()}
+        <View style={[styles.nameBadge, { backgroundColor: c.primary, marginBottom: 0 }]}>
+          <Text style={styles.nameBadgeText}>{username.toUpperCase()}</Text>
         </View>
-      )}
+        {align === 'left' && score !== undefined && renderScorePill()}
+      </View>
     </View>
   );
 };
@@ -2550,11 +2542,11 @@ const styles = StyleSheet.create({
   premiumPrizePoolValue: { fontSize: 18, color: '#FFFFFF', fontWeight: '900', marginTop: 2 },
   matchTimerCapsule: { backgroundColor: '#166534', paddingHorizontal: 16, paddingVertical: 6, borderRadius: 20, borderWidth: 2, borderColor: '#22C55E' },
   matchTimerText: { color: '#FFFFFF', fontWeight: '900', fontSize: 14, letterSpacing: 1 },
-  arenaContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', position: 'relative', marginTop: -35 },
-  topLeftPlayerWrapper: { position: 'absolute', top: 10, left: -10, zIndex: 100 },
-  topRightPlayerWrapper: { position: 'absolute', top: 10, right: -10, zIndex: 100 },
-  bottomLeftPlayerWrapper: { position: 'absolute', bottom: 10, left: -10, zIndex: 100 },
-  bottomRightPlayerWrapper: { position: 'absolute', bottom: 10, right: -10, zIndex: 100 },
+  arenaContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', position: 'relative', marginTop: -55 },
+  topLeftPlayerWrapper: { position: 'absolute', top: 0, left: -10, zIndex: 100 },
+  topRightPlayerWrapper: { position: 'absolute', top: 0, right: -10, zIndex: 100 },
+  bottomLeftPlayerWrapper: { position: 'absolute', bottom: 0, left: -10, zIndex: 100 },
+  bottomRightPlayerWrapper: { position: 'absolute', bottom: 0, right: -10, zIndex: 100 },
   diagonalCardContainer: { alignItems: 'center' },
   nameBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, marginBottom: 4 },
   nameBadgeText: { color: '#FFF', fontSize: 10, fontWeight: '900', letterSpacing: 0.5 },
