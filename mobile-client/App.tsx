@@ -13,7 +13,7 @@ import { MatchmakingCardOverlay } from './src/components/MatchmakingCardOverlay'
 import { CustomToast, ToastOptions } from './src/components/CustomToast';
 import { saveUserSession, loadUserSession, saveCurrentView, clearUserSession } from './src/utils/storage';
 
-const API_SERVER_URL = process.env.EXPO_PUBLIC_SERVER_URL || 'http://localhost:5000';
+import { API_SERVER_URL } from './src/utils/config';
 
 interface UserProfile {
   _id: string;

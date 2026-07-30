@@ -12,7 +12,7 @@ import {
 import axios from 'axios';
 import { CustomAlertModal, CustomAlertOptions } from '../components/CustomAlertModal';
 
-const API_SERVER_URL = process.env.EXPO_PUBLIC_SERVER_URL || 'http://localhost:5000';
+import { API_SERVER_URL } from '../utils/config';
 
 interface LeaderboardUser {
   _id: string;

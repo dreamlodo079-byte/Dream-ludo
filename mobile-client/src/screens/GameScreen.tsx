@@ -31,7 +31,7 @@ import Svg, {
 } from 'react-native-svg';
 import axios from 'axios';
 
-const API_SERVER_URL = process.env.EXPO_PUBLIC_SERVER_URL || 'http://localhost:5000';
+import { API_SERVER_URL } from '../utils/config';
 
 const { width: initWidth, height: initHeight } = Dimensions.get('window');
 // Initial dummy values for StyleSheet

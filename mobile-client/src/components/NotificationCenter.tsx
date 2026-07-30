@@ -11,7 +11,7 @@ import {
 import axios from 'axios';
 import { Socket } from 'socket.io-client';
 
-const API_SERVER_URL = process.env.EXPO_PUBLIC_SERVER_URL || 'http://localhost:5000';
+import { API_SERVER_URL } from '../utils/config';
 
 export interface NotificationItem {
   _id: string;

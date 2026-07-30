@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import io, { Socket } from 'socket.io-client';
 import SoundManager from '../utils/SoundManager';
 
-const SOCKET_SERVER_URL = process.env.EXPO_PUBLIC_SERVER_URL || 'http://localhost:5000';
+import { API_SERVER_URL as SOCKET_SERVER_URL } from '../utils/config';
 
 export const useSocket = (userId: string | null) => {
   const socketRef = useRef<Socket | null>(null);

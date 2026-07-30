@@ -35,10 +35,17 @@ const app = express();
 const server = http.createServer(app);
 
 // CORS setup
-app.use(cors());
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept']
+}));
 
-// Secure HTTP Headers using Helmet
-app.use(helmet());
+// Secure HTTP Headers using Helmet (configured for cross-origin LAN & mobile access)
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginResourcePolicy: { policy: 'cross-origin' }
+}));
 
 // Apply global rate limiting to all standard routes
 app.use(generalRateLimiter);
@@ -718,8 +725,8 @@ const startServer = async () => {
     // Start automated grand tournament bracket scheduler
     startTournamentScheduler();
 
-    server.listen(PORT, () => {
-      console.log(`Server running on port ${PORT}`);
+    server.listen(Number(PORT), '0.0.0.0', () => {
+      console.log(`Server running on http://0.0.0.0:${PORT}`);
     });
   } catch (error) {
     console.error('Failed to start server:', error);

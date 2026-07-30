@@ -21,7 +21,7 @@ import axios from 'axios';
 import { useWallet } from '../hooks/useWallet';
 import { PaymentCheckoutScreen } from './PaymentCheckoutScreen';
 
-const API_SERVER_URL = process.env.EXPO_PUBLIC_SERVER_URL || 'http://localhost:5000';
+import { API_SERVER_URL } from '../utils/config';
 
 export const AVATARS_100 = [
   '👑', '🤴', '👸', '💎', '🏆', '🎩', '🪞', '💍', '⚜️', '🏰', '🧿', '🔮',
@@ -279,7 +279,10 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
         );
       }
     } catch (err: any) {
-      showCustomAlert('Authentication Error', err.response?.data?.error || err.message, 'error');
+      const errMsg = (err.message === 'Network Error' || err.code === 'ERR_NETWORK')
+        ? `Cannot reach server at ${API_SERVER_URL}.\n\nEnsure laptop & phone are on the same Wi-Fi network.`
+        : (err.response?.data?.error || err.message);
+      showCustomAlert('Authentication Error', errMsg, 'error');
     } finally {
       setIsLoggingIn(false);
     }
@@ -347,7 +350,10 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
         onLoginSuccess(response.data.user, response.data.token);
       }
     } catch (err: any) {
-      showCustomAlert('Quick Login Error', err.response?.data?.error || err.message, 'error');
+      const errMsg = (err.message === 'Network Error' || err.code === 'ERR_NETWORK')
+        ? `Cannot reach server at ${API_SERVER_URL}.\n\nCheck:\n1. Laptop & Phone are on the same Wi-Fi\n2. Windows Settings -> Network -> Set Wi-Fi to Private\n3. Allow Node.js in Windows Firewall`
+        : (err.response?.data?.error || err.message);
+      showCustomAlert('Authentication Error', errMsg, 'error');
     } finally {
       setIsLoggingIn(false);
     }

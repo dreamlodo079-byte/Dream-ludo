@@ -17,7 +17,7 @@ import {
 import Svg, { Path, Circle, Rect, Line, Polyline } from 'react-native-svg';
 import axios from 'axios';
 
-const API_SERVER_URL = process.env.EXPO_PUBLIC_SERVER_URL || 'http://localhost:5000';
+import { API_SERVER_URL } from '../utils/config';
 
 const formatDateTime = (dateStr: string) => {
   if (!dateStr) return 'N/A';
@@ -388,7 +388,7 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({ onBack }) =>
       } else if (tab === 'CONCURRENCY') {
         const res = await axios.get(`${API_SERVER_URL}/api/admin/concurrency`, { headers });
         if (res.data.success) {
-          setConcurrencyData(res.data.concurrency || res.data);
+          setConcurrencyData(res.data);
         }
       } else if (tab === 'TOURNAMENT') {
         const res = await axios.get(`${API_SERVER_URL}/api/admin/tournaments`, { headers });
@@ -1169,29 +1169,29 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({ onBack }) =>
                 <View style={styles.cardHeaderRow}>
                   <Text style={styles.cardHeaderTitle}>LIVE MATCHES & BOTS</Text>
                   <Text style={[styles.cardHeaderBadge, { backgroundColor: '#ECFDF5', color: '#047857' }]}>
-                    {concurrencyData.botMatrix.driverStatus}
+                    {concurrencyData.botMatrix?.driverStatus || 'HEALTHY'}
                   </Text>
                 </View>
                 <View style={styles.concurrencyGrid}>
                   <View style={styles.concurrencyBox}>
-                    <Text style={styles.concurrencyBoxNumber}>{concurrencyData.concurrency.totalRooms}</Text>
+                    <Text style={styles.concurrencyBoxNumber}>{concurrencyData.concurrency?.totalRooms ?? 0}</Text>
                     <Text style={styles.concurrencyBoxLabel}>Total Rooms</Text>
                   </View>
                   <View style={styles.concurrencyBox}>
                     <Text style={[styles.concurrencyBoxNumber, { color: '#F59E0B' }]}>
-                      {concurrencyData.concurrency.waitingRooms}
+                      {concurrencyData.concurrency?.waitingRooms ?? 0}
                     </Text>
                     <Text style={styles.concurrencyBoxLabel}>Waiting Rooms</Text>
                   </View>
                   <View style={styles.concurrencyBox}>
                     <Text style={[styles.concurrencyBoxNumber, { color: '#10B981' }]}>
-                      {concurrencyData.concurrency.activeRooms}
+                      {concurrencyData.concurrency?.activeRooms ?? 0}
                     </Text>
                     <Text style={styles.concurrencyBoxLabel}>Active Matches</Text>
                   </View>
                   <View style={styles.concurrencyBox}>
                     <Text style={[styles.concurrencyBoxNumber, { color: '#4F46E5' }]}>
-                      {concurrencyData.concurrency.activeBotSessions}
+                      {concurrencyData.concurrency?.activeBotSessions ?? 0}
                     </Text>
                     <Text style={styles.concurrencyBoxLabel}>Active Bots</Text>
                   </View>
@@ -1201,7 +1201,7 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({ onBack }) =>
               {/* Active Rooms */}
               <View style={styles.sectionCard}>
                 <Text style={styles.cardHeaderTitle}>LIVE GAME ROOMS</Text>
-                {concurrencyData.rooms.length === 0 ? (
+                {(!concurrencyData.rooms || concurrencyData.rooms.length === 0) ? (
                   <Text style={styles.emptyText}>No live match rooms active right now.</Text>
                 ) : (
                   concurrencyData.rooms.map((room: any) => (

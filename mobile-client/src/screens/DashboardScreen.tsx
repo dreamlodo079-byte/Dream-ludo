@@ -31,7 +31,7 @@ import { MatchmakingCardOverlay } from '../components/MatchmakingCardOverlay';
 import { CustomAlertModal, CustomAlertOptions } from '../components/CustomAlertModal';
 import { NotificationCenter } from '../components/NotificationCenter';
 
-const API_SERVER_URL = process.env.EXPO_PUBLIC_SERVER_URL || 'http://localhost:5000';
+import { API_SERVER_URL } from '../utils/config';
 const ENTRY_FEES = [50, 100, 500, 1000, 0];
 
 const formatDateTime = (dateStr: string) => {
@@ -627,10 +627,10 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
               <Animated.View style={{ transform: [{ scale: ctaPulse }] }}>
                 <TouchableOpacity
                   style={styles.heroPlayNowBtn}
-                  onPress={() => setSelectedModeModal('SELECT_ALL')}
+                  onPress={() => setCurrentView('LIVE')}
                   activeOpacity={0.85}
                 >
-                  <Text style={styles.heroPlayNowText}>▶ SELECT MODE & PLAY</Text>
+                  <Text style={styles.heroPlayNowText}>▶ PLAY NOW</Text>
                 </TouchableOpacity>
               </Animated.View>
             </View>

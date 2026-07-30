@@ -15,7 +15,7 @@ import {
 import Svg, { Circle, Path } from 'react-native-svg';
 import axios from 'axios';
 
-const API_SERVER_URL = process.env.EXPO_PUBLIC_SERVER_URL || 'http://localhost:5000';
+import { API_SERVER_URL } from '../utils/config';
 
 interface LiveArenaScreenProps {
   currentUser: { _id: string; username: string };
