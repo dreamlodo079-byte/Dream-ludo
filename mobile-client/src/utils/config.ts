@@ -2,7 +2,8 @@ import Constants from 'expo-constants';
 import { Platform, NativeModules } from 'react-native';
 import axios from 'axios';
 
-// Public HTTPS Tunnel URL for seamless mobile connectivity across all networks (Wi-Fi, 4G/5G, Hotspot)
+// Public Domain & Tunnel URLs
+const PRODUCTION_DOMAIN = 'https://dreamsludo.com';
 const PUBLIC_TUNNEL_URL = 'https://brave-phones-open.loca.lt';
 
 // Bypass tunnel reminder page for localtunnel
@@ -14,7 +15,12 @@ export const getApiServerUrl = (): string => {
     return process.env.EXPO_PUBLIC_SERVER_URL;
   }
 
-  // 2. Default to Active Public HTTPS Tunnel URL (Bypasses Windows Firewall, Router AP Isolation & Android Cleartext restrictions)
+  // 2. Production release fallback
+  if (!__DEV__) {
+    return PRODUCTION_DOMAIN;
+  }
+
+  // 3. Development tunnel fallback
   return PUBLIC_TUNNEL_URL;
 };
 
