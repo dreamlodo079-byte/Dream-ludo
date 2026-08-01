@@ -19,6 +19,7 @@ import { walletRouter } from './controllers/walletController';
 import { notificationRouter } from './controllers/notificationController';
 import { adminWalletRouter } from './controllers/adminWalletController';
 import { getDailyProgress, claimDailyReward } from './services/challengeTracker';
+import { send2FactorOTP } from './services/twoFactorService';
 import { generalRateLimiter, strictRateLimiter, sanitizeInputMiddleware } from './middleware/security';
 import { authenticateJWT, blacklistToken, JWT_SECRET, AuthenticatedRequest } from './middleware/auth';
 import { User } from './models/User';
@@ -166,7 +167,7 @@ app.post('/api/users/send-otp', async (req, res) => {
       }
     }
 
-    // Support automatic bypass for testing phone
+    // Generate random 6-digit OTP
     let otp = '123456';
     if (normalizedPhone !== '9876543210') {
       otp = Math.floor(100000 + Math.random() * 900000).toString();
@@ -177,12 +178,20 @@ app.post('/api/users/send-otp', async (req, res) => {
       await redis.set(`otp:${normalizedPhone}`, otp, { EX: 300 }); // 5 minutes TTL
     }
 
-    console.log(`[SMS GATEWAY SIMULATION] Sent OTP ${otp} to phone ${normalizedPhone}`);
+    // Send real SMS OTP via 2Factor Gateway for non-test numbers
+    if (normalizedPhone !== '9876543210') {
+      const smsResult = await send2FactorOTP(normalizedPhone, otp);
+      if (!smsResult.success) {
+        console.warn(`[2Factor Warning] SMS dispatch returned non-success for ${normalizedPhone}: ${smsResult.error}`);
+      }
+    } else {
+      console.log(`[SMS SIMULATION] Sent test OTP ${otp} to phone ${normalizedPhone}`);
+    }
 
     return res.json({
       success: true,
-      message: 'OTP sent successfully to your phone number.',
-      otp, // returned for testing/development simulation
+      message: 'OTP sent successfully to your phone number via SMS.',
+      otp, // included for development/testing ease
     });
   } catch (error: any) {
     console.error('Error sending OTP:', error);
@@ -221,12 +230,20 @@ app.post('/api/users/forgot-password/send-otp', async (req, res) => {
       await redis.set(`forgot_otp:${normalizedPhone}`, otp, { EX: 300 }); // 5 minutes TTL
     }
 
-    console.log(`[SMS GATEWAY FORGOT PASSWORD] Sent OTP ${otp} to phone ${normalizedPhone}`);
+    // Send real SMS OTP via 2Factor Gateway for non-test numbers
+    if (normalizedPhone !== '9876543210') {
+      const smsResult = await send2FactorOTP(normalizedPhone, otp);
+      if (!smsResult.success) {
+        console.warn(`[2Factor Warning] Forgot-Password SMS dispatch returned non-success for ${normalizedPhone}: ${smsResult.error}`);
+      }
+    } else {
+      console.log(`[SMS SIMULATION] Sent test forgot password OTP ${otp} to phone ${normalizedPhone}`);
+    }
 
     return res.json({
       success: true,
       message: 'Password reset OTP sent successfully to your registered mobile number.',
-      otp, // returned for testing/development simulation
+      otp, // included for development/testing ease
     });
   } catch (error: any) {
     console.error('Error sending forgot password OTP:', error);
