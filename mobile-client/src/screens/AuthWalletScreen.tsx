@@ -159,9 +159,44 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
 
   const rawReferralCode = currentUser?.referralCode || 'DREAM50LUDO';
   const referralCode = rawReferralCode.replace(/^SEXUS/i, 'DREAM');
-  const friendsJoined = currentUser?.friendsJoined || 0;
-  const totalCashEarned = friendsJoined * 10;
   const referralUrl = `https://dreamludo.com/signup?ref=${referralCode}`;
+
+  const [referralData, setReferralData] = useState<{
+    friendsJoined: number;
+    totalSignupBonus: number;
+    totalWinningsCommission: number;
+    totalEarnings: number;
+    history: any[];
+  }>({
+    friendsJoined: currentUser?.friendsJoined || 0,
+    totalSignupBonus: (currentUser?.friendsJoined || 0) * 10,
+    totalWinningsCommission: 0,
+    totalEarnings: (currentUser?.friendsJoined || 0) * 10,
+    history: [],
+  });
+  const [isReferralHistoryModalVisible, setIsReferralHistoryModalVisible] = useState(false);
+
+  const fetchReferralData = async () => {
+    if (!currentUser?._id) return;
+    try {
+      const res = await axios.get(`${API_SERVER_URL}/api/payments/wallet/referrals/${currentUser._id}`);
+      if (res.data.success) {
+        setReferralData({
+          friendsJoined: res.data.friendsJoined || 0,
+          totalSignupBonus: res.data.totalSignupBonus || 0,
+          totalWinningsCommission: res.data.totalWinningsCommission || 0,
+          totalEarnings: res.data.totalEarnings || 0,
+          history: res.data.history || [],
+        });
+      }
+    } catch (err) {
+      console.log('Failed to load referral data:', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchReferralData();
+  }, [currentUser?._id]);
 
   const [isHistoryExpanded, setIsHistoryExpanded] = useState(false);
   const [activePolicy, setActivePolicy] = useState<string | null>(null);
@@ -1310,15 +1345,38 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
     <View style={styles.actionCard}>
       <Text style={styles.cardHeader}>🎁 SHARE & REFER TO EARN</Text>
       
+      {/* Referral Rules Banner */}
+      <View style={{ backgroundColor: '#EEF2FF', borderRadius: 12, padding: 12, marginBottom: 16, borderLeftWidth: 4, borderLeftColor: '#4F46E5' }}>
+        <Text style={{ fontSize: 13, fontWeight: '700', color: '#1E1B4B', marginBottom: 4 }}>
+          ⚡ ₹10 Instant Bonus for every friend who signs up!
+        </Text>
+        <Text style={{ fontSize: 12, fontWeight: '600', color: '#4338CA' }}>
+          👑 2% Lifetime Commission on all match winnings your friends make!
+        </Text>
+      </View>
+
       <View style={styles.referMetricsGrid}>
         <View style={styles.referMetricCol}>
-          <Text style={styles.referMetricVal}>{friendsJoined}</Text>
+          <Text style={styles.referMetricVal}>{referralData.friendsJoined}</Text>
           <Text style={styles.referMetricLabel}>Friends Joined</Text>
         </View>
         <View style={styles.metricDivider} />
         <View style={styles.referMetricCol}>
-          <Text style={[styles.referMetricVal, styles.greenText]}>₹{totalCashEarned}</Text>
-          <Text style={styles.referMetricLabel}>Total Cash Earned</Text>
+          <Text style={[styles.referMetricVal, styles.greenText]}>₹{referralData.totalEarnings.toFixed(2)}</Text>
+          <Text style={styles.referMetricLabel}>Total Referral Cash</Text>
+        </View>
+      </View>
+
+      {/* Earnings Breakdown */}
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', backgroundColor: '#F8FAFC', padding: 10, borderRadius: 8, marginBottom: 14, borderWidth: 1, borderColor: '#E2E8F0' }}>
+        <View style={{ alignItems: 'center', flex: 1 }}>
+          <Text style={{ fontSize: 11, color: '#64748B' }}>Instant Signup Bonus</Text>
+          <Text style={{ fontSize: 13, fontWeight: '700', color: '#059669' }}>₹{referralData.totalSignupBonus.toFixed(2)}</Text>
+        </View>
+        <View style={{ width: 1, backgroundColor: '#CBD5E1' }} />
+        <View style={{ alignItems: 'center', flex: 1 }}>
+          <Text style={{ fontSize: 11, color: '#64748B' }}>2% Lifetime Winnings</Text>
+          <Text style={{ fontSize: 13, fontWeight: '700', color: '#4F46E5' }}>₹{referralData.totalWinningsCommission.toFixed(2)}</Text>
         </View>
       </View>
 
@@ -1344,6 +1402,17 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
 
       <TouchableOpacity style={styles.whatsappBtn} onPress={handleWhatsAppShare} activeOpacity={0.8}>
         <Text style={styles.whatsappBtnText}>Share on WhatsApp</Text>
+      </TouchableOpacity>
+
+      {/* Referral History Trigger */}
+      <TouchableOpacity 
+        style={{ marginTop: 14, paddingVertical: 12, backgroundColor: '#4F46E5', borderRadius: 12, alignItems: 'center' }}
+        onPress={() => setIsReferralHistoryModalVisible(true)}
+        activeOpacity={0.85}
+      >
+        <Text style={{ color: '#FFFFFF', fontWeight: '800', fontSize: 13, letterSpacing: 0.5 }}>
+          📜 VIEW REFERRAL EARNINGS HISTORY ({referralData.history.length})
+        </Text>
       </TouchableOpacity>
     </View>
   );
@@ -1993,6 +2062,51 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
               >
                 <Text style={{ fontSize: 13, fontWeight: '700', color: '#475569' }}>Close</Text>
               </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+      )}
+
+      {/* Referral Earnings History Modal */}
+      {isReferralHistoryModalVisible && (
+        <Modal
+          visible={true}
+          transparent={true}
+          animationType="slide"
+          onRequestClose={() => setIsReferralHistoryModalVisible(false)}
+        >
+          <View style={{ flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.75)', justifyContent: 'flex-end' }}>
+            <View style={{ backgroundColor: '#FFFFFF', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, maxHeight: '80%' }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                <Text style={{ fontSize: 18, fontWeight: '800', color: '#0F172A' }}>📜 Referral Earnings History</Text>
+                <TouchableOpacity onPress={() => setIsReferralHistoryModalVisible(false)}>
+                  <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#64748B', padding: 4 }}>✕</Text>
+                </TouchableOpacity>
+              </View>
+
+              {referralData.history.length === 0 ? (
+                <View style={{ paddingVertical: 40, alignItems: 'center' }}>
+                  <Text style={{ fontSize: 36, marginBottom: 12 }}>🎁</Text>
+                  <Text style={{ fontSize: 14, fontWeight: '600', color: '#64748B', textAlign: 'center', paddingHorizontal: 20 }}>
+                    No referral earnings history yet. Share your referral code to earn ₹10 instant bonus + 2% lifetime winnings commission!
+                  </Text>
+                </View>
+              ) : (
+                <ScrollView showsVerticalScrollIndicator={false}>
+                  {referralData.history.map((item: any, idx: number) => (
+                    <View key={item._id || idx} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderColor: '#F1F5F9' }}>
+                      <View style={{ flex: 1, paddingRight: 10 }}>
+                        <Text style={{ fontSize: 14, fontWeight: '700', color: '#1E293B' }}>{item.title}</Text>
+                        <Text style={{ fontSize: 12, color: '#64748B', marginTop: 2 }}>{item.description}</Text>
+                        <Text style={{ fontSize: 11, color: '#94A3B8', marginTop: 4 }}>{formatDateTime(item.date)}</Text>
+                      </View>
+                      <Text style={{ fontSize: 15, fontWeight: '800', color: item.type === 'SIGNUP_BONUS' ? '#059669' : '#4F46E5' }}>
+                        +₹{Number(item.amount).toFixed(2)}
+                      </Text>
+                    </View>
+                  ))}
+                </ScrollView>
+              )}
             </View>
           </View>
         </Modal>

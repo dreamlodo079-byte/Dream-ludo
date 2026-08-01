@@ -649,7 +649,7 @@ const handleMatchTermination = async (roomId: string, state: MatchState): Promis
       });
       await commissionTxn.save({ session });
 
-      // 2. Record Winnings for the winner (if human)
+      // 2. Record Winnings for the winner (if human) & credit 2% lifetime commission to referrer
       if (!winner.isBot) {
         const winningsTxn = new Transaction({
           userId: new Types.ObjectId(winner.id),
@@ -659,6 +659,36 @@ const handleMatchTermination = async (roomId: string, state: MatchState): Promis
           referenceId: `win_${roomId}_${Date.now()}`,
         });
         await winningsTxn.save({ session });
+
+        // Credit 2% lifetime winnings commission to winner's referrer
+        try {
+          const winnerUser = await User.findById(winner.id).session(session);
+          if (winnerUser && winnerUser.referredBy) {
+            const referrer = await User.findOne({
+              $or: [
+                { referralCode: winnerUser.referredBy },
+                ...(Types.ObjectId.isValid(winnerUser.referredBy) ? [{ _id: new Types.ObjectId(winnerUser.referredBy) }] : [])
+              ]
+            }).session(session);
+
+            if (referrer && referrer._id.toString() !== winnerUser._id.toString()) {
+              const referralComm = Math.round((winningsAmount * 0.02) * 100) / 100;
+              if (referralComm > 0) {
+                const refCommTxn = new Transaction({
+                  userId: referrer._id,
+                  amount: referralComm,
+                  type: TransactionType.REFERRAL_COMMISSION,
+                  status: TransactionStatus.SUCCESS,
+                  referenceId: `ref_comm_${roomId}_${winner.id}_${Date.now()}`,
+                });
+                await refCommTxn.save({ session });
+                console.log(`[Referral Lifetime 2%] Credited ₹${referralComm} (2% of ₹${winningsAmount}) to referrer ${referrer.username} for winner ${winnerUser.username}`);
+              }
+            }
+          }
+        } catch (refErr) {
+          console.error('Error processing lifetime referral commission:', refErr);
+        }
       }
 
       // Check and update promoter state

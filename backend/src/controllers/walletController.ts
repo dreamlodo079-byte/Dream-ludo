@@ -204,3 +204,61 @@ walletRouter.post(['/withdraw/request', '/v1/wallet/withdraw/request'], async (r
     return res.status(400).json({ error: error.message });
   }
 });
+
+/**
+ * GET /api/v1/wallet/referrals/:userId
+ * Returns detailed referral metrics, earnings, and transaction history
+ */
+walletRouter.get(['/referrals/:userId', '/v1/wallet/referrals/:userId'], async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.params;
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, error: 'User not found' });
+    }
+
+    const txns = await Transaction.find({
+      userId: user._id,
+      type: { $in: [TransactionType.REFERRAL_BONUS_CREDIT, TransactionType.REFERRAL_COMMISSION] },
+      status: TransactionStatus.SUCCESS,
+    }).sort({ createdAt: -1 }).limit(100);
+
+    let totalSignupBonus = 0;
+    let totalWinningsCommission = 0;
+
+    const history = txns.map((t) => {
+      if (t.type === TransactionType.REFERRAL_BONUS_CREDIT) {
+        totalSignupBonus += t.amount;
+      } else if (t.type === TransactionType.REFERRAL_COMMISSION) {
+        totalWinningsCommission += t.amount;
+      }
+
+      return {
+        _id: t._id,
+        amount: t.amount,
+        type: t.type === TransactionType.REFERRAL_BONUS_CREDIT ? 'SIGNUP_BONUS' : 'LIFETIME_COMMISSION',
+        title: t.type === TransactionType.REFERRAL_BONUS_CREDIT ? '🎁 Instant Signup Reward' : '👑 2% Winnings Commission',
+        description: t.type === TransactionType.REFERRAL_BONUS_CREDIT 
+          ? '₹10 Instant bonus credited for friend signup' 
+          : '2% Lifetime match win commission credited',
+        date: t.createdAt,
+      };
+    });
+
+    const friendsJoined = user.friendsJoined || 0;
+    const totalEarnings = Math.round((totalSignupBonus + totalWinningsCommission) * 100) / 100;
+
+    return res.json({
+      success: true,
+      referralCode: user.referralCode,
+      friendsJoined,
+      totalSignupBonus: Math.round(totalSignupBonus * 100) / 100,
+      totalWinningsCommission: Math.round(totalWinningsCommission * 100) / 100,
+      totalEarnings,
+      history,
+    });
+  } catch (error: any) {
+    console.error('Error fetching referral history:', error);
+    return res.status(500).json({ success: false, error: error.message });
+  }
+});

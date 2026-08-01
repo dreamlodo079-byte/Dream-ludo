@@ -10,6 +10,7 @@ export enum TransactionType {
   TOURNAMENT_WIN_CREDIT = 'TOURNAMENT_WIN_CREDIT',
   PLATFORM_COMMISSION = 'PLATFORM_COMMISSION',
   REFERRAL_BONUS_CREDIT = 'REFERRAL_BONUS_CREDIT',
+  REFERRAL_COMMISSION = 'REFERRAL_COMMISSION',
 }
 
 export enum TransactionStatus {
@@ -104,8 +105,10 @@ TransactionSchema.post('save', async function (doc) {
 
       if (doc.type === TransactionType.DEPOSIT) {
         update = { $inc: { depositBalance: doc.amount } };
-      } else if (doc.type === TransactionType.WINNINGS || doc.type === TransactionType.TOURNAMENT_WIN_CREDIT) {
+      } else if (doc.type === TransactionType.WINNINGS || doc.type === TransactionType.TOURNAMENT_WIN_CREDIT || doc.type === TransactionType.REFERRAL_COMMISSION) {
         update = { $inc: { winningsBalance: doc.amount } };
+      } else if (doc.type === TransactionType.REFERRAL_BONUS_CREDIT) {
+        update = { $inc: { bonusBalance: doc.amount } };
       } else if (doc.type === TransactionType.ENTRY_FEE_REFUND) {
         // Safe refunding is manually handled inside transactions, but as a fallback,
         // let's prevent auto-increments if handled elsewhere, or keep it clean.

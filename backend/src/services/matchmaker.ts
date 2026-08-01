@@ -38,7 +38,7 @@ const getRandomBotName = (): string => {
   return botNames[Math.floor(Math.random() * botNames.length)];
 };
 
-export const processMatchmakingQueue = async (tier: number, mode: 'QUICK' | 'REGULAR'): Promise<void> => {
+export const processMatchmakingQueue = async (tier: number, mode: 'QUICK' | 'REGULAR', targetQueueKey?: string): Promise<void> => {
   const redis = getRedisClient();
   const io = getIO();
   if (!redis || !io) return;
@@ -46,7 +46,8 @@ export const processMatchmakingQueue = async (tier: number, mode: 'QUICK' | 'REG
   // Mode ROOMS is excluded from automatic matchmaking and bot injection queues
   if (mode as string === 'ROOMS') return;
 
-  const lockKey = `lock:matchmaker:${tier}:${mode}`;
+  const queueKey = targetQueueKey || `queue:tier_${tier}_mode_${mode}`;
+  const lockKey = `lock:${queueKey}`;
 
   // Attempt to acquire an atomic lock for 1 second
   const acquired = await redis.set(lockKey, 'locked', {
@@ -58,7 +59,6 @@ export const processMatchmakingQueue = async (tier: number, mode: 'QUICK' | 'REG
     return;
   }
 
-  const queueKey = `queue:tier_${tier}_mode_${mode}`;
   try {
     const queueLen = await redis.lLen(queueKey);
     if (queueLen === 0) return;
@@ -143,7 +143,7 @@ export const processMatchmakingQueue = async (tier: number, mode: 'QUICK' | 'REG
       }
     }
   } catch (error) {
-    console.error(`Matchmaking cycle exception for tier ${tier} mode ${mode}: `, error);
+    console.error(`Matchmaking cycle exception for queue ${queueKey}: `, error);
   }
 };
 
@@ -157,16 +157,15 @@ export const startMatchmakingLoop = (): void => {
     const redis = getRedisClient();
     if (!redis) return;
 
-    // Dynamically discover all active queue keys so custom fee tiers are processed
+    // Dynamically discover all active queue keys (including promoter-only queues)
     try {
-      const allKeys = await redis.keys('queue:tier_*_mode_*');
+      const allKeys = await redis.keys('queue:*tier_*_mode_*');
       for (const key of allKeys) {
-        // Parse tier and mode from key pattern: queue:tier_<fee>_mode_<MODE>
-        const match = key.match(/^queue:tier_(\d+)_mode_(QUICK|REGULAR)$/);
+        const match = key.match(/^queue:(?:promoter:)?tier_(\d+)_mode_(QUICK|REGULAR)$/);
         if (match) {
           const tier = parseInt(match[1], 10);
           const mode = match[2] as 'QUICK' | 'REGULAR';
-          await processMatchmakingQueue(tier, mode);
+          await processMatchmakingQueue(tier, mode, key);
         }
       }
     } catch (err) {
@@ -255,7 +254,13 @@ export const joinQueue = async (
     }
   }
 
-  const queueKey = `queue:tier_${entryFee}_mode_${gameMode}`;
+  // Check if user is a promoter (Promoters match ONLY with other promoters)
+  const userDoc = await User.findById(userId).select('isPromoter');
+  const isPromoter = userDoc?.isPromoter === true;
+
+  const queueKey = isPromoter 
+    ? `queue:promoter:tier_${entryFee}_mode_${gameMode}` 
+    : `queue:tier_${entryFee}_mode_${gameMode}`;
 
   // Check if player is already in this queue to prevent duplicates
   const existingQueue = await redis.lRange(queueKey, 0, -1);
