@@ -1244,7 +1244,6 @@ export const GameScreen: React.FC<GameScreenProps> = ({
                     isDiceAnimating={matchState.activePlayerIndex === idx && isDiceAnimating}
                     canRoll={isMyTurn && !matchState.hasRolled && !isDiceAnimating && matchState.activePlayerIndex === idx}
                     onRoll={handleRollDice}
-                    avatarUri={require('../../assets/avatar.png')}
                     diceTransform={matchState.activePlayerIndex === idx ? [{ scale: diceScale }, { rotate: rotZInterpolate }] : undefined}
                     score={matchState.gameMode === 'QUICK' ? undefined : (matchState.scores ? matchState.scores[idx] : undefined)}
                     missedTurns={p.missedTurns}
