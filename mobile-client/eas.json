@@ -15,6 +15,10 @@
       }
     },
     "production": {
+      "env": {
+        "EAS_BUILD_NO_EXPO_GO_WARNING": "true",
+        "EAS_SKIP_AUTO_FINGERPRINT": "1"
+      },
       "android": {
         "buildType": "apk"
       }
