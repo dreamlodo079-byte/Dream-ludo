@@ -21,6 +21,12 @@ export const useOTAUpdates = () => {
         const fetchResult = await Updates.fetchUpdateAsync();
         if (fetchResult.isNew) {
           setIsUpdateFetched(true);
+          // Reload immediately to apply latest JS bundle
+          try {
+            await Updates.reloadAsync();
+          } catch (e) {
+            console.warn('Failed immediate OTA reload:', e);
+          }
         }
       }
     } catch (error) {
