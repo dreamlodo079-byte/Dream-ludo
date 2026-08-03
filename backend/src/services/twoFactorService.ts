@@ -18,20 +18,13 @@ export const send2FactorOTP = async (phone: string, otp: string): Promise<TwoFac
     const apiKey = process.env.TWO_FACTOR_API_KEY || TWO_FACTOR_API_KEY;
     const cleanPhone = phone.trim().slice(-10);
 
-    // 2Factor REST API URL format for SMS OTP (using OTPSMS route to enforce text SMS over voice call):
-    // GET https://2factor.in/API/V1/{api_key}/SMS/+91{phone_number}/{otp_val}/OTPSMS
-    const smsUrl = `https://2factor.in/API/V1/${apiKey}/SMS/+91${cleanPhone}/${otp}/OTPSMS`;
+    // Official 2Factor REST API URL format for SMS OTP:
+    // GET https://2factor.in/API/V1/{api_key}/SMS/+91{phone_number}/{otp_val}
+    const smsUrl = `https://2factor.in/API/V1/${apiKey}/SMS/+91${cleanPhone}/${otp}`;
 
-    console.log(`[2Factor SMS Service] Dispatching SMS OTP to +91${cleanPhone}...`);
+    console.log(`[2Factor SMS Service] Dispatching Text SMS OTP to +91${cleanPhone}...`);
 
-    let response;
-    try {
-      response = await axios.get(smsUrl, { timeout: 10000 });
-    } catch (_) {
-      // Fallback to standard SMS endpoint if OTPSMS route format is strict
-      const fallbackUrl = `https://2factor.in/API/V1/${apiKey}/SMS/+91${cleanPhone}/${otp}`;
-      response = await axios.get(fallbackUrl, { timeout: 10000 });
-    }
+    const response = await axios.get(smsUrl, { timeout: 10000 });
 
     if (response.data && response.data.Status === 'Success') {
       console.log(`[2Factor SMS Success] Session Id / Details: ${response.data.Details}`);
