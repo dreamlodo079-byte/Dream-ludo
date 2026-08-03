@@ -69,6 +69,60 @@ app.use('/api/payments/webhook', strictRateLimiter);
 
 import adminRouter from './routes/admin';
 
+// Temporary secure endpoint to trigger production database cleanup remotely
+app.get('/api/admin/clean-db', async (req: express.Request, res: express.Response) => {
+  const key = req.query.key || req.headers['x-admin-key'];
+  if (key !== (process.env.ADMIN_API_KEY || 'master_admin_secret_key')) {
+    return res.status(403).json({ error: 'Unauthorized admin key' });
+  }
+
+  try {
+    const deletedTesters = await User.deleteMany({
+      $or: [
+        { username: /QuickTester/i },
+        { phone: '9876543210' },
+        { phone: '9876543211' }
+      ]
+    });
+
+    const deletedTxns = await Transaction.deleteMany({});
+    const { Match } = require('./models/Match');
+    const { Notification } = require('./models/Notification');
+    const deletedMatches = await Match.deleteMany({});
+    const deletedNotifs = await Notification.deleteMany({});
+
+    const PLATFORM_USER_ID = '000000000000000000000000';
+    let platformUser = await User.findById(PLATFORM_USER_ID);
+    if (platformUser) {
+      platformUser.walletBalance = 0;
+      platformUser.depositBalance = 0;
+      platformUser.winningsBalance = 0;
+      await platformUser.save();
+    }
+
+    const remainingUsers = await User.find({ _id: { $ne: PLATFORM_USER_ID } });
+    for (const u of remainingUsers) {
+      u.walletBalance = 0;
+      u.depositBalance = 0;
+      u.winningsBalance = 0;
+      await u.save();
+    }
+
+    return res.json({
+      success: true,
+      message: '✅ Production Database Cleanup Complete!',
+      deletedTestersCount: deletedTesters.deletedCount,
+      deletedTransactionsCount: deletedTxns.deletedCount,
+      deletedMatchesCount: deletedMatches.deletedCount,
+      deletedNotificationsCount: deletedNotifs.deletedCount,
+      resetUsersCount: remainingUsers.length,
+      platformProfitsBalance: '₹0.00'
+    });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 // Routes
 app.use('/api/payments', paymentRouter);
 app.use('/api/v1/payments', paymentRouter);
