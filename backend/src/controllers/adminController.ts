@@ -94,7 +94,11 @@ export const demoteUser = async (req: AuthenticatedRequest, res: Response) => {
 
 export const getUsers = async (_req: AuthenticatedRequest, res: Response) => {
   try {
-    const users = await User.find()
+    const PLATFORM_USER_ID = '000000000000000000000000';
+    const users = await User.find({
+      _id: { $ne: PLATFORM_USER_ID },
+      username: { $ne: 'Platform Profits' }
+    })
       .select('_id username phone isPromoter kycStatus createdAt')
       .sort({ createdAt: -1 });
 

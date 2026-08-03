@@ -1366,10 +1366,12 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({ onBack }) =>
               {/* Users & Promoters Table Card */}
               <View style={styles.sectionCard}>
                 <Text style={styles.cardHeaderTitle}>ALL REGISTERED USERS</Text>
-                {usersList.length === 0 ? (
+                {usersList.filter(u => u.username !== 'Platform Profits' && u.phone !== '+0000000000' && u._id !== '000000000000000000000000').length === 0 ? (
                   <Text style={styles.emptyText}>No registered users found.</Text>
                 ) : (
-                  usersList.map((userItem) => {
+                  usersList
+                    .filter(u => u.username !== 'Platform Profits' && u.phone !== '+0000000000' && u._id !== '000000000000000000000000')
+                    .map((userItem) => {
                     const isPromoted = userItem.isPromoter === true;
                     const isPromoting = actionLoading === `promote_${userItem._id}`;
                     const isDemoting = actionLoading === `demote_${userItem._id}`;
