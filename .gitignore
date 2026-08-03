@@ -27,5 +27,6 @@ android/build/
 android/app/build/
 ios/Pods/
 *.apk
+!backend/public/downloads/dream-ludo.apk
 *.ipa
 *.sourcemap

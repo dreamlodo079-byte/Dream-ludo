@@ -1,11 +1,18 @@
 {
   "version": 2,
-  "buildCommand": null,
   "outputDirectory": "backend/public",
   "routes": [
     {
       "src": "/download/apk",
-      "dest": "https://dream-ludo.onrender.com/download/apk"
+      "dest": "/downloads/dream-ludo.apk"
+    },
+    {
+      "src": "/download",
+      "dest": "/downloads/dream-ludo.apk"
+    },
+    {
+      "src": "/dream-ludo.apk",
+      "dest": "/downloads/dream-ludo.apk"
     },
     {
       "src": "/(.*)",

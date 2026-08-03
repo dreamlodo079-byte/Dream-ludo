@@ -188,14 +188,17 @@ app.use(express.static('public'));
 
 // Direct APK Download Endpoint
 app.get(['/download/apk', '/dream-ludo.apk', '/download'], (_req, res) => {
-  const apkPath = path.join(publicDir, 'downloads/dream-ludo.apk');
-  if (fs.existsSync(apkPath)) {
-    return res.download(apkPath, 'Dream-Ludo.apk');
+  const apkPath = path.join(__dirname, '../public/downloads/dream-ludo.apk');
+  const rootApkPath = path.join(process.cwd(), 'public/downloads/dream-ludo.apk');
+  
+  const targetPath = fs.existsSync(apkPath) ? apkPath : (fs.existsSync(rootApkPath) ? rootApkPath : null);
+  
+  if (targetPath) {
+    res.setHeader('Content-Type', 'application/vnd.android.package-archive');
+    return res.download(targetPath, 'Dream-Ludo.apk');
   }
 
-  res.setHeader('Content-Type', 'application/vnd.android.package-archive');
-  res.setHeader('Content-Disposition', 'attachment; filename="Dream-Ludo.apk"');
-  return res.send(Buffer.from('Dream Ludo APK Build Artifact Placeholder.'));
+  return res.status(404).send('APK file build in progress. Please refresh in a moment.');
 });
 
 // Daily challenges query route
