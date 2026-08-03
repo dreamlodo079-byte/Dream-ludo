@@ -145,28 +145,35 @@ export const LiveArenaScreen: React.FC<LiveArenaScreenProps> = ({
     
     let current = initialTime;
     setSearchTimer(current);
-    searchCountdownRef.current = setInterval(async () => {
+
+    const triggerTimeoutActions = () => {
+      if (searchCountdownRef.current) {
+        clearInterval(searchCountdownRef.current);
+      }
+      setIsSearching(false);
+      setSearchingTier(null);
+      axios.post(`${API_SERVER_URL}/api/payments/matchmaker/leave`, {
+        userId: currentUser._id,
+        entryFee: tierVal,
+      }).catch(() => {});
+      showDropdownAlert('No live opponent found right now. Entry fee refunded! Please try again.', 'error');
+      Alert.alert(
+        'No Opponent Found',
+        'No live player was found in this tier right now. Your entry fee has been refunded to your wallet balance. Please try again!',
+        [{ text: 'OK' }]
+      );
+    };
+
+    if (current <= 0) {
+      triggerTimeoutActions();
+      return;
+    }
+
+    searchCountdownRef.current = setInterval(() => {
       current--;
       setSearchTimer(current);
       if (current <= 0) {
-        if (searchCountdownRef.current) {
-          clearInterval(searchCountdownRef.current);
-        }
-        // Auto-cancel matchmaking queue on 13s timeout & notify user
-        setIsSearching(false);
-        setSearchingTier(null);
-        try {
-          await axios.post(`${API_SERVER_URL}/api/payments/matchmaker/leave`, {
-            userId: currentUser._id,
-            entryFee: tierVal,
-          });
-        } catch (e) {}
-        showDropdownAlert('No live opponent found right now. Entry fee refunded! Please try again.', 'error');
-        Alert.alert(
-          'No Opponent Found',
-          'No live player was found in this tier right now. Your entry fee has been refunded to your wallet balance. Please try again!',
-          [{ text: 'OK' }]
-        );
+        triggerTimeoutActions();
       }
     }, 1000);
   };

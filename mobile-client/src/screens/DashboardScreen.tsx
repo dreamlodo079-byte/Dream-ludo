@@ -355,7 +355,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
 
     const countdown = setInterval(() => {
       setSearchTimer((prev) => {
-        if (prev <= 1) {
+        if (prev <= 0) {
           clearInterval(countdown);
           setIsSearching(false);
           axios.post(`${API_SERVER_URL}/api/payments/matchmaker/leave`, {
@@ -366,6 +366,11 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             'No Opponent Found',
             'No live player was found in this tier right now. Your entry fee has been refunded to your wallet balance. Please try again!',
             'info'
+          );
+          Alert.alert(
+            'No Opponent Found',
+            'No live player was found in this tier right now. Your entry fee has been refunded to your wallet balance. Please try again!',
+            [{ text: 'OK' }]
           );
           return 0;
         }
