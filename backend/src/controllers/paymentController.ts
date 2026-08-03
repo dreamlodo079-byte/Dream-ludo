@@ -263,6 +263,10 @@ paymentRouter.post('/create-intent', async (req: Request, res: Response) => {
  * Developer sandbox helper to simulate webhook completion
  */
 paymentRouter.post('/simulate-success', async (req: Request, res: Response) => {
+  if (process.env.NODE_ENV === 'production') {
+    return res.status(403).json({ error: 'Sandbox simulation endpoints are disabled in production.' });
+  }
+
   const { userId, transactionId, amount } = req.body;
   if (!userId || !transactionId || !amount) {
     return res.status(400).json({ error: 'Missing parameters' });

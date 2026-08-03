@@ -168,30 +168,22 @@ app.post('/api/users/send-otp', async (req, res) => {
     }
 
     // Generate random 6-digit OTP
-    let otp = '123456';
-    if (normalizedPhone !== '9876543210') {
-      otp = Math.floor(100000 + Math.random() * 900000).toString();
-    }
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
     const redis = getRedisClient();
     if (redis) {
       await redis.set(`otp:${normalizedPhone}`, otp, { EX: 300 }); // 5 minutes TTL
     }
 
-    // Send real SMS OTP via 2Factor Gateway for non-test numbers
-    if (normalizedPhone !== '9876543210') {
-      const smsResult = await send2FactorOTP(normalizedPhone, otp);
-      if (!smsResult.success) {
-        console.warn(`[2Factor Warning] SMS dispatch returned non-success for ${normalizedPhone}: ${smsResult.error}`);
-      }
-    } else {
-      console.log(`[SMS SIMULATION] Sent test OTP ${otp} to phone ${normalizedPhone}`);
+    // Send real SMS OTP via 2Factor Gateway
+    const smsResult = await send2FactorOTP(normalizedPhone, otp);
+    if (!smsResult.success) {
+      console.warn(`[2Factor Warning] SMS dispatch returned non-success for ${normalizedPhone}: ${smsResult.error}`);
     }
 
     return res.json({
       success: true,
       message: 'OTP sent successfully to your phone number via SMS.',
-      otp, // included for development/testing ease
     });
   } catch (error: any) {
     console.error('Error sending OTP:', error);
@@ -220,30 +212,22 @@ app.post('/api/users/forgot-password/send-otp', async (req, res) => {
       return res.status(404).json({ error: 'No registered account found with this mobile number. Please check your phone number or sign up.' });
     }
 
-    let otp = '123456';
-    if (normalizedPhone !== '9876543210') {
-      otp = Math.floor(100000 + Math.random() * 900000).toString();
-    }
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
     const redis = getRedisClient();
     if (redis) {
       await redis.set(`forgot_otp:${normalizedPhone}`, otp, { EX: 300 }); // 5 minutes TTL
     }
 
-    // Send real SMS OTP via 2Factor Gateway for non-test numbers
-    if (normalizedPhone !== '9876543210') {
-      const smsResult = await send2FactorOTP(normalizedPhone, otp);
-      if (!smsResult.success) {
-        console.warn(`[2Factor Warning] Forgot-Password SMS dispatch returned non-success for ${normalizedPhone}: ${smsResult.error}`);
-      }
-    } else {
-      console.log(`[SMS SIMULATION] Sent test forgot password OTP ${otp} to phone ${normalizedPhone}`);
+    // Send real SMS OTP via 2Factor Gateway
+    const smsResult = await send2FactorOTP(normalizedPhone, otp);
+    if (!smsResult.success) {
+      console.warn(`[2Factor Warning] Forgot-Password SMS dispatch returned non-success for ${normalizedPhone}: ${smsResult.error}`);
     }
 
     return res.json({
       success: true,
       message: 'Password reset OTP sent successfully to your registered mobile number.',
-      otp, // included for development/testing ease
     });
   } catch (error: any) {
     console.error('Error sending forgot password OTP:', error);

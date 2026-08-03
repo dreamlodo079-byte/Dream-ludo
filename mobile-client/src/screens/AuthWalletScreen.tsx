@@ -327,7 +327,7 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
         setOtpTimer(30);
         showCustomAlert(
           'Verification Code Sent',
-          `OTP has been sent to your phone. (Sandbox Code: ${response.data.otp})`,
+          'OTP has been sent to your mobile number via SMS.',
           'success'
         );
       }
