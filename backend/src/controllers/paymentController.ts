@@ -351,8 +351,8 @@ paymentRouter.post('/admin/resolve-dispute', async (req: Request, res: Response)
 paymentRouter.post('/matchmaker/join', async (req: Request, res: Response) => {
   const { userId, username, socketId, entryFee, roomCode, passcode, mode, customRules } = req.body;
 
-  if (!userId || !username || !socketId || !entryFee) {
-    return res.status(400).json({ error: 'Missing parameters' });
+  if (!userId || !username || !socketId || entryFee === undefined || entryFee === null) {
+    return res.status(400).json({ error: 'Missing required parameters (userId, username, socketId, entryFee)' });
   }
 
   try {

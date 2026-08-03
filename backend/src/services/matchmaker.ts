@@ -21,7 +21,7 @@ export interface QueueUser {
   queueId?: string;
 }
 
-const MIN_ENTRY_FEE = 3; // Minimum allowed entry fee in INR
+export const MIN_ENTRY_FEE = 3; // Minimum allowed entry fee for cash tiers in INR
 
 let checkQueueInterval: NodeJS.Timeout | null = null;
 
@@ -122,9 +122,9 @@ export const joinQueue = async (
   gameMode: 'QUICK' | 'REGULAR' | 'ROOMS' = 'REGULAR',
   customRules?: { turnTimer?: number; tokenCount?: number }
 ): Promise<{ success: boolean; message: string }> => {
-  // Validate entry fee: must be a whole number and at least MIN_ENTRY_FEE
-  if (!Number.isInteger(entryFee) || entryFee < MIN_ENTRY_FEE) {
-    return { success: false, message: `Entry fee must be a whole number of at least ₹${MIN_ENTRY_FEE}` };
+  // Validate entry fee: must be a non-negative whole number (₹0 or more)
+  if (!Number.isInteger(entryFee) || entryFee < 0) {
+    return { success: false, message: 'Entry fee must be a valid non-negative whole number (₹0 or more)' };
   }
 
   // 1. Pre-verify balance

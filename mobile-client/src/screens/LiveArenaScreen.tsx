@@ -126,7 +126,7 @@ export const LiveArenaScreen: React.FC<LiveArenaScreenProps> = ({
           setIsSearching(true);
           setSearchTimer(remaining);
 
-          startLocalCountdown(remaining);
+          startLocalCountdown(remaining, tierVal);
         }
       } catch (err) {
         console.error('Failed to sync queue search status:', err);
@@ -139,18 +139,28 @@ export const LiveArenaScreen: React.FC<LiveArenaScreenProps> = ({
     };
   }, [currentUser._id]);
 
-  const startLocalCountdown = (initialTime: number) => {
+  const startLocalCountdown = (initialTime: number, tierVal: number) => {
     if (searchCountdownRef.current) clearInterval(searchCountdownRef.current);
     
     let current = initialTime;
-    searchCountdownRef.current = setInterval(() => {
+    setSearchTimer(current);
+    searchCountdownRef.current = setInterval(async () => {
       current--;
       setSearchTimer(current);
       if (current <= 0) {
         if (searchCountdownRef.current) {
           clearInterval(searchCountdownRef.current);
         }
-        // Timeout bot injection will be triggered on the backend
+        // Auto-cancel matchmaking queue on 13s timeout & notify user
+        setIsSearching(false);
+        setSearchingTier(null);
+        try {
+          await axios.post(`${API_SERVER_URL}/api/payments/matchmaker/leave`, {
+            userId: currentUser._id,
+            entryFee: tierVal,
+          });
+        } catch (e) {}
+        showDropdownAlert('No live opponent found right now. Entry fee refunded! Please try again.', 'error');
       }
     }, 1000);
   };
@@ -191,7 +201,7 @@ export const LiveArenaScreen: React.FC<LiveArenaScreenProps> = ({
       });
 
       if (response.data.success) {
-        startLocalCountdown(item.timeout);
+        startLocalCountdown(item.timeout, item.tier);
       } else {
         showDropdownAlert(response.data.message || 'Failed to enter queue.', 'error');
         setIsSearching(false);
