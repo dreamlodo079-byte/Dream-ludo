@@ -51,6 +51,9 @@ const userDeviceSockets = new Map<string, string[]>();
 
 export const initializeSocketIO = async (server: any): Promise<Server> => {
   io = new Server(server, {
+    transports: ['websocket', 'polling'],
+    pingInterval: 10000,
+    pingTimeout: 5000,
     cors: {
       origin: '*',
       methods: ['GET', 'POST'],

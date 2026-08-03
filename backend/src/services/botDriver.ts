@@ -13,10 +13,10 @@ import { User } from '../models/User';
 const SAFE_COMMON_INDICES = [1, 9, 14, 22, 27, 35, 40, 48];
 
 /**
- * Triggers a bot action (roll or move) with a human-like delay (1.5s - 3.0s).
+ * Triggers a bot action (roll or move) with a fast, responsive human-like delay (400ms - 900ms).
  */
 export const triggerBotTurn = (roomId: string): void => {
-  const delay = Math.random() * 1500 + 1500; // 1500ms to 3000ms delay
+  const delay = Math.random() * 500 + 400; // 400ms to 900ms fast delay
 
   setTimeout(() => {
     runWithRoomLock(roomId, async () => {

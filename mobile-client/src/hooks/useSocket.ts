@@ -19,8 +19,15 @@ export const useSocket = (userId: string | null) => {
   useEffect(() => {
     if (!userId) return;
 
-    // Establish Socket connection
-    const socket = io(SOCKET_SERVER_URL);
+    // Establish Socket connection with WebSocket priority & auto-reconnect
+    const socket = io(SOCKET_SERVER_URL, {
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionAttempts: 20,
+      reconnectionDelay: 1000,
+      timeout: 10000,
+      autoConnect: true,
+    });
     socketRef.current = socket;
 
     const handleConnect = () => {
