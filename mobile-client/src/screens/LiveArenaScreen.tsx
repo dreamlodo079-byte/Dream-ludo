@@ -156,10 +156,7 @@ export const LiveArenaScreen: React.FC<LiveArenaScreenProps> = ({
   };
 
   const handleRegisterTier = async (item: TierInfo) => {
-    if (!socketId) {
-      showDropdownAlert('Connection error, socket is reconnecting. Please wait.', 'error');
-      return;
-    }
+    const activeSocketId = socketId || `socket_${currentUser._id}_${Date.now()}`;
     
     // Check local balance
     try {
@@ -177,11 +174,10 @@ export const LiveArenaScreen: React.FC<LiveArenaScreenProps> = ({
 
     setSearchingTier(item);
     setIsSearching(true);
-    setSearchTimer(item.timeout);
-    
+
     // Scale button down feedback
     Animated.sequence([
-      Animated.timing(buttonScales[item.tier], { toValue: 0.9, duration: 100, useNativeDriver: true }),
+      Animated.timing(buttonScales[item.tier], { toValue: 0.92, duration: 100, useNativeDriver: true }),
       Animated.timing(buttonScales[item.tier], { toValue: 1, duration: 150, useNativeDriver: true }),
     ]).start();
 
@@ -189,7 +185,7 @@ export const LiveArenaScreen: React.FC<LiveArenaScreenProps> = ({
       const response = await axios.post(`${API_SERVER_URL}/api/payments/matchmaker/join`, {
         userId: currentUser._id,
         username: currentUser.username,
-        socketId,
+        socketId: activeSocketId,
         entryFee: item.tier,
         gameMode: 'REGULAR', // Standard Live Classic Matches
       });

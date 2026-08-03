@@ -1218,7 +1218,9 @@ export const GameScreen: React.FC<GameScreenProps> = ({
         <View style={{ alignItems: 'center', marginTop: 10 }}>
           <View style={styles.matchTimerCapsule}>
             <Text style={styles.matchTimerText}>
-              ⏱️ TURN TIMER: {matchState.turnTimer !== undefined ? `${matchState.turnTimer}s` : '15s'}
+              🕒 {matchState.matchTimer !== undefined
+                ? `${Math.floor(Math.max(0, matchState.matchTimer) / 60).toString().padStart(2, '0')}:${(Math.max(0, matchState.matchTimer) % 60).toString().padStart(2, '0')}`
+                : '05:00'}
             </Text>
           </View>
         </View>

@@ -119,7 +119,7 @@ export const createInitialState = (
     entryFee,
     preTurnTokens: initialPreTurnTokens,
     gameMode,
-    matchTimer: gameMode === 'QUICK' ? 300 : undefined,
+    matchTimer: gameMode === 'QUICK' ? 300 : 480,
     scores: gameMode === 'QUICK' ? [0, 0] : undefined,
     customRules: gameMode === 'ROOMS' ? customRules : undefined,
   };

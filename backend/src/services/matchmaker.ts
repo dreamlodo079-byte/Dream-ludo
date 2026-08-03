@@ -34,7 +34,7 @@ const botNames = [
   'Mohit_Star', 'Pawan_Ludo', 'Ritik_Player', 'Suraj_R', 'Deepika_S'
 ];
 
-const getRandomBotName = (): string => {
+export const getRandomBotName = (): string => {
   return botNames[Math.floor(Math.random() * botNames.length)];
 };
 
@@ -444,6 +444,7 @@ const createLiveMatch = async (
       }
     }
 
+    if (!hasBot) {
       // Human vs Human match: Set ACTIVE and start turn timer immediately
       matchState.status = 'ACTIVE';
       
@@ -467,7 +468,6 @@ const createLiveMatch = async (
 
       // Start turn countdown timer (15s... 14s... 13s...)
       startRoomTimer(roomId);
-
     } else {
       // Bot match: immediately start active game session
       matchState.status = 'ACTIVE';

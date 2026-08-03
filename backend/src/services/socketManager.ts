@@ -494,8 +494,8 @@ export const startRoomTimer = (roomId: string): void => {
         return;
       }
 
-      // Process global countdown timer for QUICK mode
-      if (state.gameMode === 'QUICK' && state.matchTimer !== undefined) {
+      // Process global countdown timer for active match modes
+      if (state.matchTimer !== undefined) {
         state.matchTimer -= 1;
         if (state.matchTimer <= 0) {
           state.isTerminated = true;

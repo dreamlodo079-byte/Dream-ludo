@@ -335,10 +335,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   }, [width, activeSegment, segmentTranslateX]);
 
   const handleJoinMatchmaking = async (overrideMode?: string) => {
-    if (!socketId) {
-      showCustomAlert('Connection Notice', 'Establishing server link, please try again in a moment.', 'info');
-      return;
-    }
+    const activeSocketId = socketId || `socket_${currentUser._id}_${Date.now()}`;
 
     if (selectedTier > 0 && balances.total < selectedTier) {
       showCustomAlert(
@@ -370,7 +367,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
       const response = await axios.post(`${API_SERVER_URL}/api/payments/matchmaker/join`, {
         userId: currentUser._id,
         username: currentUser.username,
-        socketId,
+        socketId: activeSocketId,
         entryFee: selectedTier,
         mode: overrideMode || activeSegment,
       });
