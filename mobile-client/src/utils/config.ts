@@ -3,8 +3,8 @@ import { Platform, NativeModules } from 'react-native';
 import axios from 'axios';
 
 // Public Domain & Tunnel URLs
-const PRODUCTION_DOMAIN = 'https://dreamsludo.com';
-const PUBLIC_TUNNEL_URL = 'https://brave-phones-open.loca.lt';
+const PRODUCTION_DOMAIN = 'https://dream-ludo.onrender.com';
+const PUBLIC_TUNNEL_URL = 'https://dream-ludo.onrender.com';
 
 // Bypass tunnel reminder page for localtunnel
 axios.defaults.headers.common['bypass-tunnel-reminder'] = 'true';
