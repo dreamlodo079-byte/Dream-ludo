@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 import axios from 'axios';
+import { CustomAlertModal, CustomAlertOptions } from '../components/CustomAlertModal';
 
 import { API_SERVER_URL } from '../utils/config';
 
@@ -63,6 +64,23 @@ export const LiveArenaScreen: React.FC<LiveArenaScreenProps> = ({
   const showDropdownAlert = (text: string, type: 'success' | 'error') => {
     setDropdownMsg({ text, type });
     setTimeout(() => setDropdownMsg(null), 4000);
+  };
+
+  // Custom gaming alert modal state
+  const [customAlert, setCustomAlert] = useState<CustomAlertOptions>({
+    visible: false,
+    title: '',
+    message: '',
+    type: 'info',
+  });
+
+  const showCustomAlert = (title: string, message: string, type: 'success' | 'error' | 'info' | 'wallet' = 'info') => {
+    setCustomAlert({
+      visible: true,
+      title,
+      message,
+      type,
+    });
   };
 
   // Animations
@@ -152,11 +170,10 @@ export const LiveArenaScreen: React.FC<LiveArenaScreenProps> = ({
         userId: currentUser._id,
         entryFee: tierVal,
       }).catch(() => {});
-      showDropdownAlert('No live opponent found right now. Entry fee refunded! Please try again.', 'error');
-      Alert.alert(
+      showCustomAlert(
         'No Opponent Found',
         'No live player was found in this tier right now. Your entry fee has been refunded to your wallet balance. Please try again!',
-        [{ text: 'OK' }]
+        'info'
       );
     };
 
@@ -383,6 +400,12 @@ export const LiveArenaScreen: React.FC<LiveArenaScreenProps> = ({
           </View>
         </View>
       )}
+
+      {/* Custom Alert Modal */}
+      <CustomAlertModal
+        alert={customAlert}
+        onClose={() => setCustomAlert((prev) => ({ ...prev, visible: false }))}
+      />
     </View>
   );
 };

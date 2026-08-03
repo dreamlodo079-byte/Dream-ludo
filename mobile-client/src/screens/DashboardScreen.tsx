@@ -367,11 +367,6 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             'No live player was found in this tier right now. Your entry fee has been refunded to your wallet balance. Please try again!',
             'info'
           );
-          Alert.alert(
-            'No Opponent Found',
-            'No live player was found in this tier right now. Your entry fee has been refunded to your wallet balance. Please try again!',
-            [{ text: 'OK' }]
-          );
           return 0;
         }
         return prev - 1;
