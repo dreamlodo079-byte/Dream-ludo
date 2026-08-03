@@ -123,6 +123,49 @@ app.get('/api/admin/clean-db', async (req: express.Request, res: express.Respons
   }
 });
 
+// Secure endpoint to credit wallet balance to admin profile remotely
+app.get('/api/admin/add-balance', async (req: express.Request, res: express.Response) => {
+  const key = req.query.key || req.headers['x-admin-key'];
+  if (key !== (process.env.ADMIN_API_KEY || 'master_admin_secret_key')) {
+    return res.status(403).json({ error: 'Unauthorized admin key' });
+  }
+
+  const phone = (req.query.phone as string || '7389927777').trim().slice(-10);
+  const amount = Number(req.query.amount) || 1000;
+
+  try {
+    const user = await User.findOne({ phone: new RegExp(phone + '$') });
+    if (!user) {
+      return res.status(404).json({ error: `User with phone ending in ${phone} not found.` });
+    }
+
+    user.depositBalance = (user.depositBalance || 0) + amount;
+    user.walletBalance = (user.depositBalance || 0) + (user.winningsBalance || 0);
+    await user.save();
+
+    const txn = new Transaction({
+      userId: user._id,
+      amount,
+      type: TransactionType.DEPOSIT,
+      status: TransactionStatus.SUCCESS,
+      referenceId: `admin_credit_${Date.now()}`,
+    });
+    await txn.save();
+
+    return res.json({
+      success: true,
+      message: `Successfully credited ₹${amount} to ${user.username} (${user.phone})!`,
+      username: user.username,
+      phone: user.phone,
+      depositBalance: user.depositBalance,
+      winningsBalance: user.winningsBalance,
+      totalWalletBalance: user.walletBalance,
+    });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 // Routes
 app.use('/api/payments', paymentRouter);
 app.use('/api/v1/payments', paymentRouter);
