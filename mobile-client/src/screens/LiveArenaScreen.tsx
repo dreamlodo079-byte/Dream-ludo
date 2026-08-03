@@ -134,10 +134,6 @@ export const LiveArenaScreen: React.FC<LiveArenaScreenProps> = ({
       }
     };
     checkQueueStatus();
-
-    return () => {
-      if (searchCountdownRef.current) clearInterval(searchCountdownRef.current);
-    };
   }, [currentUser._id]);
 
   const startLocalCountdown = (initialTime: number, tierVal: number) => {
