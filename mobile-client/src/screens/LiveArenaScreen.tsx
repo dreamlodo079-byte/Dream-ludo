@@ -11,6 +11,7 @@ import {
   Animated,
   Dimensions,
   Platform,
+  Alert,
 } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 import axios from 'axios';
@@ -161,6 +162,11 @@ export const LiveArenaScreen: React.FC<LiveArenaScreenProps> = ({
           });
         } catch (e) {}
         showDropdownAlert('No live opponent found right now. Entry fee refunded! Please try again.', 'error');
+        Alert.alert(
+          'No Opponent Found',
+          'No live player was found in this tier right now. Your entry fee has been refunded to your wallet balance. Please try again!',
+          [{ text: 'OK' }]
+        );
       }
     }, 1000);
   };
