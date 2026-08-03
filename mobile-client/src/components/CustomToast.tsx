@@ -66,7 +66,7 @@ export const CustomToast: React.FC<CustomToastProps> = ({ toast, onDismiss }) =>
         return <Ionicons name="alert-circle" size={22} color="#EF4444" />;
       case 'info':
       default:
-        return <Ionicons name="information-circle" size={22} color="#6366F1" />;
+        return <Ionicons name="information-circle" size={22} color="#F59E0B" />;
     }
   };
 
@@ -85,46 +85,56 @@ export const CustomToast: React.FC<CustomToastProps> = ({ toast, onDismiss }) =>
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    top: 65,
+    top: 100, // Positioned cleanly below header bar
     left: 0,
     right: 0,
     alignItems: 'center',
     zIndex: 99999,
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
   },
   toastCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    width: SCREEN_WIDTH * 0.88,
+    width: SCREEN_WIDTH * 0.90,
     maxWidth: 360,
-    backgroundColor: '#0F172A', // Dark slate floating card
-    borderRadius: 20,
-    paddingVertical: 12,
+    backgroundColor: '#1E1B4B', // Rich dark indigo gaming container
+    borderRadius: 18,
+    paddingVertical: 14,
     paddingHorizontal: 16,
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.25,
-    shadowRadius: 16,
-    elevation: 10,
-    borderWidth: 1,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.45,
+    shadowRadius: 20,
+    elevation: 12,
+    borderWidth: 1.5,
   },
   borderSuccess: {
-    borderColor: 'rgba(16, 185, 129, 0.4)',
+    borderColor: '#10B981',
+    backgroundColor: '#064E3B',
   },
   borderError: {
-    borderColor: 'rgba(239, 68, 68, 0.4)',
+    borderColor: '#EF4444',
+    backgroundColor: '#7F1D1D',
   },
   borderInfo: {
-    borderColor: 'rgba(99, 102, 241, 0.4)',
+    borderColor: '#F59E0B',
+    backgroundColor: '#1E1B4B',
   },
   iconWrapper: {
-    marginRight: 10,
+    marginRight: 12,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   messageText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '700',
+    color: '#FFFFFF', // High-contrast crisp white text
+    fontSize: 13.5,
+    fontWeight: '800',
     flex: 1,
-    lineHeight: 18,
+    lineHeight: 19,
+    letterSpacing: 0.3,
   },
 });
