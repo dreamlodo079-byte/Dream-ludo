@@ -370,47 +370,7 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
     }
   };
 
-  const handleQuickDevLogin = async () => {
-    setIsLoggingIn(true);
-    try {
-      const response = await axios.post(`${API_SERVER_URL}/api/users/login`, {
-        phone: '9876543210',
-        username: 'QuickTester',
-      });
-      if (response.data.success && response.data.user) {
-        if (response.data.token) {
-          axios.defaults.headers.common['x-auth-token'] = response.data.token;
-          axios.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`;
-        }
 
-        try {
-          const balRes = await axios.get(`${API_SERVER_URL}/api/payout/balance/${response.data.user._id}`);
-          if (balRes.data.success && balRes.data.balances.total < 100) {
-            await axios.post(`${API_SERVER_URL}/api/payments/simulate-success`, {
-              userId: response.data.user._id,
-              transactionId: `dev_init_${Date.now()}`,
-              amount: 1000,
-            });
-          }
-        } catch (_) {
-          await axios.post(`${API_SERVER_URL}/api/payments/simulate-success`, {
-            userId: response.data.user._id,
-            transactionId: `dev_init_${Date.now()}`,
-            amount: 1000,
-          });
-        }
-
-        onLoginSuccess(response.data.user, response.data.token);
-      }
-    } catch (err: any) {
-      const errMsg = (err.message === 'Network Error' || err.code === 'ERR_NETWORK')
-        ? `Cannot reach server at ${API_SERVER_URL}.\n\nCheck:\n1. Laptop & Phone are on the same Wi-Fi\n2. Windows Settings -> Network -> Set Wi-Fi to Private\n3. Allow Node.js in Windows Firewall`
-        : (err.response?.data?.error || err.message);
-      showCustomAlert('Authentication Error', errMsg, 'error');
-    } finally {
-      setIsLoggingIn(false);
-    }
-  };
 
   const handleDeposit = async () => {
     if (!currentUser) return;
@@ -1031,20 +991,6 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
               </View>
             )}
 
-            <View style={styles.authDivider}>
-              <View style={styles.authDividerLine} />
-              <Text style={styles.authDividerText}>or</Text>
-              <View style={styles.authDividerLine} />
-            </View>
-
-            <TouchableOpacity
-              style={styles.devLoginBtn}
-              onPress={handleQuickDevLogin}
-              disabled={isLoggingIn}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.devLoginBtnText}>⚡ 1-TAP DEMO LOGIN (BYPASS OTP)</Text>
-            </TouchableOpacity>
           </View>
         </ScrollView>
 
@@ -2289,23 +2235,7 @@ const styles = StyleSheet.create({
     color: '#94A3B8',
     fontWeight: '600',
   },
-  devLoginBtn: {
-    width: '100%',
-    backgroundColor: '#F0FDF4',
-    borderRadius: 14,
-    height: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 8,
-    borderWidth: 1.5,
-    borderColor: '#10B981',
-  },
-  devLoginBtnText: {
-    color: '#059669',
-    fontWeight: '800',
-    fontSize: 12,
-    letterSpacing: 0.5,
-  },
+
   otpHeaderBox: {
     alignItems: 'center',
     marginBottom: 20,
