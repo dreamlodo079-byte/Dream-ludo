@@ -230,7 +230,7 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({ onBack }) =>
       '🗑️',
       'Delete Tournament',
       `Are you sure you want to permanently delete "${tourTitle}"?`,
-      'DELETE TOURNAMENT',
+      'DELETE',
       async () => {
         setActionLoading(`delete_${tourId}`);
         try {
@@ -1613,7 +1613,7 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({ onBack }) =>
                   style={[styles.alertBtn, styles.alertCancelBtn]}
                   onPress={() => setConfirmModal((prev) => ({ ...prev, visible: false }))}
                 >
-                  <Text style={styles.alertCancelText}>Cancel</Text>
+                  <Text style={styles.alertCancelText} numberOfLines={1} adjustsFontSizeToFit>Cancel</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -1627,7 +1627,7 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({ onBack }) =>
                   }}
                   activeOpacity={0.8}
                 >
-                  <Text style={styles.alertConfirmText}>{confirmModal.confirmText}</Text>
+                  <Text style={styles.alertConfirmText} numberOfLines={1} adjustsFontSizeToFit>{confirmModal.confirmText}</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -2425,19 +2425,21 @@ const styles = StyleSheet.create({
   },
   alertBtn: {
     flex: 1,
-    height: 46,
+    height: 44,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     marginHorizontal: 4,
+    paddingHorizontal: 8,
   },
   alertCancelBtn: {
     backgroundColor: '#F1F5F9',
   },
   alertCancelText: {
     color: '#64748B',
-    fontSize: 12,
+    fontSize: 11.5,
     fontWeight: '800',
+    textAlign: 'center',
   },
   alertConfirmBtn: {
     backgroundColor: '#4F46E5',
@@ -2447,9 +2449,10 @@ const styles = StyleSheet.create({
   },
   alertConfirmText: {
     color: '#FFFFFF',
-    fontSize: 12,
+    fontSize: 11.5,
     fontWeight: '900',
-    letterSpacing: 0.5,
+    letterSpacing: 0.3,
+    textAlign: 'center',
   },
   promoterDescription: {
     fontSize: 12,

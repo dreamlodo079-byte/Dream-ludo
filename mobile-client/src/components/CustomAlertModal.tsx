@@ -134,7 +134,7 @@ export const CustomAlertModal: React.FC<CustomAlertModalProps> = ({
                 onPress={handleCancel}
                 activeOpacity={0.75}
               >
-                <Text style={styles.cancelBtnText}>
+                <Text style={styles.cancelBtnText} numberOfLines={1} adjustsFontSizeToFit>
                   {alert.cancelText || 'CANCEL'}
                 </Text>
               </TouchableOpacity>
@@ -151,7 +151,7 @@ export const CustomAlertModal: React.FC<CustomAlertModalProps> = ({
               onPress={handleConfirm}
               activeOpacity={0.8}
             >
-              <Text style={styles.confirmBtnText}>
+              <Text style={styles.confirmBtnText} numberOfLines={1} adjustsFontSizeToFit>
                 {alert.confirmText || (hasCancel ? 'ADD CASH' : 'GOT IT')}
               </Text>
             </TouchableOpacity>
