@@ -1209,15 +1209,17 @@ export const GameScreen: React.FC<GameScreenProps> = ({
           </View>
 
           <View style={styles.prizePoolBadge}>
-            <Text style={styles.prizePoolTitle}>🏆 PRIZE POOL 🏆</Text>
-            <Text style={styles.premiumPrizePoolValue}>₹{prizePool.toFixed(0)}</Text>
+            <Text style={styles.prizePoolTitle}>🏆 WINNER PRIZE 🏆</Text>
+            <Text style={styles.premiumPrizePoolValue}>₹{prizePool % 1 === 0 ? prizePool.toFixed(0) : prizePool.toFixed(2)}</Text>
           </View>
           <View style={{ width: 60 }} />
         </View>
 
         <View style={{ alignItems: 'center', marginTop: 10 }}>
           <View style={styles.matchTimerCapsule}>
-            <Text style={styles.matchTimerText}>🕒 {matchState.gameMode === 'QUICK' && matchState.matchTimer !== undefined ? `${Math.floor(matchState.matchTimer / 60)}:${String(matchState.matchTimer % 60).padStart(2, '0')}` : '04:53'}</Text>
+            <Text style={styles.matchTimerText}>
+              ⏱️ TURN TIMER: {matchState.turnTimer !== undefined ? `${matchState.turnTimer}s` : '15s'}
+            </Text>
           </View>
         </View>
 

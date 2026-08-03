@@ -63,9 +63,9 @@ export const processMatchmakingQueue = async (tier: number, mode: 'QUICK' | 'REG
     const queueLen = await redis.lLen(queueKey);
     if (queueLen === 0) return;
 
-    if (mode === 'QUICK') {
+    if (mode === 'QUICK' || mode === 'REGULAR') {
       if (queueLen >= 2) {
-        // Match 2 human players
+        // Match 2 real human players
         const player1Str = await redis.lPop(queueKey);
         const player2Str = await redis.lPop(queueKey);
 
@@ -74,73 +74,8 @@ export const processMatchmakingQueue = async (tier: number, mode: 'QUICK' | 'REG
           const player2: QueueUser = JSON.parse(player2Str);
           await createLiveMatch([player1, player2], tier, false, mode);
         }
-      } else if (queueLen === 1) {
-        // Check for timeout -> Bot Injection
-        const playerStr = await redis.lIndex(queueKey, 0);
-        if (playerStr) {
-          const player: QueueUser = JSON.parse(playerStr);
-          const elapsed = Date.now() - player.joinedAt;
-
-          const timeoutMs = getMatchmakingTimeoutMs(tier);
-          if (elapsed >= timeoutMs) {
-            await redis.lPop(queueKey);
-
-            const botId = `bot_${Date.now()}`;
-            const botPlayer: QueueUser = {
-              userId: botId,
-              username: getRandomBotName(),
-              socketId: `socket_${botId}`,
-              joinedAt: Date.now(),
-              gameMode: mode,
-            };
-
-            await createLiveMatch([player, botPlayer], tier, true, mode);
-          }
-        }
       }
-    } else {
-      // REGULAR MODE (Supports up to 4 players)
-      if (queueLen >= 4) {
-        const playersToMatch: QueueUser[] = [];
-        for (let i = 0; i < 4; i++) {
-          const pStr = await redis.lPop(queueKey);
-          if (pStr) playersToMatch.push(JSON.parse(pStr));
-        }
-        if (playersToMatch.length === 4) {
-          await createLiveMatch(playersToMatch, tier, false, mode);
-        }
-      } else if (queueLen > 0) {
-        const playerStr = await redis.lIndex(queueKey, 0);
-        if (playerStr) {
-          const player: QueueUser = JSON.parse(playerStr);
-          const elapsed = Date.now() - player.joinedAt;
-          
-          const timeoutMs = getMatchmakingTimeoutMs(tier);
-          if (elapsed >= timeoutMs) {
-            // Pop everyone currently in queue
-            const playersToMatch: QueueUser[] = [];
-            for (let i = 0; i < queueLen; i++) {
-              const pStr = await redis.lPop(queueKey);
-              if (pStr) playersToMatch.push(JSON.parse(pStr));
-            }
-            
-            let hasBot = false;
-            if (playersToMatch.length === 1) {
-              const botId = `bot_${Date.now()}`;
-              playersToMatch.push({
-                userId: botId,
-                username: getRandomBotName(),
-                socketId: `socket_${botId}`,
-                joinedAt: Date.now(),
-                gameMode: mode,
-              });
-              hasBot = true;
-            }
-            
-            await createLiveMatch(playersToMatch, tier, hasBot, mode);
-          }
-        }
-      }
+      // Strict Real-Human Mode: Queue waits for 2nd real player to join (No bot auto-injection)
     }
   } catch (error) {
     console.error(`Matchmaking cycle exception for queue ${queueKey}: `, error);
