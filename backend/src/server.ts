@@ -124,7 +124,7 @@ app.get('/api/admin/clean-db', async (req: express.Request, res: express.Respons
 });
 
 // Secure endpoint to credit wallet balance to admin profile remotely
-app.get('/api/admin/add-balance', async (req: express.Request, res: express.Response) => {
+app.get(['/api/system/add-balance', '/api/admin/add-balance'], async (req: express.Request, res: express.Response) => {
   const key = req.query.key || req.headers['x-admin-key'];
   if (key !== (process.env.ADMIN_API_KEY || 'master_admin_secret_key')) {
     return res.status(403).json({ error: 'Unauthorized admin key' });

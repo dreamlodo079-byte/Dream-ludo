@@ -85,7 +85,7 @@ export const CustomToast: React.FC<CustomToastProps> = ({ toast, onDismiss }) =>
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    top: 45,
+    top: 65,
     left: 0,
     right: 0,
     alignItems: 'center',
