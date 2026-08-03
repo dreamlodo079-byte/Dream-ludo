@@ -53,6 +53,8 @@ export const useSocket = (userId: string | null) => {
       isInMatchRef.current = true;
       setMatchState(state);
       setWinnerInfo(null);
+      // Immediately send handshake readiness signal so server starts turn countdown timer
+      socket.emit('READY_TO_ENTER', { roomId });
     });
 
     socket.on('MATCH_STATE_UPDATE', (state: any) => {

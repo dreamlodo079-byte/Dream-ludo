@@ -444,9 +444,8 @@ const createLiveMatch = async (
       }
     }
 
-    if (!hasBot) {
-      // Human vs Human matchmaking synchronization handshake
-      matchState.status = 'MATCH_PENDING';
+      // Human vs Human match: Set ACTIVE and start turn timer immediately
+      matchState.status = 'ACTIVE';
       
       // Save tracking info on players
       for (let i = 0; i < players.length; i++) {
@@ -460,26 +459,14 @@ const createLiveMatch = async (
       await cacheRoomState(roomId, matchState);
       
       const usernames = players.map(p => p.username).join(' vs ');
-      console.log(`Match pending handshake in room ${roomId}. Players: ${usernames}`);
+      console.log(`Live Human Match created in room ${roomId}. Players: ${usernames}`);
 
-      // Dispatch MATCH_FOUND_ACK to trigger client overlays
-      io.to(roomId).emit('MATCH_FOUND_ACK', {
-        roomId,
-        entryFee,
-        gameMode,
-        players: matchState.players.map(p => ({
-          id: p.id,
-          username: p.username,
-          isBot: p.isBot
-        }))
-      });
+      // Emit match start signals to connected clients
+      io.to(roomId).emit('MATCH_START', { roomId, state: matchState });
+      io.to(roomId).emit('START_MATCH_GAME', { roomId, state: matchState });
 
-      // Start safety timeout fallback (5 seconds)
-      const { setHandshakeTimer, handleHandshakeTimeout } = require('./socketManager');
-      const handshakeTimeout = setTimeout(async () => {
-        await handleHandshakeTimeout(roomId);
-      }, 5000);
-      setHandshakeTimer(roomId, handshakeTimeout);
+      // Start turn countdown timer (15s... 14s... 13s...)
+      startRoomTimer(roomId);
 
     } else {
       // Bot match: immediately start active game session
