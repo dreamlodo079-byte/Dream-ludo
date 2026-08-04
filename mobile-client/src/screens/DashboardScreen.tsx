@@ -265,51 +265,73 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
     outputRange: ['0deg', '360deg'],
   });
 
-  // Initial load
+  // Initial load and Animation Lifecycle Controller: restart animations whenever returning to HOME view
   useEffect(() => {
-    fetchWallet(currentUser._id);
-    fetchActiveTournament();
+    if (currentView === 'HOME') {
+      fetchWallet(currentUser._id);
+      fetchActiveTournament();
 
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(ctaPulse, { toValue: 1.05, duration: 1000, useNativeDriver: true }),
-        Animated.timing(ctaPulse, { toValue: 1, duration: 1000, useNativeDriver: true }),
-      ])
-    ).start();
+      // Reset animated values to starting positions
+      ctaPulse.setValue(1);
+      radarPulse.setValue(1);
+      radarOpacity.setValue(1);
+      diceFloat.setValue(0);
+      diceRotate.setValue(0);
+      sparkleRotate.setValue(0);
+      clashPulse.setValue(1);
 
-    Animated.loop(
-      Animated.parallel([
-        Animated.timing(radarPulse, { toValue: 3, duration: 2000, useNativeDriver: true }),
-        Animated.timing(radarOpacity, { toValue: 0, duration: 2000, useNativeDriver: true }),
-      ])
-    ).start();
+      const ctaAnim = Animated.loop(
+        Animated.sequence([
+          Animated.timing(ctaPulse, { toValue: 1.05, duration: 1000, useNativeDriver: true }),
+          Animated.timing(ctaPulse, { toValue: 1, duration: 1000, useNativeDriver: true }),
+        ])
+      );
+      ctaAnim.start();
 
-    // 3D Floating Dice Loop
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(diceFloat, { toValue: -10, duration: 1600, useNativeDriver: true }),
-        Animated.timing(diceFloat, { toValue: 0, duration: 1600, useNativeDriver: true }),
-      ])
-    ).start();
+      const radarAnim = Animated.loop(
+        Animated.parallel([
+          Animated.timing(radarPulse, { toValue: 3, duration: 2000, useNativeDriver: true }),
+          Animated.timing(radarOpacity, { toValue: 0, duration: 2000, useNativeDriver: true }),
+        ])
+      );
+      radarAnim.start();
 
-    // 3D Continuous Dice Spin
-    Animated.loop(
-      Animated.timing(diceRotate, { toValue: 1, duration: 9000, useNativeDriver: true })
-    ).start();
+      const diceFloatAnim = Animated.loop(
+        Animated.sequence([
+          Animated.timing(diceFloat, { toValue: -10, duration: 1600, useNativeDriver: true }),
+          Animated.timing(diceFloat, { toValue: 0, duration: 1600, useNativeDriver: true }),
+        ])
+      );
+      diceFloatAnim.start();
 
-    // 3D Star Sparkle Ring Spin
-    Animated.loop(
-      Animated.timing(sparkleRotate, { toValue: 1, duration: 14000, useNativeDriver: true })
-    ).start();
+      const diceRotateAnim = Animated.loop(
+        Animated.timing(diceRotate, { toValue: 1, duration: 9000, useNativeDriver: true })
+      );
+      diceRotateAnim.start();
 
-    // 3D Pawn Clash Pulse
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(clashPulse, { toValue: 1.08, duration: 900, useNativeDriver: true }),
-        Animated.timing(clashPulse, { toValue: 1, duration: 900, useNativeDriver: true }),
-      ])
-    ).start();
-  }, [currentUser._id]);
+      const sparkleRotateAnim = Animated.loop(
+        Animated.timing(sparkleRotate, { toValue: 1, duration: 14000, useNativeDriver: true })
+      );
+      sparkleRotateAnim.start();
+
+      const clashPulseAnim = Animated.loop(
+        Animated.sequence([
+          Animated.timing(clashPulse, { toValue: 1.08, duration: 900, useNativeDriver: true }),
+          Animated.timing(clashPulse, { toValue: 1, duration: 900, useNativeDriver: true }),
+        ])
+      );
+      clashPulseAnim.start();
+
+      return () => {
+        ctaAnim.stop();
+        radarAnim.stop();
+        diceFloatAnim.stop();
+        diceRotateAnim.stop();
+        sparkleRotateAnim.stop();
+        clashPulseAnim.stop();
+      };
+    }
+  }, [currentUser._id, currentView]);
 
   // Real-time Socket Listener for Tournament Mutations (Create, Edit, Delete, Register)
   useEffect(() => {
