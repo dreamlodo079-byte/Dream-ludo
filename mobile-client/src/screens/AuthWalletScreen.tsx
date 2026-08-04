@@ -56,6 +56,8 @@ interface UserProfile {
   phone: string;
   username: string;
   avatar?: string;
+  role?: string;
+  isAdmin?: boolean;
   isKycVerified?: boolean;
   kycStatus?: 'NONE' | 'PENDING' | 'APPROVED' | 'REJECTED';
   kycType?: 'PAN' | 'AADHAAR' | null;
