@@ -1353,13 +1353,13 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({ onBack }) =>
                   <Text style={styles.cardHeaderTitle}>🛡️ PROMOTIONAL ACCOUNT MANAGEMENT</Text>
                   <Text style={[
                     styles.cardHeaderBadge,
-                    promoterCount >= 3 ? { backgroundColor: '#FEE2E2', color: '#B91C1C' } : { backgroundColor: '#ECFDF5', color: '#047857' }
+                    promoterCount >= 5 ? { backgroundColor: '#FEE2E2', color: '#B91C1C' } : { backgroundColor: '#ECFDF5', color: '#047857' }
                   ]}>
-                    Active Promoters: {promoterCount} / 3
+                    Active Promoters: {promoterCount} / 5
                   </Text>
                 </View>
                 <Text style={styles.promoterDescription}>
-                  Promoters are special mock accounts designed to test real-money lobby matches dynamically. The platform limits active promoters to exactly 3 accounts.
+                  Promoters are special accounts used for promotions. The platform limits active promoters to exactly 5.
                 </Text>
               </View>
 

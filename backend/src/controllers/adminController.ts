@@ -16,8 +16,8 @@ export const promoteUser = async (req: AuthenticatedRequest, res: Response) => {
     await runInTransaction(async (session) => {
       // 1. Check current active promoters count
       const promoterCount = await User.countDocuments({ isPromoter: true }).session(session);
-      if (promoterCount >= 3) {
-        resultError = 'Maximum limit of 3 promoters reached. Demote an existing promoter first.';
+      if (promoterCount >= 5) {
+        resultError = 'Maximum limit of 5 promoters reached. Demote an existing promoter first.';
         return;
       }
 
