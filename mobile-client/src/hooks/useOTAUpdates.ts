@@ -21,7 +21,7 @@ export const useOTAUpdates = () => {
         const fetchResult = await Updates.fetchUpdateAsync();
         if (fetchResult.isNew) {
           setIsUpdateFetched(true);
-          // Reload immediately to apply latest JS bundle
+          // Immediately reload JS bundle so updates apply seamlessly without needing reinstall
           try {
             await Updates.reloadAsync();
           } catch (e) {
