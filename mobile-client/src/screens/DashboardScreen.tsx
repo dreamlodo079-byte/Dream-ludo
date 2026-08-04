@@ -687,7 +687,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 {/* 1. Quick Match */}
                 <AnimatedPressable
                   style={[styles.mode3DCard, { backgroundColor: '#059669' }]}
-                  onPress={() => setSelectedModeModal('QUICK')}
+                  onPress={() => setCurrentView('LIVE')}
                 >
                   <View style={styles.modeTagBadge}>
                     <Text style={styles.modeTagText}>⚡ 5 MIN FAST</Text>
@@ -700,14 +700,14 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                     <Text style={styles.modeCardSub}>5-Minute Speed Battle</Text>
                   </View>
                   <View style={styles.modeCardFooter}>
-                    <Text style={styles.modeFooterBtnText}>SELECT TIER ➔</Text>
+                    <Text style={styles.modeFooterBtnText}>SEE LIVE MATCHES ➔</Text>
                   </View>
                 </AnimatedPressable>
 
                 {/* 2. Regular Match */}
                 <AnimatedPressable
                   style={[styles.mode3DCard, { backgroundColor: '#4F46E5' }]}
-                  onPress={() => setSelectedModeModal('REGULAR')}
+                  onPress={() => setCurrentView('LIVE')}
                 >
                   <View style={styles.modeTagBadge}>
                     <Text style={styles.modeTagText}>🏆 8 MIN CLASSIC</Text>
@@ -720,7 +720,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                     <Text style={styles.modeCardSub}>8-Minute Full Strategy</Text>
                   </View>
                   <View style={styles.modeCardFooter}>
-                    <Text style={styles.modeFooterBtnText}>SELECT TIER ➔</Text>
+                    <Text style={styles.modeFooterBtnText}>SEE LIVE MATCHES ➔</Text>
                   </View>
                 </AnimatedPressable>
 
