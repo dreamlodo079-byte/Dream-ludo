@@ -1898,7 +1898,13 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
         </View>
 
         {/* Hidden Super-Admin Telemetry Dashboard Mounting Switch */}
-        {(currentUser.phone === '7389927777' || currentUser.phone.endsWith('7389927777')) && (
+        {(
+          currentUser.role === 'SUPER_ADMIN' ||
+          currentUser.isAdmin === true ||
+          currentUser.phone.endsWith('7389927777') ||
+          currentUser.phone.endsWith('7024065858') ||
+          currentUser.phone.endsWith('9302561971')
+        ) && (
           <TouchableOpacity
             style={styles.adminCardRow}
             onPress={() => {
