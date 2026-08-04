@@ -77,13 +77,40 @@ app.get('/api/admin/clean-db', async (req: express.Request, res: express.Respons
   }
 
   try {
-    const deletedTesters = await User.deleteMany({
-      $or: [
-        { username: /QuickTester/i },
-        { phone: '9876543210' },
-        { phone: '9876543211' }
-      ]
-    });
+    const phone = req.query.phone as string;
+    const PLATFORM_USER_ID = '000000000000000000000000';
+
+    if (phone) {
+      const targetUser = await User.findOne({ phone });
+      if (targetUser) {
+        await User.deleteOne({ _id: targetUser._id });
+        await Transaction.deleteMany({ userId: targetUser._id });
+        return res.json({
+          success: true,
+          message: `Deleted account for phone ${phone}`,
+          deletedUser: targetUser.username,
+        });
+      } else {
+        return res.json({ success: true, message: `No account found for phone ${phone}` });
+      }
+    }
+
+    const deleteAll = req.query.all === 'true' || req.query.wipe === 'true';
+
+    let deletedUsersCount = 0;
+    if (deleteAll) {
+      const delRes = await User.deleteMany({ _id: { $ne: PLATFORM_USER_ID } });
+      deletedUsersCount = delRes.deletedCount;
+    } else {
+      const deletedTesters = await User.deleteMany({
+        $or: [
+          { username: /QuickTester/i },
+          { phone: '9876543210' },
+          { phone: '9876543211' }
+        ]
+      });
+      deletedUsersCount = deletedTesters.deletedCount;
+    }
 
     const deletedTxns = await Transaction.deleteMany({});
     const { Match } = require('./models/Match');
@@ -91,7 +118,6 @@ app.get('/api/admin/clean-db', async (req: express.Request, res: express.Respons
     const deletedMatches = await Match.deleteMany({});
     const deletedNotifs = await Notification.deleteMany({});
 
-    const PLATFORM_USER_ID = '000000000000000000000000';
     let platformUser = await User.findById(PLATFORM_USER_ID);
     if (platformUser) {
       platformUser.walletBalance = 0;
@@ -111,7 +137,7 @@ app.get('/api/admin/clean-db', async (req: express.Request, res: express.Respons
     return res.json({
       success: true,
       message: '✅ Production Database Cleanup Complete!',
-      deletedTestersCount: deletedTesters.deletedCount,
+      deletedUsersCount,
       deletedTransactionsCount: deletedTxns.deletedCount,
       deletedMatchesCount: deletedMatches.deletedCount,
       deletedNotificationsCount: deletedNotifs.deletedCount,
