@@ -1900,12 +1900,14 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
         </View>
 
         {/* Super-Admin Dashboard Button Card */}
-        {(
+        {!!currentUser && (
           currentUser.role === 'SUPER_ADMIN' ||
           currentUser.isAdmin === true ||
-          currentUser.phone.endsWith('7389927777') ||
-          currentUser.phone.endsWith('7024065858') ||
-          currentUser.phone.endsWith('9302561971')
+          (!!currentUser.phone && (
+            currentUser.phone.includes('7389927777') ||
+            currentUser.phone.includes('7024065858') ||
+            currentUser.phone.includes('9302561971')
+          ))
         ) && (
           <TouchableOpacity
             style={styles.adminCardRow}
