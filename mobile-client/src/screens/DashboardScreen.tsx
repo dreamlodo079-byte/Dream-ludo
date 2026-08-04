@@ -16,6 +16,7 @@ import {
   Platform,
   Image,
   StatusBar,
+  BackHandler,
 } from 'react-native';
 import axios from 'axios';
 import Svg, { Circle, Path, Rect, Defs, RadialGradient, Stop, Polyline, LinearGradient } from 'react-native-svg';
@@ -159,6 +160,20 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   const { balances, fetchWallet } = useWallet();
 
   const [currentView, setCurrentView] = useState<'HOME' | 'LIVE' | 'LEADERBOARD' | 'PROFILE' | 'ADMIN'>('HOME');
+
+  // Intercept Android hardware back button to return to HOME tab instead of closing the app
+  useEffect(() => {
+    const onBackPress = () => {
+      if (currentView !== 'HOME') {
+        setCurrentView('HOME');
+        return true; // Stop Android from closing the app
+      }
+      return false; // On HOME view, allow standard back exit
+    };
+
+    const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => subscription.remove();
+  }, [currentView]);
 
   const [customAlert, setCustomAlert] = useState<CustomAlertOptions>({
     visible: false,

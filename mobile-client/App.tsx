@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { SafeAreaView, StyleSheet, StatusBar, View, Text, TouchableOpacity, Platform } from 'react-native';
+import { SafeAreaView, StyleSheet, StatusBar, View, Text, TouchableOpacity, Platform, BackHandler } from 'react-native';
 import axios from 'axios';
 import { useOTAUpdates } from './src/hooks/useOTAUpdates';
 import { useSocket } from './src/hooks/useSocket';
@@ -99,6 +99,23 @@ function AppContent() {
       saveCurrentView(view);
     }
   }, [view, currentUser]);
+
+  // Root Hardware Back Button Interceptor to prevent closing the app
+  useEffect(() => {
+    const onBackPress = () => {
+      if (view === 'wallet' || view === 'leaderboard' || view === 'challenges') {
+        setView('dashboard');
+        return true; // Stop Android from closing the app
+      }
+      if (view === 'game') {
+        return true; // Prevent accidental exit during an active match
+      }
+      return false;
+    };
+
+    const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => subscription.remove();
+  }, [view]);
 
   // Listen for MATCH_FOUND_ACK from socket
   useEffect(() => {

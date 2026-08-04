@@ -1899,7 +1899,7 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
           </TouchableOpacity>
         </View>
 
-        {/* Hidden Super-Admin Telemetry Dashboard Mounting Switch */}
+        {/* Super-Admin Dashboard Button Card */}
         {(
           currentUser.role === 'SUPER_ADMIN' ||
           currentUser.isAdmin === true ||
@@ -1912,16 +1912,21 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
             onPress={() => {
               if (onNavigateAdmin) onNavigateAdmin();
             }}
-            activeOpacity={0.8}
+            activeOpacity={0.85}
           >
-            <View style={styles.adminCardLeft}>
-              <Text style={styles.adminCardIcon}>🎛️</Text>
-              <View>
-                <Text style={styles.adminCardTitle}>Admin Telemetry Dashboard</Text>
+            <View style={styles.adminCardLeftContainer}>
+              <View style={styles.adminCardBadgeIcon}>
+                <Text style={{ fontSize: 20 }}>🛡️</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.adminCardTitle}>Admin Dashboard</Text>
                 <Text style={styles.adminCardSub}>Super-Admin Operational & Revenue Controls</Text>
               </View>
             </View>
-            <Text style={styles.adminCardArrow}>➔</Text>
+            <View style={styles.adminCardCtaBtn}>
+              <Text style={styles.adminCardCtaText}>OPEN</Text>
+              <Text style={styles.adminCardCtaArrow}>➔</Text>
+            </View>
           </TouchableOpacity>
         )}
 
@@ -3120,44 +3125,72 @@ const styles = StyleSheet.create({
     textDecorationLine: 'underline',
   },
   adminCardRow: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 16,
+    backgroundColor: '#1E1B4B',
+    borderColor: '#F59E0B',
+    borderWidth: 1.5,
+    borderRadius: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     marginBottom: 16,
+    marginTop: 8,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderWidth: 1.5,
-    borderColor: '#4F46E5',
-    shadowColor: '#4F46E5',
+    shadowColor: '#F59E0B',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
+    shadowOpacity: 0.35,
     shadowRadius: 8,
-    elevation: 4,
+    elevation: 6,
   },
-  adminCardLeft: {
+  adminCardLeftContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
+    marginRight: 10,
   },
-  adminCardIcon: {
-    fontSize: 22,
+  adminCardBadgeIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: 'rgba(245, 158, 11, 0.18)',
+    borderWidth: 1,
+    borderColor: '#F59E0B',
+    alignItems: 'center',
+    justifyContent: 'center',
     marginRight: 12,
   },
   adminCardTitle: {
-    fontSize: 14,
+    color: '#FFFFFF',
+    fontSize: 16,
     fontWeight: '900',
-    color: '#0F172A',
+    letterSpacing: 0.4,
   },
   adminCardSub: {
+    color: '#FCD34D',
     fontSize: 11,
-    color: '#4F46E5',
     fontWeight: '600',
     marginTop: 2,
   },
-  adminCardArrow: {
-    fontSize: 16,
+  adminCardCtaBtn: {
+    backgroundColor: '#F59E0B',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    elevation: 3,
+  },
+  adminCardCtaText: {
+    color: '#1E1B4B',
+    fontSize: 12,
     fontWeight: '900',
-    color: '#4F46E5',
+    letterSpacing: 0.5,
+    marginRight: 4,
+  },
+  adminCardCtaArrow: {
+    color: '#1E1B4B',
+    fontSize: 12,
+    fontWeight: '900',
   },
   referralCapsuleWrapper: {
     flexDirection: 'row',
