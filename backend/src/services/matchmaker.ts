@@ -74,8 +74,32 @@ export const processMatchmakingQueue = async (tier: number, mode: 'QUICK' | 'REG
           const player2: QueueUser = JSON.parse(player2Str);
           await createLiveMatch([player1, player2], tier, false, mode);
         }
+      } else if (queueLen === 1) {
+        // Free Games (tier === 0): If single player waiting >= 12.5s, auto-pair with realistic Indian Bot
+        const playerStr = await redis.lIndex(queueKey, 0);
+        if (playerStr) {
+          const player: QueueUser = JSON.parse(playerStr);
+          const elapsed = Date.now() - player.joinedAt;
+
+          if (tier === 0 && elapsed >= 12500) {
+            const poppedPlayerStr = await redis.lPop(queueKey);
+            if (poppedPlayerStr) {
+              const waitingPlayer: QueueUser = JSON.parse(poppedPlayerStr);
+              
+              const botUser: QueueUser = {
+                userId: `bot_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+                username: getRandomBotName(),
+                socketId: `bot_socket_${Date.now()}`,
+                joinedAt: Date.now(),
+                gameMode: mode,
+              };
+
+              console.log(`[Free Games Bot Pair] 13s elapsed for ${waitingPlayer.username} in Free Tier (₹0). Pairing with Bot ${botUser.username}`);
+              await createLiveMatch([waitingPlayer, botUser], tier, true, mode);
+            }
+          }
+        }
       }
-      // Strict Real-Human Mode: Queue waits for 2nd real player to join (No bot auto-injection)
     }
   } catch (error) {
     console.error(`Matchmaking cycle exception for queue ${queueKey}: `, error);

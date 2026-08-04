@@ -13,10 +13,15 @@ import { User } from '../models/User';
 const SAFE_COMMON_INDICES = [1, 9, 14, 22, 27, 35, 40, 48];
 
 /**
- * Triggers a bot action (roll or move) with a fast, responsive human-like delay (400ms - 900ms).
+ * Triggers a bot action (roll or move) with realistic human-like thinking/action delays (1.0s - 2.5s).
  */
-export const triggerBotTurn = (roomId: string): void => {
-  const delay = Math.random() * 500 + 400; // 400ms to 900ms fast delay
+export const triggerBotTurn = (roomId: string, isMovePhase = false): void => {
+  // Realistic human delay:
+  // Roll phase: 1.2s - 2.4s thinking/rolling delay
+  // Move phase: 1.0s - 2.2s decision/tapping delay
+  const delay = isMovePhase
+    ? Math.floor(1000 + Math.random() * 1200)
+    : Math.floor(1200 + Math.random() * 1400);
 
   setTimeout(() => {
     runWithRoomLock(roomId, async () => {
@@ -60,12 +65,12 @@ export const triggerBotTurn = (roomId: string): void => {
             
             const nextPlayer = state.players[state.activePlayerIndex];
             if (nextPlayer.isBot) {
-              triggerBotTurn(roomId);
+              triggerBotTurn(roomId, false);
             }
           } else {
-            // Trigger next phase (move)
+            // Trigger next phase (move phase with decision delay)
             io.to(roomId).emit('MATCH_STATE_UPDATE', state);
-            triggerBotTurn(roomId);
+            triggerBotTurn(roomId, true);
           }
         } else {
           // Move Phase
@@ -80,7 +85,7 @@ export const triggerBotTurn = (roomId: string): void => {
 
             const nextPlayer = state.players[state.activePlayerIndex];
             if (nextPlayer.isBot) {
-              triggerBotTurn(roomId);
+              triggerBotTurn(roomId, false);
             }
             return;
           }
@@ -99,7 +104,10 @@ export const triggerBotTurn = (roomId: string): void => {
             state,
           });
 
-          const transitionDelay = capturedToken ? 1800 : 1200;
+          const transitionDelay = capturedToken
+            ? Math.floor(1800 + Math.random() * 600)
+            : Math.floor(1200 + Math.random() * 400);
+
           setTimeout(() => {
             runWithRoomLock(roomId, async () => {
               try {
@@ -123,7 +131,7 @@ export const triggerBotTurn = (roomId: string): void => {
 
                   const nextPlayer = latestState.players[latestState.activePlayerIndex];
                   if (nextPlayer.isBot) {
-                    triggerBotTurn(roomId);
+                    triggerBotTurn(roomId, false);
                   }
                 }
               } catch (err) {
