@@ -507,6 +507,27 @@ async function processSignupWithReferral(
   });
 }
 
+const sanitizeUserError = (error: any): string => {
+  if (!error) return 'An error occurred. Please try again.';
+  const msg = typeof error === 'string' ? error : error.message || '';
+
+  if (error.code === 11000 || msg.includes('E11000') || msg.includes('duplicate key')) {
+    if (msg.includes('phone')) {
+      return 'This phone number is already registered. Please login instead.';
+    } else if (msg.includes('username')) {
+      return 'This username is already taken. Please choose another username.';
+    } else {
+      return 'An account with these details already exists. Please login instead.';
+    }
+  }
+
+  if (msg && !msg.includes('E11000') && !msg.includes('CastError') && !msg.includes('ValidationError') && !msg.includes('MongoServerError') && !msg.includes('at ')) {
+    return msg;
+  }
+
+  return 'Account verification failed. Please try again.';
+};
+
 // Verify OTP Route
 app.post('/api/users/verify-otp', async (req, res) => {
   const { phone, username, password, otp, isLogin, referredByCode } = req.body;
@@ -587,7 +608,7 @@ app.post('/api/users/verify-otp', async (req, res) => {
     return res.json({ success: true, user, token });
   } catch (error: any) {
     console.error('Error verifying OTP:', error);
-    return res.status(500).json({ error: error.message });
+    return res.status(400).json({ error: sanitizeUserError(error) });
   }
 });
 
@@ -649,7 +670,7 @@ app.post('/api/users/login', async (req, res) => {
     return res.json({ success: true, user, token });
   } catch (error: any) {
     console.error('Error logging in user:', error);
-    return res.status(500).json({ error: error.message });
+    return res.status(400).json({ error: sanitizeUserError(error) });
   }
 });
 
@@ -839,6 +860,14 @@ const startServer = async () => {
   try {
     // Connect to database
     await connectDB();
+
+    // Drop legacy non-sparse virtualAccountId_1 index if present
+    try {
+      await User.collection.dropIndex('virtualAccountId_1');
+      console.log('Successfully dropped legacy non-sparse virtualAccountId_1 index from MongoDB');
+    } catch (err) {
+      // Ignore if index is not present
+    }
 
     // Run platform initialization seed engine
     await seedPlatformDatabase();

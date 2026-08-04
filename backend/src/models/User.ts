@@ -136,7 +136,6 @@ const UserSchema = new Schema<IUser, IUserModel>(
       unique: true,
       sparse: true,
       trim: true,
-      default: null,
     },
     referralCode: {
       type: String,
@@ -166,8 +165,14 @@ UserSchema.virtual('walletBalance').get(function () {
   return Math.round(((this.depositBalance || 0) + (this.winningsBalance || 0) + (this.bonusBalance || 0)) * 100) / 100;
 });
 
-// Pre-save hook: set bonusBalance and unique uppercase referralCode for new registrations
+// Pre-save hook: set bonusBalance, unique uppercase referralCode for new registrations, and sanitize null fields for sparse index
 UserSchema.pre('save', function (next) {
+  if (this.virtualAccountId === null || this.virtualAccountId === '' || this.virtualAccountId === undefined) {
+    this.virtualAccountId = undefined;
+  }
+  if (this.referredBy === null || this.referredBy === '') {
+    this.referredBy = undefined;
+  }
   if (this.isNew) {
     if (!this.bonusBalance) {
       this.bonusBalance = 10.00;
