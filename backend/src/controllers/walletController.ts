@@ -62,16 +62,17 @@ walletRouter.post(['/deposit/request', '/v1/wallet/deposit/request'], async (req
         }
       }
 
-      // 1. Credit user's depositBalance instantly
-      user.depositBalance = (user.depositBalance || 0) + numAmount;
-      await user.save({ session });
+      // 1. We no longer credit instantly for manual UTR submissions
+      // Wait for admin approval or webhook
+      // user.depositBalance = (user.depositBalance || 0) + numAmount;
+      // await user.save({ session });
 
-      // 2. Create APPROVED Transaction record
+      // 2. Create PENDING Transaction record
       const txn = new Transaction({
         userId: new Types.ObjectId(userId),
         amount: numAmount,
         type: TransactionType.DEPOSIT,
-        status: TransactionStatus.APPROVED,
+        status: TransactionStatus.PENDING,
         referenceId,
         utr: cleanUtr,
       });
@@ -80,9 +81,9 @@ walletRouter.post(['/deposit/request', '/v1/wallet/deposit/request'], async (req
       // 3. Create Notification record
       const notif = new Notification({
         userId: new Types.ObjectId(userId),
-        title: 'Deposit Successful! 💰',
-        message: `₹${numAmount.toFixed(2)} deposit credited to your wallet balance instantly.`,
-        type: 'DEPOSIT_SUCCESS',
+        title: 'Deposit Pending Verification 🕒',
+        message: `₹${numAmount.toFixed(2)} deposit requested. Pending admin verification.`,
+        type: 'DEPOSIT_PENDING',
         isRead: false,
       });
       await notif.save({ session });
@@ -94,7 +95,7 @@ walletRouter.post(['/deposit/request', '/v1/wallet/deposit/request'], async (req
     try {
       const io = getIO();
       if (io) {
-        io.to(`user:${userId}`).emit('DEPOSIT_APPROVED', {
+        io.to(`user:${userId}`).emit('DEPOSIT_PENDING', {
           transactionId: depositTxn._id,
           amount: numAmount,
           userId,
@@ -119,7 +120,7 @@ walletRouter.post(['/deposit/request', '/v1/wallet/deposit/request'], async (req
 
     return res.json({
       success: true,
-      message: `Deposit of ₹${numAmount.toFixed(2)} credited to your wallet automatically!`,
+      message: `Deposit of ₹${numAmount.toFixed(2)} requested successfully. Awaiting admin verification!`,
       transaction: depositTxn,
       user: {
         _id: updatedUser._id,

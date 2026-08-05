@@ -27,7 +27,8 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#130924"
       },
-      "package": "com.dreamludo.realmoney"
+      "package": "com.dreamludo.realmoney",
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -44,7 +45,9 @@
       }
     },
     "plugins": [
-      "expo-asset"
+      "expo-asset",
+      "@react-native-firebase/app",
+      "@react-native-firebase/auth"
     ],
     "runtimeVersion": "1.0.0"
   }

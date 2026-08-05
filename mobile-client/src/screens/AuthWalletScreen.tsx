@@ -18,6 +18,8 @@ import {
 } from 'react-native';
 import Svg, { Rect, Path, G, Defs, LinearGradient, Stop, Circle, Line, Polyline } from 'react-native-svg';
 import axios from 'axios';
+// @ts-ignore: TS1192 - React Native Firebase does not have a default export in its typedefs but works at runtime
+import auth from '@react-native-firebase/auth';
 import { useWallet } from '../hooks/useWallet';
 import { PaymentCheckoutScreen } from './PaymentCheckoutScreen';
 
@@ -142,6 +144,7 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
   const [referredByCode, setReferredByCode] = useState('');
   const [isFocusedRefCode, setIsFocusedRefCode] = useState(false);
   const [isRefClaimed, setIsRefClaimed] = useState(false);
+  const [confirmResult, setConfirmResult] = useState<any>(null);
   // Forgot Password States
   const [isForgotPasswordMode, setIsForgotPasswordMode] = useState(false);
   const [forgotStep, setForgotStep] = useState<'SEND_OTP' | 'RESET_PASSWORD'>('SEND_OTP');
@@ -316,27 +319,19 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
 
     setIsLoggingIn(true);
     try {
-      const response = await axios.post(`${API_SERVER_URL}/api/users/send-otp`, {
-        phone,
-        username: isLoginMode ? undefined : username,
-        password,
-        isLogin: isLoginMode,
-        referredByCode: !isLoginMode ? (referredByCode.trim().toUpperCase() || undefined) : undefined,
-      });
-
-      if (response.data.success) {
-        setOtpSent(true);
-        setOtpTimer(30);
-        showCustomAlert(
-          'Verification Code Sent',
-          'OTP has been sent to your mobile number via SMS.',
-          'success'
-        );
-      }
+      const normalizedPhone = `+91${phone.trim().slice(-10)}`;
+      const confirmation = await auth().signInWithPhoneNumber(normalizedPhone);
+      setConfirmResult(confirmation);
+      
+      setOtpSent(true);
+      setOtpTimer(30);
+      showCustomAlert(
+        'Verification Code Sent',
+        'OTP has been sent to your mobile number via SMS.',
+        'success'
+      );
     } catch (err: any) {
-      const errMsg = (err.message === 'Network Error' || err.code === 'ERR_NETWORK')
-        ? `Cannot reach server at ${API_SERVER_URL}.\n\nEnsure laptop & phone are on the same Wi-Fi network.`
-        : (err.response?.data?.error || err.message);
+      const errMsg = err.message || 'Failed to send OTP via Firebase.';
       showCustomAlert('Authentication Error', errMsg, 'error');
     } finally {
       setIsLoggingIn(false);
@@ -351,12 +346,14 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
 
     setIsLoggingIn(true);
     try {
-      const response = await axios.post(`${API_SERVER_URL}/api/users/verify-otp`, {
-        phone,
+      if (!confirmResult) throw new Error("No OTP session found. Please resend OTP.");
+
+      const userCredential = await confirmResult.confirm(otpCode);
+      const idToken = await userCredential.user.getIdToken(true);
+
+      const response = await axios.post(`${API_SERVER_URL}/api/users/firebase-verify`, {
+        idToken,
         username: isLoginMode ? undefined : username,
-        password,
-        otp: otpCode,
-        isLogin: isLoginMode,
         referredByCode: !isLoginMode ? (referredByCode.trim().toUpperCase() || undefined) : undefined,
       });
 
@@ -366,7 +363,12 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
         onLoginSuccess(response.data.user, response.data.token);
       }
     } catch (err: any) {
-      showCustomAlert('Verification Error', err.response?.data?.error || err.message, 'error');
+      // Firebase throws specific auth errors
+      if (err.code === 'auth/invalid-verification-code') {
+        showCustomAlert('Verification Error', 'Invalid OTP. Please try again.', 'error');
+      } else {
+        showCustomAlert('Verification Error', err.response?.data?.error || err.message, 'error');
+      }
     } finally {
       setIsLoggingIn(false);
     }
@@ -530,19 +532,18 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
     }
     setIsSubmittingForgot(true);
     try {
-      const response = await axios.post(`${API_SERVER_URL}/api/users/forgot-password/send-otp`, {
-        phone: phone.trim(),
-      });
-      if (response.data.success) {
-        setForgotStep('RESET_PASSWORD');
-        showCustomAlert(
-          'OTP Sent 📩',
-          `Verification OTP sent to +91 ${phone.trim().slice(-10)}.${response.data.otp ? '\nTest OTP: ' + response.data.otp : ''}`,
-          'success'
-        );
-      }
+      const normalizedPhone = `+91${phone.trim().slice(-10)}`;
+      const confirmation = await auth().signInWithPhoneNumber(normalizedPhone);
+      setConfirmResult(confirmation);
+      
+      setForgotStep('RESET_PASSWORD');
+      showCustomAlert(
+        'OTP Sent 📩',
+        `Verification OTP sent to +91 ${phone.trim().slice(-10)} via Firebase.`,
+        'success'
+      );
     } catch (err: any) {
-      showCustomAlert('Forgot Password', err.response?.data?.error || err.message || 'Failed to send OTP.', 'error');
+      showCustomAlert('Forgot Password', err.message || 'Failed to send OTP via Firebase.', 'error');
     } finally {
       setIsSubmittingForgot(false);
     }
@@ -564,11 +565,16 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
 
     setIsSubmittingForgot(true);
     try {
-      const response = await axios.post(`${API_SERVER_URL}/api/users/forgot-password/reset`, {
-        phone: phone.trim(),
-        otp: forgotOtp.trim(),
+      if (!confirmResult) throw new Error("No OTP session found. Please request a new OTP.");
+
+      const userCredential = await confirmResult.confirm(forgotOtp.trim());
+      const idToken = await userCredential.user.getIdToken(true);
+
+      const response = await axios.post(`${API_SERVER_URL}/api/users/firebase-reset-password`, {
+        idToken,
         newPassword: newPassword.trim(),
       });
+      
       if (response.data.success) {
         setPassword(newPassword.trim());
         setIsForgotPasswordMode(false);
@@ -579,7 +585,11 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
         showCustomAlert('Success! 🎉', 'Password reset successfully! Log in with your new password.', 'success');
       }
     } catch (err: any) {
-      showCustomAlert('Reset Error', err.response?.data?.error || err.message || 'Failed to reset password.', 'error');
+      if (err.code === 'auth/invalid-verification-code') {
+        showCustomAlert('Reset Error', 'Invalid OTP. Please try again.', 'error');
+      } else {
+        showCustomAlert('Reset Error', err.response?.data?.error || err.message || 'Failed to reset password.', 'error');
+      }
     } finally {
       setIsSubmittingForgot(false);
     }

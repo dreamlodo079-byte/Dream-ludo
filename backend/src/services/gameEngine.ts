@@ -70,7 +70,7 @@ export const rotateTurn = (state: MatchState): void => {
     if (loops > state.players.length) break;
   } while (state.players[state.activePlayerIndex].hasLeft);
 
-  state.turnTimer = state.customRules?.turnTimer || (state.gameMode === 'ROOMS' && state.customRules?.turnTimer) || 15;
+  state.turnTimer = state.customRules?.turnTimer || (state.gameMode === 'ROOMS' && state.customRules?.turnTimer) || 10;
   state.hasRolled = false;
   state.diceRoll = null;
   state.consecutiveSixes = 0;
@@ -114,7 +114,7 @@ export const createInitialState = (
     hasRolled: false,
     consecutiveSixes: 0,
     winnerId: null,
-    turnTimer: customRules?.turnTimer || 15,
+    turnTimer: customRules?.turnTimer || 10,
     isTerminated: false,
     entryFee,
     preTurnTokens: initialPreTurnTokens,

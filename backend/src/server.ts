@@ -19,7 +19,7 @@ import { walletRouter } from './controllers/walletController';
 import { notificationRouter } from './controllers/notificationController';
 import { adminWalletRouter } from './controllers/adminWalletController';
 import { getDailyProgress, claimDailyReward } from './services/challengeTracker';
-import { send2FactorOTP } from './services/twoFactorService';
+import { getFirebaseAuth } from './config/firebase';
 import { generalRateLimiter, strictRateLimiter, sanitizeInputMiddleware } from './middleware/security';
 import { authenticateJWT, blacklistToken, JWT_SECRET, AuthenticatedRequest } from './middleware/auth';
 import { User } from './models/User';
@@ -252,170 +252,118 @@ app.post('/api/challenges/claim', async (req, res) => {
   }
 });
 
-// Send OTP Route
-app.post('/api/users/send-otp', async (req, res) => {
-  const { phone, username, password, isLogin } = req.body;
+// Firebase Authentication Verification Route
+app.post('/api/users/firebase-verify', async (req, res) => {
+  const { idToken, username, referredByCode } = req.body;
 
-  if (!phone) {
-    return res.status(400).json({ error: 'Phone number is required' });
+  if (!idToken) {
+    return res.status(400).json({ error: 'Firebase idToken is required' });
   }
-
-  // Indian phone validation (10 digits starting with 6-9, optional 91/+91 prefix)
-  const phoneRegex = /^(?:\+91|91)?[6789]\d{9}$/;
-  if (!phoneRegex.test(phone.trim())) {
-    return res.status(400).json({ error: 'Invalid Indian phone number. Please enter a valid 10-digit number starting with 6, 7, 8, or 9 (with optional +91/91 prefix).' });
-  }
-
-  const normalizedPhone = phone.trim().slice(-10);
 
   try {
-    const user = await User.findOne({ phone: normalizedPhone });
-
-    if (isLogin) {
-      if (!user) {
-        return res.status(400).json({ error: 'Phone number not registered. Please sign up.' });
-      }
-      if (!password) {
-        return res.status(400).json({ error: 'Password is required' });
-      }
-      const hashed = hashPassword(password.trim());
-      // Verify password if user has password set
-      if (user.password && user.password !== hashed) {
-        return res.status(400).json({ error: 'Incorrect password.' });
-      }
-    } else {
-      // Signup mode
-      if (user) {
-        return res.status(400).json({ error: 'Phone number already registered. Please log in.' });
-      }
-      if (!username || !password) {
-        return res.status(400).json({ error: 'Username and password are required for signup.' });
-      }
+    // 1. Verify the ID token with Firebase Admin
+    const auth = getFirebaseAuth();
+    const decodedToken = await auth.verifyIdToken(idToken);
+    
+    if (!decodedToken.phone_number) {
+      return res.status(400).json({ error: 'Phone number not associated with this Firebase account' });
     }
 
-    // Generate random 6-digit OTP
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    // Firebase phone numbers include country code, e.g. +919876543210
+    const normalizedPhone = decodedToken.phone_number.slice(-10);
 
-    const redis = getRedisClient();
-    if (redis) {
-      await redis.set(`otp:${normalizedPhone}`, otp, { EX: 300 }); // 5 minutes TTL
-    }
+    // 2. Find or Create User in MongoDB
+    let user = await User.findOne({ phone: normalizedPhone });
 
-    // Send real SMS OTP via 2Factor Gateway
-    const smsResult = await send2FactorOTP(normalizedPhone, otp);
-    if (!smsResult.success) {
-      console.warn(`[2Factor Warning] SMS dispatch returned non-success for ${normalizedPhone}: ${smsResult.error}`);
-    }
-
-    return res.json({
-      success: true,
-      message: 'OTP sent successfully to your phone number via SMS.',
-    });
-  } catch (error: any) {
-    console.error('Error sending OTP:', error);
-    return res.status(500).json({ error: error.message });
-  }
-});
-
-// Forgot Password - Send OTP Route
-app.post('/api/users/forgot-password/send-otp', async (req, res) => {
-  const { phone } = req.body;
-
-  if (!phone) {
-    return res.status(400).json({ error: 'Phone number is required' });
-  }
-
-  const phoneRegex = /^(?:\+91|91)?[6789]\d{9}$/;
-  if (!phoneRegex.test(phone.trim())) {
-    return res.status(400).json({ error: 'Invalid Indian phone number. Please enter a valid 10-digit number.' });
-  }
-
-  const normalizedPhone = phone.trim().slice(-10);
-
-  try {
-    const user = await User.findOne({ phone: normalizedPhone });
     if (!user) {
-      return res.status(404).json({ error: 'No registered account found with this mobile number. Please check your phone number or sign up.' });
+      // User doesn't exist, create them
+      if (!username) {
+        // If they didn't provide a username, generate a default one or return error requiring it
+        return res.status(400).json({ error: 'User not registered. Please provide a username to sign up.' });
+      }
+
+      user = await processSignupWithReferral(
+        normalizedPhone,
+        username,
+        '', // Password is no longer required with phone auth
+        referredByCode
+      );
     }
 
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-
-    const redis = getRedisClient();
-    if (redis) {
-      await redis.set(`forgot_otp:${normalizedPhone}`, otp, { EX: 300 }); // 5 minutes TTL
+    // Privilege switch for admins based on phone number
+    if (
+      normalizedPhone === '7389927777' || user.phone.endsWith('7389927777') ||
+      normalizedPhone === '7024065858' || user.phone.endsWith('7024065858') ||
+      normalizedPhone === '9302561971' || user.phone.endsWith('9302561971')
+    ) {
+      user.role = 'SUPER_ADMIN';
+      user.isAdmin = true;
+      await user.save();
     }
 
-    // Send real SMS OTP via 2Factor Gateway
-    const smsResult = await send2FactorOTP(normalizedPhone, otp);
-    if (!smsResult.success) {
-      console.warn(`[2Factor Warning] Forgot-Password SMS dispatch returned non-success for ${normalizedPhone}: ${smsResult.error}`);
-    }
+    // 3. Issue our Custom JWT for the application
+    const token = jwt.sign(
+      {
+        userId: user._id.toString(),
+        username: user.username,
+        role: user.role,
+        isAdmin: user.isAdmin,
+      },
+      JWT_SECRET,
+      { expiresIn: '7d' }
+    );
 
-    return res.json({
-      success: true,
-      message: 'Password reset OTP sent successfully to your registered mobile number.',
-    });
+    return res.json({ success: true, user, token });
   } catch (error: any) {
-    console.error('Error sending forgot password OTP:', error);
-    return res.status(500).json({ error: error.message });
+    console.error('Error verifying Firebase Token:', error);
+    return res.status(401).json({ error: 'Invalid or expired Firebase authentication token.' });
   }
 });
 
-// Forgot Password - Verify OTP & Reset Password Route
-app.post('/api/users/forgot-password/reset', async (req, res) => {
-  const { phone, otp, newPassword } = req.body;
+// Firebase Forgot Password Reset Route
+app.post('/api/users/firebase-reset-password', async (req, res) => {
+  const { idToken, newPassword } = req.body;
 
-  if (!phone || !otp || !newPassword) {
-    return res.status(400).json({ error: 'Phone number, OTP, and new password are required.' });
+  if (!idToken || !newPassword) {
+    return res.status(400).json({ error: 'Firebase idToken and new password are required' });
   }
 
   if (newPassword.trim().length < 4) {
     return res.status(400).json({ error: 'New password must be at least 4 characters long.' });
   }
 
-  const normalizedPhone = phone.trim().slice(-10);
-  const otpStr = String(otp).trim();
-
-  // Validate OTP with Master bypass for testing phase
-  if (
-    otpStr === '123456' ||
-    normalizedPhone === '9876543210' ||
-    normalizedPhone === '7389927777' ||
-    normalizedPhone === '7024065858' ||
-    normalizedPhone === '9302561971' ||
-    process.env.NODE_ENV !== 'production'
-  ) {
-    // Universal Master OTP bypass for development / testing
-  } else {
-    const redis = getRedisClient();
-    if (redis) {
-      const cachedOtp = await redis.get(`forgot_otp:${normalizedPhone}`);
-      if (!cachedOtp || cachedOtp !== otpStr) {
-        return res.status(400).json({ error: 'Invalid or expired OTP. Please request a new OTP.' });
-      }
-      await redis.del(`forgot_otp:${normalizedPhone}`);
-    }
-  }
-
   try {
-    const user = await User.findOne({ phone: normalizedPhone });
+    // 1. Verify the ID token with Firebase Admin
+    const auth = getFirebaseAuth();
+    const decodedToken = await auth.verifyIdToken(idToken);
+    
+    if (!decodedToken.phone_number) {
+      return res.status(400).json({ error: 'Phone number not associated with this Firebase account' });
+    }
+
+    const normalizedPhone = decodedToken.phone_number.slice(-10);
+
+    // 2. Find User in MongoDB
+    let user = await User.findOne({ phone: normalizedPhone });
+
     if (!user) {
       return res.status(404).json({ error: 'Registered user account not found.' });
     }
 
+    // 3. Reset Password
     const hashed = hashPassword(newPassword.trim());
     user.password = hashed;
     await user.save();
 
-    console.log(`Password reset successfully for phone ${normalizedPhone}`);
+    console.log(`Password reset successfully via Firebase for phone ${normalizedPhone}`);
 
     return res.json({
       success: true,
       message: 'Password reset successfully! Please log in with your new password.',
     });
   } catch (error: any) {
-    console.error('Error resetting password:', error);
-    return res.status(500).json({ error: error.message });
+    console.error('Error resetting password via Firebase Token:', error);
+    return res.status(401).json({ error: 'Invalid or expired Firebase authentication token.' });
   }
 });
 
@@ -528,89 +476,7 @@ const sanitizeUserError = (error: any): string => {
   return 'Account verification failed. Please try again.';
 };
 
-// Verify OTP Route
-app.post('/api/users/verify-otp', async (req, res) => {
-  const { phone, username, password, otp, isLogin, referredByCode } = req.body;
 
-  if (!phone || !otp) {
-    return res.status(400).json({ error: 'Phone and OTP are required' });
-  }
-
-  const normalizedPhone = phone.trim().slice(-10);
-  const otpStr = String(otp).trim();
-
-  // Master test OTP bypass for development / testing phase / admin login
-  if (
-    otpStr === '123456' ||
-    normalizedPhone === '9876543210' ||
-    normalizedPhone === '7389927777' ||
-    normalizedPhone === '7024065858' ||
-    normalizedPhone === '9302561971' ||
-    process.env.NODE_ENV !== 'production'
-  ) {
-    // Universal Master OTP bypass for testing phase
-  } else {
-    const redis = getRedisClient();
-    if (redis) {
-      const cachedOtp = await redis.get(`otp:${normalizedPhone}`);
-      if (cachedOtp && cachedOtp !== otpStr) {
-        return res.status(400).json({ error: 'Invalid or expired OTP. Please try again.' });
-      }
-      if (cachedOtp) {
-        await redis.del(`otp:${normalizedPhone}`);
-      }
-    }
-  }
-
-  try {
-    let user = await User.findOne({ phone: normalizedPhone });
-
-    if (!isLogin) {
-      // Signup - create user
-      if (user) {
-        return res.status(400).json({ error: 'Phone already registered.' });
-      }
-      if (!username || !password) {
-        return res.status(400).json({ error: 'Username and password are required for signup.' });
-      }
-
-      user = await processSignupWithReferral(
-        normalizedPhone,
-        username,
-        hashPassword(password.trim()),
-        referredByCode
-      );
-    } else {
-      // Login
-      if (!user) {
-        return res.status(400).json({ error: 'User not registered. Please sign up.' });
-      }
-    }
-
-    // Privilege switch: Check if phone signature is 7389927777
-    if (user.phone.endsWith('7389927777') || user.phone.endsWith('7024065858') || user.phone.endsWith('9302561971')) {
-      user.role = 'SUPER_ADMIN';
-      user.isAdmin = true;
-      await user.save();
-    }
-
-    const token = jwt.sign(
-      {
-        userId: user._id.toString(),
-        username: user.username,
-        role: user.role,
-        isAdmin: user.isAdmin,
-      },
-      JWT_SECRET,
-      { expiresIn: '7d' }
-    );
-
-    return res.json({ success: true, user, token });
-  } catch (error: any) {
-    console.error('Error verifying OTP:', error);
-    return res.status(400).json({ error: sanitizeUserError(error) });
-  }
-});
 
 // Basic Auth/User Registration Route
 app.post('/api/users/login', async (req, res) => {

@@ -525,7 +525,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   const [diceDisplayVal, setDiceDisplayVal] = useState<number>(1);
   const [isDiceAnimating, setIsDiceAnimating] = useState(false);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
-  const [previousTimer, setPreviousTimer] = useState<number>(15);
+  const [previousTimer, setPreviousTimer] = useState<number>(10);
 
 
 
@@ -1242,7 +1242,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
                     isActive={matchState.activePlayerIndex === idx}
                     isCurrentUser={p.id === currentUser._id}
                     turnTimer={matchState.turnTimer}
-                    totalTime={15}
+                    totalTime={10}
                     align={align as any}
                     diceValue={matchState.activePlayerIndex === idx ? (diceDisplayVal || 1) : 1}
                     isDiceAnimating={matchState.activePlayerIndex === idx && isDiceAnimating}

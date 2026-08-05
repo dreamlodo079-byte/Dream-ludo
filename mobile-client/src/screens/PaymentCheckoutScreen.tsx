@@ -145,14 +145,14 @@ export const PaymentCheckoutScreen: React.FC<PaymentCheckoutScreenProps> = ({
         <Text style={styles.headerTitle}>UPI CHECKOUT</Text>
       </View>
 
-      {/* Instant Success Banner */}
+      {/* Pending Verification Banner */}
       {pendingBanner && (
-        <View style={[styles.banner, { backgroundColor: '#DCFCE7', borderColor: '#10B981' }]}>
-          <Text style={styles.bannerIcon}>🎉</Text>
+        <View style={[styles.banner, { backgroundColor: '#FEF9C3', borderColor: '#EAB308' }]}>
+          <Text style={styles.bannerIcon}>🕒</Text>
           <View style={{ flex: 1 }}>
-            <Text style={[styles.bannerTitle, { color: '#065F46' }]}>PAYMENT CONFIRMED & CREDITED!</Text>
-            <Text style={[styles.bannerSub, { color: '#047857' }]}>
-              ₹{numAmount.toFixed(2)} deposit credited to your wallet balance automatically.
+            <Text style={[styles.bannerTitle, { color: '#854D0E' }]}>PAYMENT PENDING VERIFICATION</Text>
+            <Text style={[styles.bannerSub, { color: '#713F12' }]}>
+              ₹{numAmount.toFixed(2)} deposit requested. Your balance will be credited after admin verification.
             </Text>
           </View>
         </View>

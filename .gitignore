@@ -30,3 +30,7 @@ ios/Pods/
 !backend/public/downloads/dream-ludo.apk
 *.ipa
 *.sourcemap
+
+# Firebase Credentials
+google-services.json
+serviceAccountKey.json
