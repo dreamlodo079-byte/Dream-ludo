@@ -57,6 +57,7 @@ payoutRouter.post(['/withdraw', '/v1/payout/withdraw'], async (req: Request, res
       // Deduct immediately inside session from winningsBalance & add to lockedBalance for admin review
       user.winningsBalance = Math.round((currentWinnings - withdrawAmount) * 100) / 100;
       user.lockedBalance = Math.round(((user.lockedBalance || 0) + withdrawAmount) * 100) / 100;
+      user.upiId = String(upiId).trim();
       await user.save({ session });
 
       // Compute 30% TDS Tax (Section 194BA)

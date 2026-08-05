@@ -170,6 +170,7 @@ walletRouter.post(['/withdraw/request', '/v1/wallet/withdraw/request'], async (r
 
       user.winningsBalance = (user.winningsBalance || 0) - withdrawAmount;
       user.lockedBalance = (user.lockedBalance || 0) + withdrawAmount;
+      user.upiId = cleanUpi;
       await user.save({ session });
 
       const txn = new Transaction({

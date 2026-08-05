@@ -169,7 +169,7 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
   // Deposit/Withdrawal States
   const [depositAmount, setDepositAmount] = useState('');
   const [withdrawAmount, setWithdrawAmount] = useState('');
-  const [upiId, setUpiId] = useState('');
+  const [upiId, setUpiId] = useState((currentUser as any)?.upiId || '');
   const [upiIntentLink, setUpiIntentLink] = useState<string | null>(null);
   const [activeTxnId, setActiveTxnId] = useState<string | null>(null);
   const [checkoutAmount, setCheckoutAmount] = useState<number | null>(null);
@@ -502,7 +502,6 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
     if (result.success) {
       showCustomAlert('Withdrawal Successful', 'IMPS transfer completed. Balance locked and settled.', 'success');
       setWithdrawAmount('');
-      setUpiId('');
     } else {
       showCustomAlert('Withdrawal Failed', result.error || 'Server rejected payout', 'error');
     }

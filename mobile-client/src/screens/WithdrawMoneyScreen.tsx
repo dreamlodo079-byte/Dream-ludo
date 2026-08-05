@@ -33,7 +33,7 @@ export const WithdrawMoneyScreen: React.FC<WithdrawMoneyScreenProps> = ({
   onSuccess,
 }) => {
   const [amount, setAmount] = useState<string>('');
-  const [upiId, setUpiId] = useState<string>('');
+  const [upiId, setUpiId] = useState<string>((currentUser as any)?.upiId || '');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [successBanner, setSuccessBanner] = useState<boolean>(false);
 
