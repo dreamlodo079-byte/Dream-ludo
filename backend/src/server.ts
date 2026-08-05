@@ -278,7 +278,7 @@ app.post('/api/users/send-otp', async (req, res) => {
       if (!password) {
         return res.status(400).json({ error: 'Password is required' });
       }
-      const hashed = hashPassword(password);
+      const hashed = hashPassword(password.trim());
       // Verify password if user has password set
       if (user.password && user.password !== hashed) {
         return res.status(400).json({ error: 'Incorrect password.' });
@@ -577,7 +577,7 @@ app.post('/api/users/verify-otp', async (req, res) => {
       user = await processSignupWithReferral(
         normalizedPhone,
         username,
-        hashPassword(password),
+        hashPassword(password.trim()),
         referredByCode
       );
     } else {
@@ -626,7 +626,7 @@ app.post('/api/users/login', async (req, res) => {
 
     if (user) {
       if (password) {
-        const hashed = hashPassword(password);
+        const hashed = hashPassword(password.trim());
         if (user.password && user.password !== hashed) {
           return res.status(400).json({ error: 'Incorrect password' });
         }
@@ -640,7 +640,7 @@ app.post('/api/users/login', async (req, res) => {
       user = await processSignupWithReferral(
         normalizedPhone,
         username,
-        password ? hashPassword(password) : '',
+        password ? hashPassword(password.trim()) : '',
         referredByCode
       );
     }

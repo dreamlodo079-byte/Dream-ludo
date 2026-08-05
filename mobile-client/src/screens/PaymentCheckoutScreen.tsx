@@ -12,6 +12,8 @@ import {
   Image,
   Linking,
   Modal,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import Svg, { Rect, Circle, Path } from 'react-native-svg';
 import axios from 'axios';
@@ -133,9 +135,10 @@ export const PaymentCheckoutScreen: React.FC<PaymentCheckoutScreenProps> = ({
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-      {/* Top Header */}
-      <View style={styles.topBar}>
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        {/* Top Header */}
+        <View style={styles.topBar}>
         <TouchableOpacity style={styles.backBtn} onPress={handleCancelCheckout} activeOpacity={0.8}>
           <Text style={styles.backBtnText}>◀ Back to Wallet</Text>
         </TouchableOpacity>
@@ -282,7 +285,8 @@ export const PaymentCheckoutScreen: React.FC<PaymentCheckoutScreenProps> = ({
           </View>
         </Modal>
       )}
-    </ScrollView>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 };
 
@@ -293,7 +297,7 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 16,
-    paddingBottom: 140,
+    paddingBottom: 220,
     width: '100%',
     maxWidth: 640,
     alignSelf: 'center',
