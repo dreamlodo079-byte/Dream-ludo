@@ -44,7 +44,7 @@ const MatchSchema = new Schema<IMatch>(
       type: Number,
       required: true,
       min: 0,
-      max: 10000,
+      max: 50000,
     },
     platformFee: {
       type: Number,

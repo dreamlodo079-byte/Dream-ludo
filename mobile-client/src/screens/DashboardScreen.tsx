@@ -33,7 +33,7 @@ import { CustomAlertModal, CustomAlertOptions } from '../components/CustomAlertM
 import { NotificationCenter } from '../components/NotificationCenter';
 
 import { API_SERVER_URL } from '../utils/config';
-const ENTRY_FEES = [50, 100, 500, 1000, 0];
+const ENTRY_FEES = [0, 3, 5, 10, 25, 50, 100, 250, 500, 1000, 2000, 3000, 5000, 10000, 20000];
 
 const formatDateTime = (dateStr: string) => {
   if (!dateStr) return 'N/A';
@@ -1125,25 +1125,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                     ))}
                   </View>
 
-                  <View style={styles.customFeeContainer}>
-                    <Text style={styles.customFeeLabel}>Or enter custom amount:</Text>
-                    <View style={styles.customFeeInputWrapper}>
-                      <Text style={styles.customFeeCurrency}>₹</Text>
-                      <TextInput
-                        style={styles.customFeeInput}
-                        placeholder="Enter custom amount"
-                        placeholderTextColor="#94A3B8"
-                        keyboardType="numeric"
-                        value={customFeeText}
-                        onChangeText={(val) => {
-                          const numeric = val.replace(/[^0-9]/g, '');
-                          setCustomFeeText(numeric);
-                          setSelectedTier(numeric ? Number(numeric) : 50);
-                        }}
-                        editable={!isSearching}
-                      />
-                    </View>
-                  </View>
+
 
                   <AnimatedPressable
                     style={[styles.primaryActionBtn, { backgroundColor: selectedTier === 0 ? '#059669' : (selectedModeModal === 'QUICK' ? '#059669' : '#4F46E5'), marginTop: 16 }]}

@@ -13,7 +13,7 @@ import {
   Platform,
   Alert,
 } from 'react-native';
-import Svg, { Circle, Path } from 'react-native-svg';
+import Svg, { Circle, Path, Polyline } from 'react-native-svg';
 import axios from 'axios';
 import { CustomAlertModal, CustomAlertOptions } from '../components/CustomAlertModal';
 
@@ -23,7 +23,7 @@ interface LiveArenaScreenProps {
   currentUser: { _id: string; username: string };
   socketId: string | null;
   onBack: () => void;
-  socket: any; // Passed from parent socket provider
+  socket: any;
   onUserUpdate?: (user: any) => void;
 }
 
@@ -31,17 +31,25 @@ interface TierInfo {
   tier: number;
   timeout: number;
   prize: number;
+  baseMockPlayers: number;
 }
 
 const TIER_CONFIGS: TierInfo[] = [
-  { tier: 3, timeout: 13, prize: 5.4 },
-  { tier: 5, timeout: 13, prize: 9.0 },
-  { tier: 10, timeout: 13, prize: 18 },
-  { tier: 25, timeout: 13, prize: 45 },
-  { tier: 50, timeout: 13, prize: 90 },
-  { tier: 100, timeout: 13, prize: 180 },
-  { tier: 250, timeout: 13, prize: 450 },
-  { tier: 500, timeout: 13, prize: 900 },
+  { tier: 0, timeout: 15, prize: 0, baseMockPlayers: 42 },
+  { tier: 3, timeout: 15, prize: 5, baseMockPlayers: 10 },
+  { tier: 5, timeout: 15, prize: 9, baseMockPlayers: 14 },
+  { tier: 10, timeout: 15, prize: 18, baseMockPlayers: 18 },
+  { tier: 25, timeout: 15, prize: 45, baseMockPlayers: 8 },
+  { tier: 50, timeout: 15, prize: 90, baseMockPlayers: 16 },
+  { tier: 100, timeout: 15, prize: 180, baseMockPlayers: 12 },
+  { tier: 250, timeout: 15, prize: 450, baseMockPlayers: 6 },
+  { tier: 500, timeout: 15, prize: 900, baseMockPlayers: 9 },
+  { tier: 1000, timeout: 15, prize: 1800, baseMockPlayers: 5 },
+  { tier: 2000, timeout: 15, prize: 3600, baseMockPlayers: 4 },
+  { tier: 3000, timeout: 15, prize: 5400, baseMockPlayers: 3 },
+  { tier: 5000, timeout: 15, prize: 9000, baseMockPlayers: 6 },
+  { tier: 10000, timeout: 15, prize: 18000, baseMockPlayers: 4 },
+  { tier: 20000, timeout: 15, prize: 36000, baseMockPlayers: 2 },
 ];
 
 export const LiveArenaScreen: React.FC<LiveArenaScreenProps> = ({
@@ -50,23 +58,28 @@ export const LiveArenaScreen: React.FC<LiveArenaScreenProps> = ({
   onBack,
   socket,
 }) => {
-  // Sockets counts delta state
   const [lobbyStats, setLobbyStats] = useState<Record<string, { waiting: number; playing: number }>>({});
-  
-  // Selected/Active search state
   const [isSearching, setIsSearching] = useState(false);
   const [searchingTier, setSearchingTier] = useState<TierInfo | null>(null);
   const [searchTimer, setSearchTimer] = useState(0);
-  const [expandedTier, setExpandedTier] = useState<number | null>(null);
 
-  // Inline dropdown alert state
+  // Live countdown timers for each tier (simulates waiting match windows)
+  const [cardTimers, setCardTimers] = useState<Record<number, number>>(() => {
+    const initial: Record<number, number> = {};
+    TIER_CONFIGS.forEach((item) => {
+      initial[item.tier] = Math.floor(Math.random() * 12) + 4; // 4s to 15s
+    });
+    return initial;
+  });
+
+  // Dropdown alert state
   const [dropdownMsg, setDropdownMsg] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   const showDropdownAlert = (text: string, type: 'success' | 'error') => {
     setDropdownMsg({ text, type });
     setTimeout(() => setDropdownMsg(null), 4000);
   };
 
-  // Custom gaming alert modal state
+  // Custom alert modal state
   const [customAlert, setCustomAlert] = useState<CustomAlertOptions>({
     visible: false,
     title: '',
@@ -85,29 +98,33 @@ export const LiveArenaScreen: React.FC<LiveArenaScreenProps> = ({
 
   // Animations
   const searchCountdownRef = useRef<NodeJS.Timeout | null>(null);
-  const pulseAnim = useRef(new Animated.Value(1)).current;
   const buttonScales = useRef<Record<number, Animated.Value>>({}).current;
 
-  // Initialize scale animation configs for each tier button
   TIER_CONFIGS.forEach((item) => {
     if (!buttonScales[item.tier]) {
       buttonScales[item.tier] = new Animated.Value(1);
     }
   });
 
-  // Pulse animation for WAITING status
+  // Ticking countdown effect for card timers (Live Bluff Timers)
   useEffect(() => {
-    if (isSearching) {
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(pulseAnim, { toValue: 1.2, duration: 800, useNativeDriver: true }),
-          Animated.timing(pulseAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
-        ])
-      ).start();
-    } else {
-      pulseAnim.setValue(1);
-    }
-  }, [isSearching]);
+    const timerInterval = setInterval(() => {
+      setCardTimers((prev) => {
+        const updated = { ...prev };
+        TIER_CONFIGS.forEach((item) => {
+          const current = updated[item.tier] ?? 8;
+          if (current <= 1) {
+            updated[item.tier] = Math.floor(Math.random() * 14) + 5; // Reset to random 5-18s
+          } else {
+            updated[item.tier] = current - 1;
+          }
+        });
+        return updated;
+      });
+    }, 1000);
+
+    return () => clearInterval(timerInterval);
+  }, []);
 
   // Listen to Sockets LOBBY_STATE_DELTA event
   useEffect(() => {
@@ -119,8 +136,6 @@ export const LiveArenaScreen: React.FC<LiveArenaScreenProps> = ({
       };
 
       socket.on('LOBBY_STATE_DELTA', handleLobbyDelta);
-
-      // Force an initial query to populate counts on load
       socket.emit('REQUEST_LOBBY_STATS');
 
       return () => {
@@ -129,14 +144,14 @@ export const LiveArenaScreen: React.FC<LiveArenaScreenProps> = ({
     }
   }, [socket]);
 
-  // Check if player is already waiting in queue on component mount
+  // Check queue status on mount
   useEffect(() => {
     const checkQueueStatus = async () => {
       try {
         const response = await axios.get(`${API_SERVER_URL}/api/payments/matchmaker/status/${currentUser._id}`);
         if (response.data.success && response.data.status === 'WAITING') {
           const tierVal = response.data.tier;
-          const matchedConfig = TIER_CONFIGS.find((c) => c.tier === tierVal) || TIER_CONFIGS[2];
+          const matchedConfig = TIER_CONFIGS.find((c) => c.tier === tierVal) || TIER_CONFIGS[1];
           
           const elapsedSec = Math.floor((Date.now() - response.data.joinedAt) / 1000);
           const remaining = Math.max(0, matchedConfig.timeout - elapsedSec);
@@ -148,7 +163,7 @@ export const LiveArenaScreen: React.FC<LiveArenaScreenProps> = ({
           startLocalCountdown(remaining, tierVal);
         }
       } catch (err) {
-        console.error('Failed to sync queue search status:', err);
+        console.warn('Failed to sync queue search status:', err);
       }
     };
     checkQueueStatus();
@@ -194,24 +209,24 @@ export const LiveArenaScreen: React.FC<LiveArenaScreenProps> = ({
   const handleRegisterTier = async (item: TierInfo) => {
     const activeSocketId = socketId || `socket_${currentUser._id}_${Date.now()}`;
     
-    // Check local balance
-    try {
-      const response = await axios.get(`${API_SERVER_URL}/api/payments/wallet/${currentUser._id}`);
-      if (response.data.success) {
-        const total = response.data.balances.total;
-        if (total < item.tier) {
-          showDropdownAlert(`Insufficient Balance! Rs. ${item.tier} required. Top up wallet in Profile.`, 'error');
-          return;
+    if (item.tier > 0) {
+      try {
+        const response = await axios.get(`${API_SERVER_URL}/api/payments/wallet/${currentUser._id}`);
+        if (response.data.success) {
+          const total = response.data.balances.total;
+          if (total < item.tier) {
+            showDropdownAlert(`Insufficient Balance! ₹${item.tier} required. Top up your wallet in Profile.`, 'error');
+            return;
+          }
         }
+      } catch (err) {
+        console.warn('Failed to verify wallet balance:', err);
       }
-    } catch (err) {
-      console.warn('Failed to verify wallet balance before entering matchmaking queue:', err);
     }
 
     setSearchingTier(item);
     setIsSearching(true);
 
-    // Scale button down feedback
     Animated.sequence([
       Animated.timing(buttonScales[item.tier], { toValue: 0.92, duration: 100, useNativeDriver: true }),
       Animated.timing(buttonScales[item.tier], { toValue: 1, duration: 150, useNativeDriver: true }),
@@ -223,7 +238,7 @@ export const LiveArenaScreen: React.FC<LiveArenaScreenProps> = ({
         username: currentUser.username,
         socketId: activeSocketId,
         entryFee: item.tier,
-        gameMode: 'REGULAR', // Standard Live Classic Matches
+        gameMode: 'REGULAR',
       });
 
       if (response.data.success) {
@@ -260,105 +275,107 @@ export const LiveArenaScreen: React.FC<LiveArenaScreenProps> = ({
     }
   };
 
-
-
   const renderTierCard = ({ item }: { item: TierInfo }) => {
     const isThisSearching = isSearching && searchingTier?.tier === item.tier;
-    const stats = lobbyStats[item.tier] || { waiting: 0, playing: 0 };
-    const totalOnline = stats.waiting + stats.playing;
-    const isExpanded = expandedTier === item.tier;
+    const realStats = lobbyStats[item.tier] || { waiting: 0, playing: 0 };
+    const mockPlayers = item.baseMockPlayers + (realStats.waiting + realStats.playing);
+    const secondsLeft = cardTimers[item.tier] || 8;
+    const formattedTimer = `00m ${secondsLeft < 10 ? '0' + secondsLeft : secondsLeft}s`;
 
     return (
       <View style={[styles.cardContainer, isThisSearching && styles.cardContainerActive]}>
-        <View style={styles.mainCardRow}>
-          {/* Left Side: Active user headcount */}
-          <View style={styles.leftInfoBlock}>
-            <View style={styles.headcountRow}>
-              <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="#4F46E5" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                <Path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                <Circle cx="9" cy="7" r="4" />
-                <Path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-                <Path d="M16 3.13a4 4 0 0 1 0 7.75" />
-              </Svg>
-              <Text style={styles.headcountText}>
-                {totalOnline > 0 ? `${totalOnline} Online` : '0 Players'}
-              </Text>
-            </View>
-            <TouchableOpacity 
-              style={styles.dropdownToggle}
-              onPress={() => setExpandedTier(isExpanded ? null : item.tier)}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.dropdownToggleText}>
-                {isExpanded ? 'Hide Prize Scale' : 'Show Prize Scale'}
-              </Text>
-            </TouchableOpacity>
+        {/* Top Header Section */}
+        <View style={styles.cardHeader}>
+          {/* Left: Active Player Count */}
+          <View style={styles.cardHeaderLeft}>
+            <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+              <Path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+              <Circle cx="9" cy="7" r="4" />
+              <Path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+              <Path d="M16 3.13a4 4 0 0 1 0 7.75" />
+            </Svg>
+            <Text style={styles.mockPlayerCount}>{mockPlayers} +</Text>
           </View>
 
-          {/* Middle: Waiting / Pulsing status capsule */}
-          <View style={styles.middleCapsuleBlock}>
-            {isThisSearching && (
-              <View style={styles.statusCapsuleWaiting}>
-                <Animated.View style={[styles.pulsingDot, { transform: [{ scale: pulseAnim }] }]} />
-                <Text style={styles.statusCapsuleText}>
-                  {searchTimer}s Left
-                </Text>
-              </View>
-            )}
-          </View>
+          {/* Center: 2 PLAYERS • 1 WINNER */}
+          <Text style={styles.cardHeaderCenter}>2 PLAYERS • 1 WINNER</Text>
 
-          {/* Right Side: Entry Fee Button */}
-          <Animated.View style={{ transform: [{ scale: buttonScales[item.tier] }] }}>
-            <TouchableOpacity
-              style={[
-                styles.actionButton,
-                isThisSearching ? styles.cancelButton : styles.registerButton,
-                isSearching && !isThisSearching && styles.actionButtonDisabled
-              ]}
-              onPress={() => (isThisSearching ? handleCancelSearch() : handleRegisterTier(item))}
-              disabled={isSearching && !isThisSearching}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.actionButtonText}>
-                {isThisSearching ? 'Cancel' : `Rs. ${item.tier}`}
-              </Text>
-            </TouchableOpacity>
-          </Animated.View>
+          {/* Right: QUICK 🕒 */}
+          <View style={styles.cardHeaderRight}>
+            <Text style={styles.quickText}>QUICK</Text>
+            <Svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="#2563EB" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: 4 }}>
+              <Circle cx="12" cy="12" r="10" />
+              <Polyline points="12 6 12 12 16 14" />
+            </Svg>
+          </View>
         </View>
 
-        {/* Dropdown Prize Pool Card */}
-        {isExpanded && (
-          <View style={styles.prizePoolDetails}>
-            <View style={styles.prizeDetailHeader}>
-              <Text style={styles.prizeDetailTitle}>Winner-Takes-All Scale</Text>
-            </View>
-            <View style={styles.prizeRow}>
-              <Text style={styles.prizeLabel}>Entry Fee:</Text>
-              <Text style={styles.prizeValue}>Rs. {item.tier} per player</Text>
-            </View>
-            <View style={styles.prizeRow}>
-              <Text style={styles.prizeLabel}>Match Total:</Text>
-              <Text style={styles.prizeValue}>Rs. {item.tier * 2}</Text>
-            </View>
-            <View style={[styles.prizeRow, styles.commissionRow]}>
-              <Text style={styles.prizeLabel}>Platform Fee (10%):</Text>
-              <Text style={styles.prizeValue}>- Rs. {(item.tier * 2 * 0.10).toFixed(1)}</Text>
-            </View>
-            <View style={[styles.prizeRow, styles.netWinningsRow]}>
-              <Text style={styles.netWinningsLabel}>Winner Payout:</Text>
-              <Text style={styles.netWinningsValue}>WIN Rs. {item.prize}</Text>
+        {/* Bottom Body Section */}
+        <View style={styles.cardBody}>
+          {/* Left Column: PRIZE POOL */}
+          <View style={styles.prizeCol}>
+            <Text style={styles.colLabel}>PRIZE POOL</Text>
+            <View style={styles.prizePill}>
+              <Text style={styles.prizeText}>
+                {item.tier === 0 ? 'FREE' : `₹${item.prize.toLocaleString('en-IN')}`}
+              </Text>
+              {item.tier !== 0 && (
+                <Svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="#64748B" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: 3 }}>
+                  <Path d="M6 9l6 6 6-6" />
+                </Svg>
+              )}
             </View>
           </View>
-        )}
+
+          {/* Middle Column: COUNTDOWN TIMER */}
+          <View style={styles.timerCol}>
+            <View style={styles.timerPill}>
+              <Svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="#DC2626" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 5 }}>
+                <Circle cx="12" cy="12" r="10" />
+                <Polyline points="12 6 12 12 16 14" />
+              </Svg>
+              <Text style={styles.timerText}>
+                {isThisSearching ? `${searchTimer}s Left` : formattedTimer}
+              </Text>
+            </View>
+          </View>
+
+          {/* Right Column: ENTRY BUTTON */}
+          <View style={styles.entryCol}>
+            <Text style={styles.colLabel}>ENTRY</Text>
+            <Animated.View style={{ transform: [{ scale: buttonScales[item.tier] || 1 }] }}>
+              <TouchableOpacity
+                style={[
+                  styles.entryButton,
+                  isThisSearching ? styles.cancelButton : styles.registerButton,
+                  isSearching && !isThisSearching && styles.actionButtonDisabled
+                ]}
+                onPress={() => (isThisSearching ? handleCancelSearch() : handleRegisterTier(item))}
+                disabled={isSearching && !isThisSearching}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.entryButtonText}>
+                  {isThisSearching ? 'Cancel' : (item.tier === 0 ? 'Free' : `₹${item.tier.toLocaleString('en-IN')}`)}
+                </Text>
+              </TouchableOpacity>
+            </Animated.View>
+          </View>
+        </View>
       </View>
     );
   };
 
   return (
     <View style={styles.container}>
-      {/* Luxury Header bar */}
+      {/* Header bar */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>LIVE BATTLE ARENA</Text>
+        <TouchableOpacity onPress={onBack} style={styles.backButton}>
+          <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke="#0F172A" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+            <Path d="M19 12H5M12 19l-7-7 7-7" />
+          </Svg>
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>LIVE ARENA BATTLES</Text>
+        <View style={{ width: 24 }} />
       </View>
 
       <CustomToast
@@ -369,13 +386,6 @@ export const LiveArenaScreen: React.FC<LiveArenaScreenProps> = ({
         }}
         onDismiss={() => setDropdownMsg(null)}
       />
-
-      {/* Screen Explanatory Tagline */}
-      <View style={styles.taglineCard}>
-        <Text style={styles.taglineText}>
-          ⚡ Choose a cash tier entry fee to match and compete against real players. Winner takes 90% of the combined entry pool instantly!
-        </Text>
-      </View>
 
       {/* Tiers List */}
       <FlatList
@@ -392,7 +402,7 @@ export const LiveArenaScreen: React.FC<LiveArenaScreenProps> = ({
           <View style={styles.overlayCard}>
             <ActivityIndicator size="large" color="#4F46E5" />
             <Text style={styles.overlayTitle}>Finding Opponent...</Text>
-            <Text style={styles.overlaySubtitle}>Entry Tier: Rs. {searchingTier.tier}</Text>
+            <Text style={styles.overlaySubtitle}>Entry Tier: ₹{searchingTier.tier}</Text>
             <Text style={styles.overlayTimer}>Estimated wait: {searchTimer}s</Text>
             <TouchableOpacity style={styles.overlayCancelBtn} onPress={handleCancelSearch} activeOpacity={0.85}>
               <Text style={styles.overlayCancelText}>Cancel Search</Text>
@@ -413,203 +423,174 @@ export const LiveArenaScreen: React.FC<LiveArenaScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC', // Crisp Premium Light Theme background (#F8FAFC)
+    backgroundColor: '#EEF2F6',
   },
   header: {
-    height: 70,
+    height: 60,
     backgroundColor: '#FFFFFF',
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderColor: '#E2E8F0',
-    shadowColor: '#334155',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 3,
+    borderColor: '#CBD5E1',
     marginTop: Platform.OS === 'android' ? 24 : 0,
+  },
+  backButton: {
+    padding: 4,
   },
   headerTitle: {
     fontSize: 16,
     fontWeight: '900',
     color: '#0F172A',
-    letterSpacing: 1,
-  },
-  listContent: {
-    padding: 16,
-    paddingBottom: 130, // Make it scrollable all the way past floating capsule bar
-  },
-  cardContainer: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    borderWidth: 1.5,
-    borderColor: '#E5E7EB',
-    marginBottom: 14,
-    padding: 16,
-    shadowColor: '#475569',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.03,
-    shadowRadius: 12,
-    elevation: 3,
-  },
-  cardContainerActive: {
-    borderColor: '#4F46E5',
-    backgroundColor: '#F8FAFC',
-  },
-  mainCardRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  leftInfoBlock: {
-    flex: 1.2,
-    justifyContent: 'center',
-  },
-  headcountRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  headcountText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#334155',
-    marginLeft: 6,
-  },
-  dropdownToggle: {
-    alignSelf: 'flex-start',
-    paddingVertical: 2,
-  },
-  dropdownToggleText: {
-    fontSize: 11,
-    color: '#4F46E5',
-    fontWeight: '700',
-  },
-  middleCapsuleBlock: {
-    flex: 0.9,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 8,
-  },
-  statusCapsuleWaiting: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FEF3C7',
-    paddingVertical: 5,
-    paddingHorizontal: 10,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#FDE68A',
-  },
-  statusCapsuleIdle: {
-    backgroundColor: '#F1F5F9',
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 12,
-  },
-  statusCapsuleText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#D97706',
-  },
-  statusCapsuleTextIdle: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#64748B',
-    textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
-  pulsingDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#D97706',
-    marginRight: 6,
+  listContent: {
+    padding: 14,
+    paddingBottom: 100,
   },
-  actionButton: {
-    borderRadius: 14,
-    height: 42,
-    minWidth: 80,
+  cardContainer: {
+    backgroundColor: '#DDE3EA',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    marginBottom: 14,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  cardContainerActive: {
+    borderColor: '#2563EB',
+    backgroundColor: '#EFF6FF',
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#C5D0DC',
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+  },
+  cardHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  mockPlayerCount: {
+    fontSize: 13,
+    fontWeight: '900',
+    color: '#10B981',
+    marginLeft: 6,
+  },
+  cardHeaderCenter: {
+    fontSize: 12,
+    fontWeight: '900',
+    fontStyle: 'italic',
+    color: '#334155',
+    letterSpacing: 0.5,
+  },
+  cardHeaderRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  quickText: {
+    fontSize: 11,
+    fontWeight: '900',
+    fontStyle: 'italic',
+    color: '#2563EB',
+    letterSpacing: 0.5,
+  },
+  cardBody: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 14,
+  },
+  colLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    fontStyle: 'italic',
+    color: '#64748B',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  prizeCol: {
+    flex: 1,
+    alignItems: 'flex-start',
+  },
+  prizePill: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    elevation: 2,
+    backgroundColor: '#CBD5E1',
+    borderRadius: 14,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    minWidth: 80,
+  },
+  prizeText: {
+    fontSize: 15,
+    fontWeight: '900',
+    color: '#0F172A',
+    fontStyle: 'italic',
+  },
+  timerCol: {
+    flex: 1.2,
+    alignItems: 'center',
+  },
+  timerPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#EDF2F7',
+    borderRadius: 18,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+  },
+  timerText: {
+    fontSize: 12,
+    fontWeight: '800',
+    fontStyle: 'italic',
+    color: '#334155',
+  },
+  entryCol: {
+    flex: 1,
+    alignItems: 'flex-end',
+  },
+  entryButton: {
+    borderRadius: 20,
+    paddingVertical: 9,
+    paddingHorizontal: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 85,
   },
   registerButton: {
     backgroundColor: '#10B981',
     shadowColor: '#10B981',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 3,
   },
   cancelButton: {
     backgroundColor: '#EF4444',
-    shadowColor: '#EF4444',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
   },
   actionButtonDisabled: {
-    backgroundColor: '#CBD5E1',
-    shadowOpacity: 0,
+    backgroundColor: '#94A3B8',
     elevation: 0,
   },
-  actionButtonText: {
+  entryButtonText: {
     color: '#FFFFFF',
+    fontSize: 15,
     fontWeight: '900',
-    fontSize: 13,
-    letterSpacing: 0.5,
-  },
-  prizePoolDetails: {
-    marginTop: 14,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderColor: '#F1F5F9',
-  },
-  prizeDetailHeader: {
-    marginBottom: 8,
-  },
-  prizeDetailTitle: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#64748B',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  prizeRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 5,
-  },
-  prizeLabel: {
-    fontSize: 12,
-    color: '#64748B',
-    fontWeight: '500',
-  },
-  prizeValue: {
-    fontSize: 12,
-    color: '#0F172A',
-    fontWeight: '600',
-  },
-  commissionRow: {
-    paddingBottom: 6,
-    borderBottomWidth: 1,
-    borderColor: '#F1F5F9',
-  },
-  netWinningsRow: {
-    marginTop: 6,
-    alignItems: 'center',
-  },
-  netWinningsLabel: {
-    fontSize: 13,
-    color: '#10B981',
-    fontWeight: '800',
-  },
-  netWinningsValue: {
-    fontSize: 14,
-    color: '#10B981',
-    fontWeight: '900',
+    fontStyle: 'italic',
   },
   overlayContainer: {
     ...StyleSheet.absoluteFillObject,
@@ -625,10 +606,6 @@ const styles = StyleSheet.create({
     width: '85%',
     maxWidth: 340,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 16 },
-    shadowOpacity: 0.3,
-    shadowRadius: 24,
     elevation: 12,
   },
   overlayTitle: {
@@ -666,45 +643,5 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '800',
     fontSize: 13,
-  },
-  taglineCard: {
-    backgroundColor: '#EEF2FF',
-    marginHorizontal: 16,
-    marginTop: 12,
-    marginBottom: 4,
-    padding: 12,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E0E7FF',
-  },
-  taglineText: {
-    fontSize: 12,
-    color: '#4F46E5',
-    fontWeight: '600',
-    lineHeight: 16,
-    textAlign: 'center',
-  },
-  dropdownAlert: {
-    marginHorizontal: 16,
-    marginTop: 12,
-    padding: 12,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-  },
-  dropdownAlertSuccess: {
-    backgroundColor: '#ECFDF5',
-    borderColor: '#A7F3D0',
-  },
-  dropdownAlertError: {
-    backgroundColor: '#FEF2F2',
-    borderColor: '#FEE2E2',
-  },
-  dropdownAlertText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#374151',
-    textAlign: 'center',
   },
 });

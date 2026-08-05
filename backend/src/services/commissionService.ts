@@ -54,10 +54,10 @@ export const calculateCommission = (entryFee: number): CommissionBreakdown => {
  */
 export const validateEntryFee = (entryFee: number): { valid: boolean; message?: string } => {
   if (entryFee === 0) return { valid: true }; // Free practice play
-  if (typeof entryFee !== 'number' || isNaN(entryFee) || entryFee < 1 || entryFee > 10000) {
+  if (typeof entryFee !== 'number' || isNaN(entryFee) || entryFee < 1 || entryFee > 50000) {
     return {
       valid: false,
-      message: 'Entry fee must be between ₹1 and ₹10,000 (or ₹0 for practice mode).',
+      message: 'Entry fee must be between ₹1 and ₹50,000 (or ₹0 for practice mode).',
     };
   }
   return { valid: true };
