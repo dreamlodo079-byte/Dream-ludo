@@ -1,8 +1,10 @@
 import { Schema, model, Document, Types } from 'mongoose';
 
 export type NotificationType =
+  | 'DEPOSIT_PENDING'
   | 'DEPOSIT_SUCCESS'
   | 'DEPOSIT_REJECTED'
+  | 'WITHDRAWAL_PENDING'
   | 'WITHDRAWAL_SUCCESS'
   | 'WITHDRAWAL_REJECTED'
   | 'GENERAL';
@@ -37,7 +39,7 @@ const NotificationSchema = new Schema<INotification>(
     },
     type: {
       type: String,
-      enum: ['DEPOSIT_SUCCESS', 'DEPOSIT_REJECTED', 'WITHDRAWAL_SUCCESS', 'WITHDRAWAL_REJECTED', 'GENERAL'],
+      enum: ['DEPOSIT_PENDING', 'DEPOSIT_SUCCESS', 'DEPOSIT_REJECTED', 'WITHDRAWAL_PENDING', 'WITHDRAWAL_SUCCESS', 'WITHDRAWAL_REJECTED', 'GENERAL'],
       required: true,
     },
     isRead: {

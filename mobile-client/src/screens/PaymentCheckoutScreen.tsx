@@ -106,8 +106,8 @@ export const PaymentCheckoutScreen: React.FC<PaymentCheckoutScreenProps> = ({
     }
 
     const cleanUtr = utr.trim();
-    if (!cleanUtr || cleanUtr.length < 6) {
-      Alert.alert('Invalid UTR', 'Please enter a valid 12-digit UTR / Bank Reference Number from your payment receipt.');
+    if (!cleanUtr || cleanUtr.length !== 12 || !/^\d{12}$/.test(cleanUtr)) {
+      Alert.alert('Invalid UTR Number', 'Please enter a valid 12-digit numeric UTR / Bank Reference Number from your payment receipt (strictly 12 digits required).');
       return;
     }
 
@@ -127,8 +127,11 @@ export const PaymentCheckoutScreen: React.FC<PaymentCheckoutScreenProps> = ({
         }, 1500);
       }
     } catch (err: any) {
-      const errorMsg = err.response?.data?.error || err.message || 'Failed to process deposit.';
-      Alert.alert('Deposit Notice', errorMsg);
+      const rawMsg = err.response?.data?.error || err.message;
+      const userFacingMsg = (rawMsg && !rawMsg.includes('validation failed') && !rawMsg.includes('Cast to ObjectId'))
+        ? rawMsg 
+        : 'Unable to process deposit. Please check your details and try again.';
+      Alert.alert('Deposit Notice', userFacingMsg);
     } finally {
       setIsSubmitting(false);
     }
@@ -223,12 +226,12 @@ export const PaymentCheckoutScreen: React.FC<PaymentCheckoutScreenProps> = ({
         <View style={styles.inputWrapper}>
           <TextInput
             style={[styles.input, { fontSize: 16 }]}
-            keyboardType="default"
+            keyboardType="number-pad"
             value={utr}
-            onChangeText={(val) => setUtr(val.trim())}
+            onChangeText={(val) => setUtr(val.replace(/[^0-9]/g, ''))}
             placeholder="e.g. 420192837461"
             placeholderTextColor="#94A3B8"
-            maxLength={30}
+            maxLength={12}
           />
         </View>
 

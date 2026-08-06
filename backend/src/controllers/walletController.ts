@@ -43,7 +43,10 @@ walletRouter.post(['/deposit/request', '/v1/wallet/deposit/request'], async (req
     return res.status(400).json({ error: 'Deposit amount must be a positive number.' });
   }
 
-  const cleanUtr = utr ? String(utr).trim() : `INSTANT_${Date.now()}`;
+  const cleanUtr = utr ? String(utr).trim() : '';
+  if (!cleanUtr || cleanUtr.length !== 12 || !/^\d{12}$/.test(cleanUtr)) {
+    return res.status(400).json({ error: 'Please enter a valid 12-digit numeric UTR / Bank Reference Number.' });
+  }
 
   try {
     const referenceId = `dep_auto_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
