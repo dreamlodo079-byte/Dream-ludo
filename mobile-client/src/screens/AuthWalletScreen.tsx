@@ -315,7 +315,6 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
       });
 
       if (response.data.success) {
-        axios.defaults.headers.common['x-auth-token'] = response.data.token;
         axios.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`;
         onLoginSuccess(response.data.user, response.data.token);
       }
@@ -396,7 +395,6 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
       });
 
       if (response.data.success) {
-        axios.defaults.headers.common['x-auth-token'] = response.data.token;
         axios.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`;
         onLoginSuccess(response.data.user, response.data.token);
       }
@@ -457,7 +455,6 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
       });
 
       if (response.data.success) {
-        axios.defaults.headers.common['x-auth-token'] = response.data.token;
         axios.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`;
         setIsForgotPasswordMode(false);
         onLoginSuccess(response.data.user, response.data.token);
@@ -674,7 +671,7 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
     } catch (err) {
       console.log('Server token blacklisting failed or bypassed:', err);
     }
-    delete axios.defaults.headers.common['x-auth-token'];
+
     if (onLogout) onLogout();
   };
 

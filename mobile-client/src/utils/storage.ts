@@ -19,7 +19,6 @@ export const saveUserSession = async (user: any, token?: string): Promise<void> 
     if (token) {
       await AsyncStorage.setItem(KEYS.AUTH_TOKEN, token);
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      axios.defaults.headers.common['x-auth-token'] = token;
     }
 
     if (Platform.OS === 'web' && typeof window !== 'undefined' && window.localStorage) {
@@ -53,7 +52,6 @@ export const loadUserSession = async (): Promise<{ user: any | null; token: stri
       const user = JSON.parse(userStr);
       if (token) {
         axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-        axios.defaults.headers.common['x-auth-token'] = token;
       }
       return { user, token, lastView };
     }
@@ -87,7 +85,6 @@ export const clearUserSession = async (): Promise<void> => {
     await AsyncStorage.removeItem(KEYS.CURRENT_VIEW);
 
     delete axios.defaults.headers.common['Authorization'];
-    delete axios.defaults.headers.common['x-auth-token'];
 
     if (Platform.OS === 'web' && typeof window !== 'undefined' && window.localStorage) {
       window.localStorage.removeItem('currentUser');

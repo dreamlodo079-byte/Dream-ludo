@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import axios from 'axios';
 
-const API_SERVER_URL = process.env.EXPO_PUBLIC_SERVER_URL || 'http://localhost:5000';
+import { API_SERVER_URL } from '../utils/config';
 
 interface RegisterScreenProps {
   onSuccess: (user: any, token: string) => void;
@@ -65,7 +65,6 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
 
       if (response.data.success) {
         if (response.data.token) {
-          axios.defaults.headers.common['x-auth-token'] = response.data.token;
           axios.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`;
         }
         Alert.alert('Welcome to Dream Ludo!', 'Account created successfully with ₹10 Welcome Bonus.');

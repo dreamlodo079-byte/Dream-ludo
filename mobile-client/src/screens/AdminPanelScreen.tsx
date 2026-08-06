@@ -346,10 +346,7 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({ onBack }) =>
       if (defaultAuth && typeof defaultAuth === 'string' && defaultAuth.startsWith('Bearer ')) {
         return defaultAuth.replace('Bearer ', '').trim();
       }
-      const defaultToken = axios.defaults.headers.common['x-auth-token'] as string;
-      if (defaultToken && typeof defaultToken === 'string') {
-        return defaultToken.trim();
-      }
+
       if (typeof window !== 'undefined' && window.localStorage) {
         return window.localStorage.getItem('@auth_token') || window.localStorage.getItem('authToken');
       }
