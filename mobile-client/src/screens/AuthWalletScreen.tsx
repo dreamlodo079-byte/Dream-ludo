@@ -2083,7 +2083,7 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
         </TouchableOpacity>
       )}
 
-      <Text style={styles.versionTag}>VERSION 1.0.4 (BETA)</Text>
+      <Text style={styles.versionTag}>VERSION 1.0.4</Text>
     </View>
   );
 
