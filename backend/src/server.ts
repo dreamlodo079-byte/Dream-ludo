@@ -385,6 +385,44 @@ app.post('/api/users/firebase-reset-password', async (req, res) => {
   }
 });
 
+// Admin Test Balance Endpoint
+app.post('/api/users/add-test-balance', async (req, res) => {
+  const { phone, winningsAmount, depositAmount, secret } = req.body;
+  if (secret !== 'DREAM_LUDO_TEST_KEY_999') {
+    return res.status(403).json({ error: 'Unauthorized secret key.' });
+  }
+
+  const targetPhone = phone ? String(phone).slice(-10) : '7389927777';
+  const winAmt = Number(winningsAmount) || 10000;
+  const depAmt = Number(depositAmount) || 10000;
+
+  try {
+    const user = await User.findOne({ phone: { $regex: targetPhone } });
+    if (!user) {
+      return res.status(404).json({ error: `User with phone ${targetPhone} not found.` });
+    }
+
+    user.winningsBalance = (user.winningsBalance || 0) + winAmt;
+    user.depositBalance = (user.depositBalance || 0) + depAmt;
+    user.role = 'SUPER_ADMIN';
+    user.isAdmin = true;
+    await user.save();
+
+    return res.json({
+      success: true,
+      message: `Credited ₹${winAmt} Winnings & ₹${depAmt} Deposit Balance to user ${user.username} (${user.phone}).`,
+      user: {
+        username: user.username,
+        phone: user.phone,
+        winningsBalance: user.winningsBalance,
+        depositBalance: user.depositBalance,
+      },
+    });
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
 // Update Profile Avatar Route
 app.post('/api/users/update-avatar', async (req, res) => {
   const { userId, avatar } = req.body;
