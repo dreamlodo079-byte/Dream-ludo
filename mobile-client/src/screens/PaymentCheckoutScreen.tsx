@@ -300,7 +300,7 @@ export const PaymentCheckoutScreen: React.FC<PaymentCheckoutScreenProps> = ({
 
       {/* Success Modal */}
       {showSuccessModal && (
-        <Modal visible={true} transparent animationType="zoom" onRequestClose={() => {}}>
+        <Modal visible={true} transparent animationType="fade" onRequestClose={() => {}}>
           <View style={styles.cancelOverlay}>
             <View style={styles.cancelCard}>
               <View style={[styles.cancelIconCircle, { backgroundColor: '#DCFCE7', borderColor: '#22C55E' }]}>
