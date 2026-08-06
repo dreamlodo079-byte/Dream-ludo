@@ -1112,7 +1112,7 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
                     </Text>
 
                     <View style={[styles.inputWrapper, isFocusedPhone && styles.inputWrapperFocused, { marginBottom: 16 }]}>
-                      <Text style={styles.inputPrefix}>+91</Text>
+                      <Text style={{ fontSize: 15, fontWeight: '800', color: '#0F172A', marginRight: 8 }}>+91</Text>
                       <TextInput
                         style={styles.inputInner}
                         placeholder="Enter 10-digit Phone"
