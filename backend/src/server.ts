@@ -222,28 +222,12 @@ app.get(['/download/apk', '/dream-ludo.apk', '/download'], (_req, res) => {
   const targetPath = [path1, path2, path3, path4].find(p => p && fs.existsSync(p));
   
   if (targetPath) {
-    try {
-      const stat = fs.statSync(targetPath);
-      res.writeHead(200, {
-        'Content-Type': 'application/vnd.android.package-archive',
-        'Content-Disposition': 'attachment; filename="Dream-Ludo.apk"',
-        'Content-Length': stat.size,
-        'Cache-Control': 'public, max-age=3600',
-        'Access-Control-Allow-Origin': '*'
-      });
-      const readStream = fs.createReadStream(targetPath);
-      readStream.on('error', (err) => {
-        console.error('APK Stream Error:', err);
-      });
-      readStream.pipe(res);
-      return;
-    } catch (streamErr) {
-      console.error('Error opening APK file:', streamErr);
-      if (!res.headersSent) {
-        return res.status(500).send('Error reading APK file.');
+    return res.download(targetPath, 'Dream-Ludo.apk', (err) => {
+      if (err && !res.headersSent) {
+        console.error('Error delivering APK file:', err);
+        return res.status(500).send('Error downloading APK file. Please try again.');
       }
-      return;
-    }
+    });
   }
 
   return res.status(404).send('APK file build in progress. Please refresh in a moment.');
