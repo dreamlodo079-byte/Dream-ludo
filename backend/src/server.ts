@@ -214,14 +214,21 @@ app.use(express.static('public'));
 
 // Direct APK Download Endpoint
 app.get(['/download/apk', '/dream-ludo.apk', '/download'], (_req, res) => {
-  const apkPath = path.join(__dirname, '../public/downloads/dream-ludo.apk');
-  const rootApkPath = path.join(process.cwd(), 'public/downloads/dream-ludo.apk');
+  const path1 = path.join(__dirname, '../public/downloads/dream-ludo.apk');
+  const path2 = path.join(__dirname, '../../public/downloads/dream-ludo.apk');
+  const path3 = path.join(process.cwd(), 'public/downloads/dream-ludo.apk');
+  const path4 = path.join(process.cwd(), 'backend/public/downloads/dream-ludo.apk');
   
-  const targetPath = fs.existsSync(apkPath) ? apkPath : (fs.existsSync(rootApkPath) ? rootApkPath : null);
+  const targetPath = [path1, path2, path3, path4].find(p => fs.existsSync(p));
   
   if (targetPath) {
-    res.setHeader('Content-Type', 'application/vnd.android.package-archive');
-    return res.download(targetPath, 'Dream-Ludo.apk');
+    res.download(targetPath, 'Dream-Ludo.apk', (err) => {
+      if (err && !res.headersSent) {
+        console.error('Error delivering APK file:', err);
+        res.status(500).send('Error downloading APK file. Please try again.');
+      }
+    });
+    return;
   }
 
   return res.status(404).send('APK file build in progress. Please refresh in a moment.');
