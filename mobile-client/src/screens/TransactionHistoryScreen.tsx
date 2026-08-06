@@ -75,7 +75,9 @@ export const TransactionHistoryScreen: React.FC<TransactionHistoryScreenProps> =
     }
   };
 
-  const formatTxnType = (type: string, amount: number) => {
+  const formatTxnType = (type: string, amount: number, referenceId?: string) => {
+    if (referenceId && (referenceId.startsWith('tds_') || referenceId.includes('tds'))) return '🏛️ TDS Tax (30% Govt Tax)';
+    if (type === 'TDS_DEDUCTION') return '🏛️ TDS Tax (30% Govt Tax)';
     if (type === 'DEPOSIT') return '💰 Wallet Deposit';
     if (type === 'WITHDRAWAL') return '💸 UPI Withdrawal';
     if (type === 'WINNINGS' || type === 'TOURNAMENT_WIN_CREDIT') return '🏆 Match Winnings';
@@ -93,7 +95,7 @@ export const TransactionHistoryScreen: React.FC<TransactionHistoryScreenProps> =
       <View style={styles.txnCard}>
         <View style={styles.cardHeader}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.txnType}>{formatTxnType(item.type, item.amount)}</Text>
+            <Text style={styles.txnType}>{formatTxnType(item.type, item.amount, item.referenceId)}</Text>
             <Text style={styles.txnDate}>{new Date(item.createdAt).toLocaleString()}</Text>
           </View>
           <View style={[styles.statusBadge, { backgroundColor: badge.bg }]}>

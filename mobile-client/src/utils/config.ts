@@ -59,6 +59,10 @@ export const formatUserFriendlyError = (err: any, fallbackMessage: string = 'Som
     return 'Unable to connect to server. Please check your internet connection and try again.';
   }
 
+  if (code === 'auth/app-not-authorized' || code === 'auth/invalid-app-credential') {
+    return 'App authentication setup required. Please ensure SHA-1 fingerprint is added in Firebase Console.';
+  }
+
   if (code === 'auth/invalid-verification-code') {
     return 'Invalid verification code. Please check the 6-digit OTP sent to your phone and try again.';
   }

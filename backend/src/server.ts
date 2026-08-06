@@ -23,7 +23,7 @@ import { getFirebaseAuth } from './config/firebase';
 import { generalRateLimiter, strictRateLimiter, sanitizeInputMiddleware } from './middleware/security';
 import { authenticateJWT, blacklistToken, JWT_SECRET, AuthenticatedRequest } from './middleware/auth';
 import { User } from './models/User';
-import { getRoomState, cacheRoomState, getRedisClient } from './config/redis';
+import { getRoomState, cacheRoomState } from './config/redis';
 import { getIO } from './services/socketManager';
 import { getValidMoves, rotateTurn } from './services/gameEngine';
 import { Transaction, TransactionType, TransactionStatus, getUserBalances } from './models/Transaction';

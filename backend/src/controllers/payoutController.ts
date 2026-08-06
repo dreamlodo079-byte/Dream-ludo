@@ -68,7 +68,7 @@ payoutRouter.post(['/withdraw', '/v1/payout/withdraw'], async (req: Request, res
       const taxDebitTxn = new Transaction({
         userId: new Types.ObjectId(userId),
         amount: -tdsTax,
-        type: TransactionType.WITHDRAWAL,
+        type: TransactionType.TDS_DEDUCTION,
         status: TransactionStatus.SUCCESS,
         referenceId: `tds_${referenceId}`,
       });

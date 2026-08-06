@@ -1417,7 +1417,9 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
           ) : (
             history.map((txn) => {
               let simpleType: string = txn.type;
-              if (txn.type === 'ENTRY_FEE' || txn.type === 'ENTRY_FEE_DEBIT') simpleType = 'Game Played';
+              if (txn.referenceId && (txn.referenceId.startsWith('tds_') || txn.referenceId.includes('tds'))) simpleType = 'TDS Tax (30% Govt Tax)';
+              else if (txn.type === 'TDS_DEDUCTION') simpleType = 'TDS Tax (30% Govt Tax)';
+              else if (txn.type === 'ENTRY_FEE' || txn.type === 'ENTRY_FEE_DEBIT') simpleType = 'Game Played';
               else if (txn.type === 'PLATFORM_COMMISSION') simpleType = 'Platform Charge';
               else if (txn.type === 'WINNINGS') simpleType = 'Game Won';
               else if (txn.type === 'DEPOSIT') simpleType = 'Added Cash';
