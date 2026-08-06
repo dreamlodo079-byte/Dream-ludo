@@ -290,6 +290,43 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
   const [agreedTerms, setAgreedTerms] = useState(false);
   const [legalModalType, setLegalModalType] = useState<'terms' | 'privacy' | null>(null);
 
+  const handleDirectLogin = async () => {
+    if (!phone) {
+      showCustomAlert('Authentication Error', 'Please enter your phone number.', 'error');
+      return;
+    }
+
+    const phoneRegex = /^(?:\+91|91)?[6789]\d{9}$/;
+    if (!phoneRegex.test(phone.trim())) {
+      showCustomAlert('Authentication Error', 'Please enter a valid 10-digit Indian phone number.', 'error');
+      return;
+    }
+
+    if (!password) {
+      showCustomAlert('Authentication Error', 'Please enter your password.', 'error');
+      return;
+    }
+
+    setIsLoggingIn(true);
+    try {
+      const response = await axios.post(`${API_SERVER_URL}/api/users/login`, {
+        phone: phone.trim().slice(-10),
+        password: password.trim(),
+      });
+
+      if (response.data.success) {
+        axios.defaults.headers.common['x-auth-token'] = response.data.token;
+        axios.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`;
+        onLoginSuccess(response.data.user, response.data.token);
+      }
+    } catch (err: any) {
+      const errMsg = formatUserFriendlyError(err, 'Login failed. Please check your phone number and password.');
+      showCustomAlert('Login Error', errMsg, 'error');
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
+
   const handleSendOtp = async () => {
     if (!phone) {
       showCustomAlert('Authentication Error', 'Please enter your phone number.', 'error');
@@ -302,7 +339,7 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
       return;
     }
 
-    if (!isLoginMode && !username) {
+    if (!username) {
       showCustomAlert('Authentication Error', 'Please enter a username for registration.', 'error');
       return;
     }
@@ -312,7 +349,7 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
       return;
     }
 
-    if (!isLoginMode && !agreedTerms) {
+    if (!agreedTerms) {
       showCustomAlert('Terms Agreement Required', 'Please accept the Terms of Service & Privacy Policy to register.', 'error');
       return;
     }
@@ -353,8 +390,9 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
 
       const response = await axios.post(`${API_SERVER_URL}/api/users/firebase-verify`, {
         idToken,
-        username: isLoginMode ? undefined : username,
-        referredByCode: !isLoginMode ? (referredByCode.trim().toUpperCase() || undefined) : undefined,
+        username,
+        password: password ? password.trim() : undefined,
+        referredByCode: referredByCode.trim().toUpperCase() || undefined,
       });
 
       if (response.data.success) {
@@ -367,6 +405,69 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
       showCustomAlert('Verification Error', errMsg, 'error');
     } finally {
       setIsLoggingIn(false);
+    }
+  };
+
+  const handleSendForgotOtp = async () => {
+    if (!phone) {
+      showCustomAlert('Forgot Password Error', 'Please enter your registered phone number.', 'error');
+      return;
+    }
+
+    const phoneRegex = /^(?:\+91|91)?[6789]\d{9}$/;
+    if (!phoneRegex.test(phone.trim())) {
+      showCustomAlert('Forgot Password Error', 'Please enter a valid 10-digit Indian phone number.', 'error');
+      return;
+    }
+
+    setIsSubmittingForgot(true);
+    try {
+      const normalizedPhone = `+91${phone.trim().slice(-10)}`;
+      const confirmation = await auth().signInWithPhoneNumber(normalizedPhone);
+      setConfirmResult(confirmation);
+      setForgotStep('RESET_PASSWORD');
+      showCustomAlert('Reset OTP Sent 📩', 'A 6-digit OTP code has been sent to your phone via SMS.', 'success');
+    } catch (err: any) {
+      const errMsg = formatUserFriendlyError(err, 'Unable to send password reset OTP.');
+      showCustomAlert('Forgot Password Error', errMsg, 'error');
+    } finally {
+      setIsSubmittingForgot(false);
+    }
+  };
+
+  const handleResetPasswordWithOtp = async () => {
+    if (!forgotOtp || forgotOtp.length < 6) {
+      showCustomAlert('Reset Password Error', 'Please enter the 6-digit OTP code.', 'error');
+      return;
+    }
+    if (!newPassword || newPassword.trim().length < 4) {
+      showCustomAlert('Reset Password Error', 'Please enter a new password (min 4 characters).', 'error');
+      return;
+    }
+
+    setIsSubmittingForgot(true);
+    try {
+      if (!confirmResult) throw new Error("No active OTP session found. Please try sending OTP again.");
+      const userCredential = await confirmResult.confirm(forgotOtp);
+      const idToken = await userCredential.user.getIdToken(true);
+
+      const response = await axios.post(`${API_SERVER_URL}/api/users/firebase-verify`, {
+        idToken,
+        password: newPassword.trim(),
+      });
+
+      if (response.data.success) {
+        axios.defaults.headers.common['x-auth-token'] = response.data.token;
+        axios.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`;
+        setIsForgotPasswordMode(false);
+        onLoginSuccess(response.data.user, response.data.token);
+        showCustomAlert('Password Reset Success! 🎉', 'Your password has been updated and you are now logged in.', 'success');
+      }
+    } catch (err: any) {
+      const errMsg = formatUserFriendlyError(err, 'Failed to reset password. Please verify your OTP code.');
+      showCustomAlert('Reset Password Error', errMsg, 'error');
+    } finally {
+      setIsSubmittingForgot(false);
     }
   };
 
@@ -925,7 +1026,7 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
                     styles.authButton,
                     (!isLoginMode && !agreedTerms) && styles.authButtonLocked
                   ]}
-                  onPress={handleSendOtp}
+                  onPress={isLoginMode ? handleDirectLogin : handleSendOtp}
                   disabled={isLoggingIn || (!isLoginMode && !agreedTerms)}
                   activeOpacity={0.85}
                 >
@@ -933,7 +1034,7 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
                     <ActivityIndicator color="#fff" />
                   ) : (
                     <Text style={styles.authButtonText}>
-                      {isLoginMode ? 'SEND OTP & LOGIN' : (!agreedTerms ? '🔒 TICK BOX TO UNLOCK REGISTER' : 'SEND OTP & REGISTER')}
+                      {isLoginMode ? 'LOGIN TO PLAY ➔' : (!agreedTerms ? '🔒 TICK BOX TO UNLOCK REGISTER' : 'SEND OTP & REGISTER')}
                     </Text>
                   )}
                 </TouchableOpacity>
@@ -1000,6 +1101,115 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
 
           </View>
         </ScrollView>
+
+        {/* Forgot Password Modal */}
+        {isForgotPasswordMode && (
+          <Modal
+            visible={true}
+            animationType="slide"
+            transparent={true}
+            onRequestClose={() => setIsForgotPasswordMode(false)}
+          >
+            <View style={{ flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.75)', justifyContent: 'flex-end' }}>
+              <View style={{ backgroundColor: '#FFFFFF', borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                  <Text style={{ fontSize: 20, fontWeight: '900', color: '#0F172A' }}>🔑 Reset Password</Text>
+                  <TouchableOpacity
+                    style={{ backgroundColor: '#F1F5F9', width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' }}
+                    onPress={() => setIsForgotPasswordMode(false)}
+                  >
+                    <Text style={{ fontSize: 16, fontWeight: '800', color: '#64748B' }}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {forgotStep === 'SEND_OTP' ? (
+                  <View>
+                    <Text style={{ fontSize: 13, color: '#64748B', marginBottom: 16, lineHeight: 18 }}>
+                      Enter your registered phone number below to receive a 6-digit verification code via SMS.
+                    </Text>
+
+                    <View style={[styles.inputWrapper, isFocusedPhone && styles.inputWrapperFocused, { marginBottom: 16 }]}>
+                      <Text style={styles.inputPrefix}>+91</Text>
+                      <TextInput
+                        style={styles.inputInner}
+                        placeholder="Enter 10-digit Phone"
+                        placeholderTextColor="#94A3B8"
+                        keyboardType="phone-pad"
+                        maxLength={10}
+                        value={phone}
+                        onChangeText={setPhone}
+                        onFocus={() => setIsFocusedPhone(true)}
+                        onBlur={() => setIsFocusedPhone(false)}
+                      />
+                    </View>
+
+                    <TouchableOpacity
+                      style={styles.authButton}
+                      onPress={handleSendForgotOtp}
+                      disabled={isSubmittingForgot}
+                      activeOpacity={0.85}
+                    >
+                      {isSubmittingForgot ? (
+                        <ActivityIndicator color="#fff" />
+                      ) : (
+                        <Text style={styles.authButtonText}>SEND RESET OTP 📩</Text>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <View>
+                    <Text style={{ fontSize: 13, color: '#64748B', marginBottom: 14 }}>
+                      OTP code sent to +91 {phone}. Enter code and set your new password:
+                    </Text>
+
+                    <View style={[styles.inputWrapper, isFocusedForgotOtp && styles.inputWrapperFocused, { marginBottom: 12 }]}>
+                      <TextInput
+                        style={[styles.inputInner, { textAlign: 'center', letterSpacing: 8, fontSize: 20, fontWeight: '800' }]}
+                        placeholder="— — — — — —"
+                        placeholderTextColor="#CBD5E1"
+                        keyboardType="number-pad"
+                        maxLength={6}
+                        value={forgotOtp}
+                        onChangeText={setForgotOtp}
+                        onFocus={() => setIsFocusedForgotOtp(true)}
+                        onBlur={() => setIsFocusedForgotOtp(false)}
+                      />
+                    </View>
+
+                    <View style={[styles.inputWrapper, isFocusedNewPass && styles.inputWrapperFocused, { marginBottom: 16 }]}>
+                      <TextInput
+                        style={styles.inputInner}
+                        placeholder="Enter New Password"
+                        placeholderTextColor="#94A3B8"
+                        secureTextEntry={!showNewPassword}
+                        value={newPassword}
+                        onChangeText={setNewPassword}
+                        onFocus={() => setIsFocusedNewPass(true)}
+                        onBlur={() => setIsFocusedNewPass(false)}
+                      />
+                      <TouchableOpacity onPress={() => setShowNewPassword(!showNewPassword)}>
+                        <Text style={{ fontSize: 16 }}>{showNewPassword ? '👁️' : '🙈'}</Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    <TouchableOpacity
+                      style={styles.authButton}
+                      onPress={handleResetPasswordWithOtp}
+                      disabled={isSubmittingForgot}
+                      activeOpacity={0.85}
+                    >
+                      {isSubmittingForgot ? (
+                        <ActivityIndicator color="#fff" />
+                      ) : (
+                        <Text style={styles.authButtonText}>UPDATE & LOGIN 🔒</Text>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
+            </View>
+          </Modal>
+        )}
 
         {/* Full Legal Terms & Privacy Policy Modal */}
         {legalModalType !== null && (

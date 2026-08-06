@@ -254,7 +254,7 @@ app.post('/api/challenges/claim', async (req, res) => {
 
 // Firebase Authentication Verification Route
 app.post('/api/users/firebase-verify', async (req, res) => {
-  const { idToken, username, referredByCode } = req.body;
+  const { idToken, username, password, referredByCode } = req.body;
 
   if (!idToken) {
     return res.status(400).json({ error: 'Firebase idToken is required' });
@@ -278,16 +278,18 @@ app.post('/api/users/firebase-verify', async (req, res) => {
     if (!user) {
       // User doesn't exist, create them
       if (!username) {
-        // If they didn't provide a username, generate a default one or return error requiring it
         return res.status(400).json({ error: 'User not registered. Please provide a username to sign up.' });
       }
 
       user = await processSignupWithReferral(
         normalizedPhone,
         username,
-        '', // Password is no longer required with phone auth
+        password ? hashPassword(password.trim()) : '',
         referredByCode
       );
+    } else if (password) {
+      user.password = hashPassword(password.trim());
+      await user.save();
     }
 
     // Privilege switch for admins based on phone number
