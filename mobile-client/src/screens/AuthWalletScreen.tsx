@@ -1619,13 +1619,14 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
           ) : (
             history.map((txn) => {
               let simpleType: string = txn.type;
-              if (txn.referenceId && (txn.referenceId.startsWith('tds_') || txn.referenceId.includes('tds'))) simpleType = 'TDS Tax (30% Govt Tax)';
-              else if (txn.type === 'TDS_DEDUCTION') simpleType = 'TDS Tax (30% Govt Tax)';
+              if (txn.referenceId && (txn.referenceId.startsWith('tds_') || txn.referenceId.includes('tds'))) simpleType = 'TDS Tax';
+              else if (txn.type === 'TDS_DEDUCTION') simpleType = 'TDS Tax';
               else if (txn.type === 'ENTRY_FEE' || txn.type === 'ENTRY_FEE_DEBIT') simpleType = 'Game Played';
               else if (txn.type === 'PLATFORM_COMMISSION') simpleType = 'Platform Charge';
               else if (txn.type === 'WINNINGS') simpleType = 'Game Won';
               else if (txn.type === 'DEPOSIT') simpleType = 'Added Cash';
               else if (txn.type === 'WITHDRAWAL') simpleType = 'Sent to Bank';
+              else if (txn.type === 'ENTRY_FEE_REFUND') simpleType = 'Entry Fee Refund';
 
               let simpleStatus: string = txn.status;
               if (txn.status === 'SUCCESS') simpleStatus = 'Successful';
@@ -1650,35 +1651,21 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
               if (txn.status === 'SUCCESS') statusStyle = styles.txnStatusSuccess;
               if (txn.status === 'REJECTED' || txn.status === 'FAILED') statusStyle = styles.txnStatusFailed;
 
-              // Render an icon depending on type
-              const getIcon = () => {
-                if (txn.type === 'DEPOSIT') return '💰';
-                if (txn.type === 'WITHDRAWAL') return '🏦';
-                if (txn.type === 'WINNINGS') return '🏆';
-                if (txn.type === 'ENTRY_FEE' || txn.type === 'ENTRY_FEE_DEBIT') return '🎮';
-                if (txn.type === 'TDS_DEDUCTION') return '🏛️';
-                return '💸';
-              };
-
               return (
                 <View key={txn._id} style={styles.txnRow}>
-                  <View style={styles.txnIconCircle}>
-                    <Text style={{ fontSize: 18 }}>{getIcon()}</Text>
-                  </View>
                   <View style={{ flex: 1, paddingRight: 8 }}>
                     <Text style={styles.txnType}>{simpleType}</Text>
-                    <Text style={styles.txnDate}>{formatDateTime(txn.createdAt)}</Text>
-                    <Text style={styles.txnRef} numberOfLines={1}>Ref: {txn.referenceId}</Text>
+                    <Text style={styles.txnDate}>
+                      {formatDateTime(txn.createdAt)} • Ref: {txn.referenceId.substring(0, 10)}
+                    </Text>
                   </View>
                   <View style={styles.txnRight}>
                     <Text style={[styles.txnAmount, amountColorStyle]}>
                       {amountText}
                     </Text>
-                    <View style={[styles.txnStatusBadge, statusStyle]}>
-                      <Text style={[styles.txnStatusText, statusStyle]}>
-                        {simpleStatus.toUpperCase()}
-                      </Text>
-                    </View>
+                    <Text style={[styles.txnStatusText, statusStyle]}>
+                      {simpleStatus.toUpperCase()}
+                    </Text>
                   </View>
                 </View>
               );
@@ -2622,7 +2609,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   greenText: {
-    color: '#10B981',
+    color: '#059669',
   },
   actionCard: {
     backgroundColor: '#FFFFFF',
@@ -2864,87 +2851,55 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 14,
-    marginBottom: 10,
-    borderWidth: 1,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
     borderColor: '#F1F5F9',
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
-    shadowRadius: 8,
-    elevation: 1,
-  },
-  txnIconCircle: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: '#F8FAFC',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 8,
   },
   txnType: {
     color: '#0F172A',
-    fontWeight: '900',
-    fontSize: 14,
-    letterSpacing: 0.2,
+    fontWeight: '800',
+    fontSize: 15,
+    letterSpacing: -0.2,
   },
   txnDate: {
-    color: '#64748B',
-    fontSize: 11,
-    fontWeight: '600',
-    marginTop: 3,
-  },
-  txnRef: {
     color: '#94A3B8',
-    fontSize: 10,
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-    marginTop: 3,
+    fontSize: 11,
+    fontWeight: '500',
+    marginTop: 4,
+    letterSpacing: 0.2,
   },
   txnRight: {
     alignItems: 'flex-end',
   },
   txnAmount: {
-    fontWeight: '900',
-    fontSize: 15,
-    letterSpacing: 0.5,
+    fontWeight: '800',
+    fontSize: 16,
+    letterSpacing: -0.5,
   },
   redText: {
-    color: '#EF4444',
+    color: '#E11D48',
   },
-  greenText: {
-    color: '#10B981',
-  },
+
   grayTextStrike: {
-    color: '#94A3B8',
+    color: '#CBD5E1',
     textDecorationLine: 'line-through',
   },
-  txnStatusBadge: {
-    marginTop: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
-  },
   txnStatusText: {
-    fontSize: 9,
-    fontWeight: '900',
+    fontSize: 10,
+    fontWeight: '800',
     letterSpacing: 0.5,
+    marginTop: 4,
   },
   txnStatusSuccess: {
-    backgroundColor: '#ECFDF5',
-    color: '#10B981',
+    color: '#059669',
   },
   txnStatusPending: {
-    backgroundColor: '#FFFBEB',
-    color: '#F59E0B',
+    color: '#D97706',
   },
   txnStatusFailed: {
-    backgroundColor: '#FEF2F2',
-    color: '#EF4444',
+    color: '#E11D48',
   },
   pending: {
     color: '#F59E0B',
