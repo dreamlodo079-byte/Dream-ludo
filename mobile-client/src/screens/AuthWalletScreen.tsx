@@ -197,7 +197,7 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
 
   const rawReferralCode = currentUser?.referralCode || 'DREAM50LUDO';
   const referralCode = rawReferralCode.replace(/^SEXUS/i, 'DREAM');
-  const referralUrl = `https://dreamludo.com/signup?ref=${referralCode}`;
+  const referralUrl = `https://dreamsludo.com/signup?ref=${referralCode}`;
 
   const [referralData, setReferralData] = useState<{
     friendsJoined: number;

@@ -30,7 +30,7 @@ export const ShareScreen: React.FC<ShareScreenProps> = ({ currentUser, onBack })
   const referralCode = rawReferralCode.replace(/^SEXUS/i, 'DREAM');
   const friendsJoined = currentUser?.friendsJoined || 0;
   const totalCashEarned = friendsJoined * 100;
-  const referralUrl = `https://dreamludo.com/signup?ref=${referralCode}`;
+  const referralUrl = `https://dreamsludo.com/signup?ref=${referralCode}`;
 
   const handleCopyCode = () => {
     Clipboard.setString(referralCode);
