@@ -1,21 +1,25 @@
 {
   "outputDirectory": "backend/public",
-  "routes": [
+  "redirects": [
     {
-      "src": "/download",
-      "dest": "/downloads/dream-ludo.apk"
+      "source": "/download",
+      "destination": "https://expo.dev/artifacts/eas/GnCmc9uM1KlleRqxHVwnwBWMG-hlfr7TQo9HO3aYjvE.apk",
+      "permanent": false
     },
     {
-      "src": "/download/apk",
-      "dest": "/downloads/dream-ludo.apk"
+      "source": "/download/apk",
+      "destination": "https://expo.dev/artifacts/eas/GnCmc9uM1KlleRqxHVwnwBWMG-hlfr7TQo9HO3aYjvE.apk",
+      "permanent": false
     },
     {
-      "src": "/dream-ludo.apk",
-      "dest": "/downloads/dream-ludo.apk"
+      "source": "/dream-ludo.apk",
+      "destination": "https://expo.dev/artifacts/eas/GnCmc9uM1KlleRqxHVwnwBWMG-hlfr7TQo9HO3aYjvE.apk",
+      "permanent": false
     },
     {
-      "src": "/(.*)",
-      "dest": "/$1"
+      "source": "/downloads/dream-ludo.apk",
+      "destination": "https://expo.dev/artifacts/eas/GnCmc9uM1KlleRqxHVwnwBWMG-hlfr7TQo9HO3aYjvE.apk",
+      "permanent": false
     }
   ]
 }
