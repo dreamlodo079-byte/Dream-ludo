@@ -27,10 +27,16 @@ import { API_SERVER_URL, formatUserFriendlyError } from '../utils/config';
 
 const getNativeAuth = () => {
   try {
+    if (typeof auth === 'function') {
+      return auth();
+    }
+    if (auth && typeof (auth as any).signInWithPhoneNumber === 'function') {
+      return auth;
+    }
     return auth();
   } catch (err: any) {
-    console.warn('Native Firebase Auth module not loaded in Expo Go environment:', err);
-    throw new Error('Firebase Phone Auth requires running inside the standalone compiled APK build.');
+    console.error('Native Firebase Auth module error:', err);
+    throw new Error('Unable to access mobile authentication service.');
   }
 };
 

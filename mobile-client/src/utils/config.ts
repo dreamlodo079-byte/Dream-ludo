@@ -75,10 +75,21 @@ export const formatUserFriendlyError = (err: any, fallbackMessage: string = 'Som
     return 'Please enter a valid 10-digit mobile phone number.';
   }
 
-  // If error message is user-understandable without raw stack trace
-  if (rawMsg && !rawMsg.includes('Error:') && !rawMsg.includes('JSON') && !rawMsg.includes('undefined')) {
-    return rawMsg;
+  // Filter out any technical developer terminology or stack traces from reaching end-users
+  if (
+    rawMsg.includes('Firebase') ||
+    rawMsg.includes('standalone') ||
+    rawMsg.includes('compiled') ||
+    rawMsg.includes('APK') ||
+    rawMsg.includes('module') ||
+    rawMsg.includes('Expo') ||
+    rawMsg.includes('Error:') ||
+    rawMsg.includes('JSON') ||
+    rawMsg.includes('undefined') ||
+    rawMsg.includes('null')
+  ) {
+    return fallbackMessage;
   }
 
-  return fallbackMessage;
+  return rawMsg || fallbackMessage;
 };
