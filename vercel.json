@@ -1,0 +1,21 @@
+{
+  "outputDirectory": "backend/public",
+  "routes": [
+    {
+      "src": "/download",
+      "dest": "/downloads/dream-ludo.apk"
+    },
+    {
+      "src": "/download/apk",
+      "dest": "/downloads/dream-ludo.apk"
+    },
+    {
+      "src": "/dream-ludo.apk",
+      "dest": "/downloads/dream-ludo.apk"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/$1"
+    }
+  ]
+}
