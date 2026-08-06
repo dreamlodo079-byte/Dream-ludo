@@ -733,6 +733,29 @@ app.post('/api/payments/re-roll', authenticateJWT, async (req: AuthenticatedRequ
   }
 });
 
+// Serve static landing page & downloadable APK with zero-cache headers
+const publicDir = path.join(__dirname, '../public');
+
+app.get(['/download', '/download/apk', '/dream-ludo.apk', '/Dream-Ludo.apk'], (_req, res) => {
+  const apkFilePath = path.join(publicDir, 'downloads/dream-ludo.apk');
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  res.setHeader('Content-Type', 'application/vnd.android.package-archive');
+  res.setHeader('Content-Disposition', 'attachment; filename="Dream-Ludo.apk"');
+  return res.sendFile(apkFilePath);
+});
+
+app.use(express.static(publicDir, {
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.apk')) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+    }
+  }
+}));
+
 // Health check endpoint
 app.get('/health', (_req, res) => {
   res.json({ status: 'healthy', timestamp: new Date() });
