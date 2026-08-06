@@ -40,6 +40,7 @@ export const formatUserFriendlyError = (err: any, fallbackMessage: string = 'Som
       !backendMsg.includes('http://') && 
       !backendMsg.includes('192.168.') && 
       !backendMsg.includes('Cast to ObjectId') &&
+      !backendMsg.includes('validation failed') &&
       !backendMsg.includes('<!DOCTYPE html>') &&
       !backendMsg.includes('<html>')
     ) {
@@ -92,7 +93,9 @@ export const formatUserFriendlyError = (err: any, fallbackMessage: string = 'Som
     rawMsg.includes('Error:') ||
     rawMsg.includes('JSON') ||
     rawMsg.includes('undefined') ||
-    rawMsg.includes('null')
+    rawMsg.includes('null') ||
+    rawMsg.includes('validation failed') ||
+    rawMsg.includes('Cast to ObjectId')
   ) {
     return fallbackMessage;
   }
