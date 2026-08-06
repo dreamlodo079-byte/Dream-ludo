@@ -225,7 +225,7 @@ app.get(['/download/apk', '/dream-ludo.apk', '/download'], (_req, res) => {
     return res.download(targetPath, 'Dream-Ludo.apk', (err) => {
       if (err && !res.headersSent) {
         console.error('Error delivering APK file:', err);
-        return res.status(500).send('Error downloading APK file. Please try again.');
+        res.status(500).send('Error downloading APK file. Please try again.');
       }
     });
   }
