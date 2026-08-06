@@ -1313,6 +1313,7 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
         amount={checkoutAmount}
         onBack={() => setCheckoutAmount(null)}
         onSuccess={() => {
+          setCheckoutAmount(null);
           fetchWallet(currentUser._id);
         }}
       />

@@ -47,6 +47,7 @@ export const PaymentCheckoutScreen: React.FC<PaymentCheckoutScreenProps> = ({
 
   // Custom Cancel Confirmation Modal State
   const [showCancelModal, setShowCancelModal] = useState<boolean>(false);
+  const [showSuccessModal, setShowSuccessModal] = useState<boolean>(false);
 
   const numAmount = Math.max(1, amount);
   const dynamicUpiUrl = `upi://pay?pa=${encodeURIComponent(platformUpiId)}&pn=${encodeURIComponent('Dream Ludo')}&am=${numAmount.toFixed(2)}&cu=INR`;
@@ -123,11 +124,11 @@ export const PaymentCheckoutScreen: React.FC<PaymentCheckoutScreenProps> = ({
       });
 
       if (res.data.success) {
-        setPendingBanner(true);
         setUtr('');
+        setShowSuccessModal(true);
         setTimeout(() => {
           if (onSuccess) onSuccess();
-        }, 1500);
+        }, 2500);
       }
     } catch (err: any) {
       const userFacingMsg = formatUserFriendlyError(err, 'Unable to process deposit. Please check your details and try again.');
@@ -292,6 +293,34 @@ export const PaymentCheckoutScreen: React.FC<PaymentCheckoutScreenProps> = ({
                   <Text style={styles.confirmCancelBtnText}>CANCEL CHECKOUT</Text>
                 </TouchableOpacity>
               </View>
+            </View>
+          </View>
+        </Modal>
+      )}
+
+      {/* Success Modal */}
+      {showSuccessModal && (
+        <Modal visible={true} transparent animationType="zoom" onRequestClose={() => {}}>
+          <View style={styles.cancelOverlay}>
+            <View style={styles.cancelCard}>
+              <View style={[styles.cancelIconCircle, { backgroundColor: '#DCFCE7', borderColor: '#22C55E' }]}>
+                <Text style={{ fontSize: 28 }}>✅</Text>
+              </View>
+              <Text style={styles.cancelTitle}>Deposit Requested!</Text>
+              <Text style={styles.cancelMessage}>
+                Your deposit of ₹{numAmount.toFixed(2)} has been submitted successfully and is pending admin verification.
+              </Text>
+
+              <TouchableOpacity
+                style={[styles.keepPayingBtn, { backgroundColor: '#059669', width: '100%' }]}
+                onPress={() => {
+                  setShowSuccessModal(false);
+                  if (onSuccess) onSuccess();
+                }}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.keepPayingBtnText}>RETURN TO PROFILE</Text>
+              </TouchableOpacity>
             </View>
           </View>
         </Modal>
