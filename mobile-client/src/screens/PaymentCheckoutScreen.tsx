@@ -312,7 +312,15 @@ export const PaymentCheckoutScreen: React.FC<PaymentCheckoutScreenProps> = ({
               </Text>
 
               <TouchableOpacity
-                style={[styles.keepPayingBtn, { backgroundColor: '#059669', width: '100%' }]}
+                style={{
+                  backgroundColor: '#059669',
+                  paddingVertical: 14,
+                  borderRadius: 14,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '100%',
+                  marginTop: 10
+                }}
                 onPress={() => {
                   setShowSuccessModal(false);
                   if (onSuccess) onSuccess();
