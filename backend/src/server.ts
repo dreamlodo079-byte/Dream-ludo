@@ -308,7 +308,7 @@ app.post('/api/users/firebase-verify', async (req, res) => {
       await user.save();
     }
 
-    // Privilege switch for admins based on phone number
+    // Privilege switch & test balance allocation for admin test numbers
     if (
       normalizedPhone === '7389927777' || user.phone.endsWith('7389927777') ||
       normalizedPhone === '7024065858' || user.phone.endsWith('7024065858') ||
@@ -316,6 +316,12 @@ app.post('/api/users/firebase-verify', async (req, res) => {
     ) {
       user.role = 'SUPER_ADMIN';
       user.isAdmin = true;
+      if ((user.winningsBalance || 0) < 10000) {
+        user.winningsBalance = 10000;
+      }
+      if ((user.depositBalance || 0) < 10000) {
+        user.depositBalance = 10000;
+      }
       await user.save();
     }
 
