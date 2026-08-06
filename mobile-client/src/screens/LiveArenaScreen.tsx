@@ -115,7 +115,7 @@ export const LiveArenaScreen: React.FC<LiveArenaScreenProps> = ({
     }
   });
 
-  // Ticking countdown effect for card timers (Live Bluff Timers) & player count fluctuation
+  // Ticking countdown effect for card timers (Live Bluff Timers) - Real 1s interval
   useEffect(() => {
     const timerInterval = setInterval(() => {
       setCardTimers((prev) => {
@@ -130,8 +130,10 @@ export const LiveArenaScreen: React.FC<LiveArenaScreenProps> = ({
         });
         return updated;
       });
+    }, 1000);
 
-      // Randomly fluctuate online active player count every tick
+    // Randomly fluctuate online active player count every 2 seconds
+    const playerFluctuationInterval = setInterval(() => {
       setDynamicMockPlayers((prev) => {
         const updated = { ...prev };
         TIER_CONFIGS.forEach((item) => {
@@ -143,9 +145,12 @@ export const LiveArenaScreen: React.FC<LiveArenaScreenProps> = ({
         });
         return updated;
       });
-    }, 2500);
+    }, 2000);
 
-    return () => clearInterval(timerInterval);
+    return () => {
+      clearInterval(timerInterval);
+      clearInterval(playerFluctuationInterval);
+    };
   }, []);
 
   // Listen to Sockets LOBBY_STATE_DELTA event
