@@ -36,8 +36,7 @@ export const formatUserFriendlyError = (err: any, fallbackMessage: string = 'Som
   // 1. If backend returned a clear user-facing error string
   if (err.response?.data?.error && typeof err.response.data.error === 'string') {
     const backendMsg = err.response.data.error;
-    // Hide any internal IP/URL accidentally included from backend
-    if (!backendMsg.includes('http://') && !backendMsg.includes('https://') && !backendMsg.includes('192.168.')) {
+    if (!backendMsg.includes('http://') && !backendMsg.includes('192.168.') && !backendMsg.includes('Cast to ObjectId')) {
       return backendMsg;
     }
   }
@@ -50,8 +49,6 @@ export const formatUserFriendlyError = (err: any, fallbackMessage: string = 'Som
     code === 'auth/network-request-failed' ||
     rawMsg.includes('Network Error') ||
     rawMsg.includes('network') ||
-    rawMsg.includes('192.168.') ||
-    rawMsg.includes('http://') ||
     rawMsg.includes('ECONNREFUSED') ||
     rawMsg.includes('ETIMEDOUT')
   ) {
@@ -59,25 +56,29 @@ export const formatUserFriendlyError = (err: any, fallbackMessage: string = 'Som
   }
 
   if (code === 'auth/app-not-authorized' || code === 'auth/invalid-app-credential') {
-    return 'App authentication setup required. Please ensure SHA-1 fingerprint is added in Firebase Console.';
+    return 'App authentication setup in progress. Please ensure SHA-1 fingerprint is added in Firebase Console.';
   }
 
   if (code === 'auth/invalid-verification-code') {
     return 'Invalid verification code. Please check the 6-digit OTP sent to your phone and try again.';
   }
 
-  if (code === 'auth/too-many-requests') {
-    return 'Too many requests sent in a short time. Please wait a moment and try again.';
+  if (code === 'auth/too-many-requests' || code === 'auth/quota-exceeded') {
+    return 'Too many SMS requests sent. Please wait a few minutes and try again.';
   }
 
   if (code === 'auth/user-disabled') {
     return 'This account has been suspended. Please contact support.';
   }
 
-  // Fallback: If raw message contains technical URLs or raw code, replace with clean notice
-  if (rawMsg.includes('http') || rawMsg.includes('192.168') || rawMsg.includes('JSON') || rawMsg.includes('undefined')) {
-    return 'Service temporarily unavailable. Please try again in a few moments.';
+  if (code === 'auth/invalid-phone-number') {
+    return 'Please enter a valid 10-digit mobile phone number.';
   }
 
-  return rawMsg || fallbackMessage;
+  // If error message is user-understandable without raw stack trace
+  if (rawMsg && !rawMsg.includes('Error:') && !rawMsg.includes('JSON') && !rawMsg.includes('undefined')) {
+    return rawMsg;
+  }
+
+  return fallbackMessage;
 };
