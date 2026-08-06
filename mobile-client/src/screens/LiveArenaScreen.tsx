@@ -72,6 +72,15 @@ export const LiveArenaScreen: React.FC<LiveArenaScreenProps> = ({
     return initial;
   });
 
+  // Dynamic fluctuating online player counts for each tier (regularly & randomly generated)
+  const [dynamicMockPlayers, setDynamicMockPlayers] = useState<Record<number, number>>(() => {
+    const initial: Record<number, number> = {};
+    TIER_CONFIGS.forEach((item) => {
+      initial[item.tier] = item.baseMockPlayers + Math.floor(Math.random() * 7) - 3;
+    });
+    return initial;
+  });
+
   // Dropdown alert state
   const [dropdownMsg, setDropdownMsg] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   const showDropdownAlert = (text: string, type: 'success' | 'error') => {
@@ -106,7 +115,7 @@ export const LiveArenaScreen: React.FC<LiveArenaScreenProps> = ({
     }
   });
 
-  // Ticking countdown effect for card timers (Live Bluff Timers)
+  // Ticking countdown effect for card timers (Live Bluff Timers) & player count fluctuation
   useEffect(() => {
     const timerInterval = setInterval(() => {
       setCardTimers((prev) => {
@@ -121,7 +130,20 @@ export const LiveArenaScreen: React.FC<LiveArenaScreenProps> = ({
         });
         return updated;
       });
-    }, 1000);
+
+      // Randomly fluctuate online active player count every tick
+      setDynamicMockPlayers((prev) => {
+        const updated = { ...prev };
+        TIER_CONFIGS.forEach((item) => {
+          const current = prev[item.tier] || item.baseMockPlayers;
+          const delta = Math.floor(Math.random() * 5) - 2; // -2 to +2 change
+          const minPlayers = Math.max(5, item.baseMockPlayers - 5);
+          const maxPlayers = item.baseMockPlayers + 18;
+          updated[item.tier] = Math.min(maxPlayers, Math.max(minPlayers, current + delta));
+        });
+        return updated;
+      });
+    }, 2500);
 
     return () => clearInterval(timerInterval);
   }, []);
@@ -278,7 +300,8 @@ export const LiveArenaScreen: React.FC<LiveArenaScreenProps> = ({
   const renderTierCard = ({ item }: { item: TierInfo }) => {
     const isThisSearching = isSearching && searchingTier?.tier === item.tier;
     const realStats = lobbyStats[item.tier] || { waiting: 0, playing: 0 };
-    const mockPlayers = item.baseMockPlayers + (realStats.waiting + realStats.playing);
+    const liveBaseCount = dynamicMockPlayers[item.tier] ?? item.baseMockPlayers;
+    const mockPlayers = liveBaseCount + (realStats.waiting + realStats.playing);
     const secondsLeft = cardTimers[item.tier] || 8;
     const formattedTimer = `00m ${secondsLeft < 10 ? '0' + secondsLeft : secondsLeft}s`;
 
