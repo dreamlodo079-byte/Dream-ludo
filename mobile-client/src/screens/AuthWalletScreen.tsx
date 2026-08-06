@@ -621,29 +621,6 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
     }
   };
 
-  const handleSendForgotOtp = async () => {
-    if (!phone || phone.trim().length < 10) {
-      showCustomAlert('Forgot Password', 'Please enter your registered 10-digit mobile number.', 'error');
-      return;
-    }
-    setIsSubmittingForgot(true);
-    try {
-      const normalizedPhone = `+91${phone.trim().slice(-10)}`;
-      const confirmation = await auth().signInWithPhoneNumber(normalizedPhone);
-      setConfirmResult(confirmation);
-      
-      setForgotStep('RESET_PASSWORD');
-      showCustomAlert(
-        'OTP Sent 📩',
-        `Verification OTP sent to +91 ${phone.trim().slice(-10)} via Firebase.`,
-        'success'
-      );
-    } catch (err: any) {
-      showCustomAlert('Forgot Password', err.message || 'Failed to send OTP via Firebase.', 'error');
-    } finally {
-      setIsSubmittingForgot(false);
-    }
-  };
 
   const handleResetPassword = async () => {
     if (!phone || phone.trim().length < 10) {
