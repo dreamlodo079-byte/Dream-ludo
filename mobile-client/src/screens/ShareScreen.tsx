@@ -47,7 +47,7 @@ export const ShareScreen: React.FC<ShareScreenProps> = ({ currentUser, onBack })
   };
 
   const handleWhatsAppShare = async () => {
-    const message = `🎮 Play Dream Ludo & win real cash! Sign up using my referral code *${referralCode}* to claim instant ₹10 bonus cash: ${referralUrl}`;
+    const message = `🎲 Play Dream Ludo and Earn Cash! 💸 Get an INSTANT ₹10 BONUS when you join using my referral code: *${referralCode}*\\nSignup URL: ${referralUrl}`;
     
     try {
       const whatsappUrl = `whatsapp://send?text=${encodeURIComponent(message)}`;
