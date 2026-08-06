@@ -615,10 +615,10 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
         await Linking.openURL(whatsappUrl);
       } else {
         await Linking.openURL(webUrl);
+      }
     } catch (err) {
       Linking.openURL(webUrl);
     }
-  };
   };
 
   const handleLogout = async () => {
