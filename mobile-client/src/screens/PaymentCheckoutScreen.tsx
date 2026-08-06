@@ -18,7 +18,7 @@ import {
 import Svg, { Rect, Circle, Path } from 'react-native-svg';
 import axios from 'axios';
 
-import { API_SERVER_URL } from '../utils/config';
+import { API_SERVER_URL, formatUserFriendlyError } from '../utils/config';
 
 interface PaymentCheckoutScreenProps {
   currentUser: { _id: string; username: string };
@@ -37,6 +37,7 @@ export const PaymentCheckoutScreen: React.FC<PaymentCheckoutScreenProps> = ({
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [copied, setCopied] = useState<boolean>(false);
   const [pendingBanner, setPendingBanner] = useState<boolean>(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [platformUpiId, setPlatformUpiId] = useState<string>('6261069826-2.wallet@phonepe');
   const [platformQrUrl, setPlatformQrUrl] = useState<string>('');
 
@@ -107,9 +108,11 @@ export const PaymentCheckoutScreen: React.FC<PaymentCheckoutScreenProps> = ({
 
     const cleanUtr = utr.trim();
     if (!cleanUtr || cleanUtr.length !== 12 || !/^\d{12}$/.test(cleanUtr)) {
-      Alert.alert('Invalid UTR Number', 'Please enter a valid 12-digit numeric UTR / Bank Reference Number from your payment receipt (strictly 12 digits required).');
+      setErrorMsg('Please enter a valid 12-digit numeric UTR / Bank Reference Number from your payment receipt (strictly 12 digits required).');
       return;
     }
+
+    setErrorMsg(null);
 
     try {
       setIsSubmitting(true);
@@ -127,11 +130,8 @@ export const PaymentCheckoutScreen: React.FC<PaymentCheckoutScreenProps> = ({
         }, 1500);
       }
     } catch (err: any) {
-      const rawMsg = err.response?.data?.error || err.message;
-      const userFacingMsg = (rawMsg && !rawMsg.includes('validation failed') && !rawMsg.includes('Cast to ObjectId'))
-        ? rawMsg 
-        : 'Unable to process deposit. Please check your details and try again.';
-      Alert.alert('Deposit Notice', userFacingMsg);
+      const userFacingMsg = formatUserFriendlyError(err, 'Unable to process deposit. Please check your details and try again.');
+      setErrorMsg(userFacingMsg);
     } finally {
       setIsSubmitting(false);
     }
@@ -234,6 +234,14 @@ export const PaymentCheckoutScreen: React.FC<PaymentCheckoutScreenProps> = ({
             maxLength={12}
           />
         </View>
+
+        {errorMsg && (
+          <View style={{ backgroundColor: '#FEE2E2', padding: 12, borderRadius: 8, marginBottom: 16, borderWidth: 1, borderColor: '#FCA5A5' }}>
+            <Text style={{ color: '#991B1B', fontSize: 13, fontWeight: '600' }}>
+              ⚠️ {errorMsg}
+            </Text>
+          </View>
+        )}
 
         <TouchableOpacity
           style={[styles.submitBtn, (isSubmitting || isExpired) && { opacity: 0.6 }]}

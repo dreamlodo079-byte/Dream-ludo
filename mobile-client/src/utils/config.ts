@@ -36,7 +36,13 @@ export const formatUserFriendlyError = (err: any, fallbackMessage: string = 'Som
   // 1. If backend returned a clear user-facing error string
   if (err.response?.data?.error && typeof err.response.data.error === 'string') {
     const backendMsg = err.response.data.error;
-    if (!backendMsg.includes('http://') && !backendMsg.includes('192.168.') && !backendMsg.includes('Cast to ObjectId')) {
+    if (
+      !backendMsg.includes('http://') && 
+      !backendMsg.includes('192.168.') && 
+      !backendMsg.includes('Cast to ObjectId') &&
+      !backendMsg.includes('<!DOCTYPE html>') &&
+      !backendMsg.includes('<html>')
+    ) {
       return backendMsg;
     }
   }
