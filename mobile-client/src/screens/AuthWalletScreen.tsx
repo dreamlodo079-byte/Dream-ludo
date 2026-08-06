@@ -1632,20 +1632,53 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
               else if (txn.status === 'PENDING') simpleStatus = 'Pending';
               else if (txn.status === 'FAILED') simpleStatus = 'Failed';
 
+              const isRejected = txn.status === 'REJECTED' || txn.status === 'FAILED';
+              const isPositive = txn.amount > 0;
+              
+              let amountColorStyle = styles.greenText;
+              let amountText = `+₹${txn.amount}`;
+
+              if (isRejected) {
+                amountColorStyle = styles.grayTextStrike;
+                amountText = `₹${txn.amount}`;
+              } else if (!isPositive) {
+                amountColorStyle = styles.redText;
+                amountText = `-₹${Math.abs(txn.amount)}`;
+              }
+
+              let statusStyle = styles.txnStatusPending;
+              if (txn.status === 'SUCCESS') statusStyle = styles.txnStatusSuccess;
+              if (txn.status === 'REJECTED' || txn.status === 'FAILED') statusStyle = styles.txnStatusFailed;
+
+              // Render an icon depending on type
+              const getIcon = () => {
+                if (txn.type === 'DEPOSIT') return '💰';
+                if (txn.type === 'WITHDRAWAL') return '🏦';
+                if (txn.type === 'WINNINGS') return '🏆';
+                if (txn.type === 'ENTRY_FEE' || txn.type === 'ENTRY_FEE_DEBIT') return '🎮';
+                if (txn.type === 'TDS_DEDUCTION') return '🏛️';
+                return '💸';
+              };
+
               return (
                 <View key={txn._id} style={styles.txnRow}>
-                  <View>
+                  <View style={styles.txnIconCircle}>
+                    <Text style={{ fontSize: 18 }}>{getIcon()}</Text>
+                  </View>
+                  <View style={{ flex: 1, paddingRight: 8 }}>
                     <Text style={styles.txnType}>{simpleType}</Text>
-                    <Text style={styles.txnDate}>{new Date(txn.createdAt).toLocaleDateString()}</Text>
+                    <Text style={styles.txnDate}>{formatDateTime(txn.createdAt)}</Text>
                     <Text style={styles.txnRef} numberOfLines={1}>Ref: {txn.referenceId}</Text>
                   </View>
                   <View style={styles.txnRight}>
-                    <Text style={[styles.txnAmount, txn.amount < 0 ? styles.redText : styles.greenText]}>
-                      {txn.amount > 0 ? `+${txn.amount}` : txn.amount}
+                    <Text style={[styles.txnAmount, amountColorStyle]}>
+                      {amountText}
                     </Text>
-                    <Text style={[styles.txnStatus, styles[txn.status.toLowerCase() as keyof typeof styles || 'pending']]}>
-                      {simpleStatus}
-                    </Text>
+                    <View style={[styles.txnStatusBadge, statusStyle]}>
+                      <Text style={[styles.txnStatusText, statusStyle]}>
+                        {simpleStatus.toUpperCase()}
+                      </Text>
+                    </View>
                   </View>
                 </View>
               );
@@ -2831,42 +2864,87 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    borderBottomWidth: 1,
-    borderColor: '#E5E7EB',
-    paddingVertical: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 8,
+    elevation: 1,
+  },
+  txnIconCircle: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: '#F8FAFC',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
   txnType: {
     color: '#0F172A',
-    fontWeight: 'bold',
-    fontSize: 13,
+    fontWeight: '900',
+    fontSize: 14,
+    letterSpacing: 0.2,
   },
   txnDate: {
     color: '#64748B',
     fontSize: 11,
-    marginTop: 2,
+    fontWeight: '600',
+    marginTop: 3,
   },
   txnRef: {
     color: '#94A3B8',
     fontSize: 10,
-    fontFamily: 'monospace',
-    marginTop: 2,
-    maxWidth: 160,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    marginTop: 3,
   },
   txnRight: {
     alignItems: 'flex-end',
   },
   txnAmount: {
-    fontWeight: 'bold',
-    fontSize: 14,
+    fontWeight: '900',
+    fontSize: 15,
+    letterSpacing: 0.5,
   },
   redText: {
     color: '#EF4444',
   },
-  txnStatus: {
-    fontSize: 10,
-    fontWeight: 'bold',
-    marginTop: 4,
-    textTransform: 'uppercase',
+  greenText: {
+    color: '#10B981',
+  },
+  grayTextStrike: {
+    color: '#94A3B8',
+    textDecorationLine: 'line-through',
+  },
+  txnStatusBadge: {
+    marginTop: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  txnStatusText: {
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  txnStatusSuccess: {
+    backgroundColor: '#ECFDF5',
+    color: '#10B981',
+  },
+  txnStatusPending: {
+    backgroundColor: '#FFFBEB',
+    color: '#F59E0B',
+  },
+  txnStatusFailed: {
+    backgroundColor: '#FEF2F2',
+    color: '#EF4444',
   },
   pending: {
     color: '#F59E0B',
