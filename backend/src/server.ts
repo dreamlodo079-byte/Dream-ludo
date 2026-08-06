@@ -5,7 +5,7 @@ import dotenv from 'dotenv';
 import helmet from 'helmet';
 import jwt from 'jsonwebtoken';
 import path from 'path';
-import fs from 'fs';
+
 import { connectDB, runInTransaction } from './config/db';
 import { connectRedis } from './config/redis';
 import { seedPlatformDatabase } from './config/seed';
@@ -207,41 +207,7 @@ app.use('/api/admin', adminRouter);
 app.use('/api/admin', adminWalletRouter);
 app.use('/api/v1/admin', adminWalletRouter);
 
-// Serve public mobile-first APK download landing page
-const publicDir = path.join(__dirname, '../public');
-app.use(express.static(publicDir));
-app.use(express.static('public'));
 
-// Direct APK Download Endpoint
-app.get(['/download/apk', '/dream-ludo.apk', '/download'], (_req, res) => {
-  const path1 = path.join(__dirname, '../public/downloads/dream-ludo.apk');
-  const path2 = path.join(__dirname, '../../public/downloads/dream-ludo.apk');
-  const path3 = path.join(process.cwd(), 'public/downloads/dream-ludo.apk');
-  const path4 = path.join(process.cwd(), 'backend/public/downloads/dream-ludo.apk');
-
-  const targetPath = [path1, path2, path3, path4].find(p => p && fs.existsSync(p));
-
-  if (targetPath) {
-    res.set('Content-Type', 'application/vnd.android.package-archive');
-    res.set('Content-Disposition', 'attachment; filename="Dream-Ludo.apk"');
-    res.set('Cache-Control', 'public, max-age=3600');
-    
-    const stream = fs.createReadStream(targetPath);
-    stream.on('error', (err) => {
-      console.error('Error streaming APK file:', err);
-      if (!res.headersSent) {
-        res.status(500).send('Error downloading APK file. Please try again.');
-      } else {
-        res.end();
-      }
-    });
-    
-    stream.pipe(res);
-    return;
-  }
-
-  return res.status(404).send('APK file build in progress. Please refresh in a moment.');
-});
 
 // Daily challenges query route
 app.get('/api/challenges/:userId', async (req, res) => {
