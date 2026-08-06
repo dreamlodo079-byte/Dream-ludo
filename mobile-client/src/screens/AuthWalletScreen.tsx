@@ -509,10 +509,7 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
     // Launch native device UPI apps with the LIVE configured payee UPI ID
     const upiUri = `upi://pay?pa=${encodeURIComponent(livePayeeUpi)}&pn=${encodeURIComponent('Dream Ludo')}&am=${amount.toFixed(2)}&cu=INR`;
     try {
-      const supported = await Linking.canOpenURL(upiUri);
-      if (supported) {
-        await Linking.openURL(upiUri);
-      }
+      await Linking.openURL(upiUri);
     } catch (e) {
       console.warn('Could not launch deep link app directly:', e);
     }
@@ -624,12 +621,7 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
     const whatsappUrl = `whatsapp://send?phone=${phone}&text=${text}`;
     const webUrl = `https://wa.me/${phone}?text=${text}`;
     try {
-      const supported = await Linking.canOpenURL(whatsappUrl);
-      if (supported) {
-        await Linking.openURL(whatsappUrl);
-      } else {
-        await Linking.openURL(webUrl);
-      }
+      await Linking.openURL(whatsappUrl);
     } catch (err) {
       Linking.openURL(webUrl);
     }
@@ -706,14 +698,9 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
     try {
       const text = encodeURIComponent(`🎲 Play Dream Ludo and Earn Cash! Join using my referral code: ${referralCode}\nSignup URL: ${referralUrl}`);
       const url = `whatsapp://send?text=${text}`;
-      const supported = await Linking.canOpenURL(url);
-      if (supported) {
-        await Linking.openURL(url);
-      } else {
-        showCustomAlert('WhatsApp Error', 'WhatsApp app is not installed on this device.', 'error');
-      }
+      await Linking.openURL(url);
     } catch (err: any) {
-      showCustomAlert('Error', err.message, 'error');
+      showCustomAlert('WhatsApp Error', 'WhatsApp app is not installed on this device.', 'error');
     }
   };
 

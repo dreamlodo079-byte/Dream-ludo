@@ -138,17 +138,12 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     }
 
     try {
-      const supported = await Linking.canOpenURL(targetUrl);
-      if (supported) {
-        await Linking.openURL(targetUrl);
-      } else {
-        await Linking.openURL(formattedUpi);
-      }
+      await Linking.openURL(targetUrl);
     } catch (err) {
       try {
         await Linking.openURL(formattedUpi);
       } catch (fallbackErr) {
-        Alert.alert('UPI Notice', `Please copy UPI ID (${realUpiId}) or scan QR code to pay ₹${amount}.`);
+        Alert.alert('Error', 'Could not open UPI app. Please install a UPI payment app.');
       }
     }
   };

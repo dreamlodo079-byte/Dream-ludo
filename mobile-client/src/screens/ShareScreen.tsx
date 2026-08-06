@@ -51,19 +51,12 @@ export const ShareScreen: React.FC<ShareScreenProps> = ({ currentUser, onBack })
     
     try {
       const whatsappUrl = `whatsapp://send?text=${encodeURIComponent(message)}`;
-      const supported = await Linking.canOpenURL(whatsappUrl);
-
-      if (supported) {
-        await Linking.openURL(whatsappUrl);
-      } else {
-        await Share.share({
-          message,
-          title: 'Invite Friends to Dream Ludo',
-        });
-      }
+      await Linking.openURL(whatsappUrl);
     } catch (error: any) {
-      console.error('Error sharing via WhatsApp:', error);
-      Share.share({ message });
+      await Share.share({
+        message,
+        title: 'Invite Friends to Dream Ludo',
+      });
     }
   };
 
