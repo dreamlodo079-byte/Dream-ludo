@@ -14,6 +14,7 @@ import {
   Modal,
   Image,
   Linking,
+  KeyboardAvoidingView,
 } from 'react-native';
 import Svg, { Path, Circle, Rect, Line, Polyline } from 'react-native-svg';
 import axios from 'axios';
