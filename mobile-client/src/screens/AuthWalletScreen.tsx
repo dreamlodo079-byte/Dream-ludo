@@ -23,7 +23,7 @@ import auth from '@react-native-firebase/auth';
 import { useWallet } from '../hooks/useWallet';
 import { PaymentCheckoutScreen } from './PaymentCheckoutScreen';
 
-import { API_SERVER_URL } from '../utils/config';
+import { API_SERVER_URL, formatUserFriendlyError } from '../utils/config';
 
 const formatDateTime = (dateStr: string) => {
   if (!dateStr) return 'N/A';
@@ -331,7 +331,7 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
         'success'
       );
     } catch (err: any) {
-      const errMsg = err.message || 'Failed to send OTP via Firebase.';
+      const errMsg = formatUserFriendlyError(err, 'Unable to send verification code. Please check your network and try again.');
       showCustomAlert('Authentication Error', errMsg, 'error');
     } finally {
       setIsLoggingIn(false);
@@ -363,12 +363,8 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
         onLoginSuccess(response.data.user, response.data.token);
       }
     } catch (err: any) {
-      // Firebase throws specific auth errors
-      if (err.code === 'auth/invalid-verification-code') {
-        showCustomAlert('Verification Error', 'Invalid OTP. Please try again.', 'error');
-      } else {
-        showCustomAlert('Verification Error', err.response?.data?.error || err.message, 'error');
-      }
+      const errMsg = formatUserFriendlyError(err, 'Verification failed. Please try again.');
+      showCustomAlert('Verification Error', errMsg, 'error');
     } finally {
       setIsLoggingIn(false);
     }
