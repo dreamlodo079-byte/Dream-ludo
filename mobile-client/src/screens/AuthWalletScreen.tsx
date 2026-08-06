@@ -376,7 +376,9 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
         'success'
       );
     } catch (err: any) {
-      const errMsg = formatUserFriendlyError(err, 'Unable to send verification code. Please check your network and try again.');
+      console.error('Firebase Auth Exception:', err);
+      const rawReason = err?.message || (err?.code ? `Firebase code: ${err.code}` : 'Unable to send SMS verification code.');
+      const errMsg = formatUserFriendlyError(err, rawReason);
       showCustomAlert('Authentication Error', errMsg, 'error');
     } finally {
       setIsLoggingIn(false);
