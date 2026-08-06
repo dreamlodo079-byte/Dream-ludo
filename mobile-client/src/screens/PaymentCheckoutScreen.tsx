@@ -337,7 +337,7 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 16,
-    paddingBottom: 220,
+    paddingBottom: 400,
     width: '100%',
     maxWidth: 640,
     alignSelf: 'center',
