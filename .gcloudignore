@@ -1,0 +1,9 @@
+.git
+.gitignore
+node_modules
+mobile-client
+npm-debug.log
+backend/node_modules
+backend/dist
+backend/.env
+.env

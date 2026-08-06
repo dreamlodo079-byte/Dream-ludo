@@ -315,7 +315,6 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
       });
 
       if (response.data.success) {
-        axios.defaults.headers.common['x-auth-token'] = response.data.token;
         axios.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`;
         onLoginSuccess(response.data.user, response.data.token);
       }
@@ -396,7 +395,6 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
       });
 
       if (response.data.success) {
-        axios.defaults.headers.common['x-auth-token'] = response.data.token;
         axios.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`;
         onLoginSuccess(response.data.user, response.data.token);
       }
@@ -457,7 +455,6 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
       });
 
       if (response.data.success) {
-        axios.defaults.headers.common['x-auth-token'] = response.data.token;
         axios.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`;
         setIsForgotPasswordMode(false);
         onLoginSuccess(response.data.user, response.data.token);
@@ -621,13 +618,60 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
     }
   };
 
+
+  const handleResetPassword = async () => {
+    if (!phone || phone.trim().length < 10) {
+      showCustomAlert('Reset Password', 'Please enter your registered 10-digit mobile number.', 'error');
+      return;
+    }
+    if (!forgotOtp || forgotOtp.trim().length < 4) {
+      showCustomAlert('Reset Password', 'Please enter the 6-digit OTP received via SMS.', 'error');
+      return;
+    }
+    if (!newPassword || newPassword.trim().length < 4) {
+      showCustomAlert('Reset Password', 'New password must be at least 4 characters long.', 'error');
+      return;
+    }
+
+    setIsSubmittingForgot(true);
+    try {
+      if (!confirmResult) throw new Error("No OTP session found. Please request a new OTP.");
+
+      const userCredential = await confirmResult.confirm(forgotOtp.trim());
+      const idToken = await userCredential.user.getIdToken(true);
+
+      const response = await axios.post(`${API_SERVER_URL}/api/users/firebase-reset-password`, {
+        idToken,
+        newPassword: newPassword.trim(),
+      });
+      
+      if (response.data.success) {
+        setPassword(newPassword.trim());
+        setIsForgotPasswordMode(false);
+        setForgotStep('SEND_OTP');
+        setForgotOtp('');
+        setNewPassword('');
+        setIsLoginMode(true);
+        showCustomAlert('Success! 🎉', 'Password reset successfully! Log in with your new password.', 'success');
+      }
+    } catch (err: any) {
+      if (err.code === 'auth/invalid-verification-code') {
+        showCustomAlert('Reset Error', 'Invalid OTP. Please try again.', 'error');
+      } else {
+        showCustomAlert('Reset Error', err.response?.data?.error || err.message || 'Failed to reset password.', 'error');
+      }
+    } finally {
+      setIsSubmittingForgot(false);
+    }
+  };
+
   const handleLogout = async () => {
     try {
       await axios.post(`${API_SERVER_URL}/api/users/logout`);
     } catch (err) {
       console.log('Server token blacklisting failed or bypassed:', err);
     }
-    delete axios.defaults.headers.common['x-auth-token'];
+
     if (onLogout) onLogout();
   };
 

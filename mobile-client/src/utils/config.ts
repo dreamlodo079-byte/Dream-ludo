@@ -3,11 +3,10 @@ import { Platform, NativeModules } from 'react-native';
 import axios from 'axios';
 
 // Public Production Domain & Tunnel URLs
-const PRODUCTION_DOMAIN = 'https://dream-ludo.onrender.com';
-const PUBLIC_TUNNEL_URL = 'https://dream-ludo.onrender.com';
+const PRODUCTION_DOMAIN = 'https://dream-ludo-62941319437.asia-south1.run.app';
+const PUBLIC_TUNNEL_URL = 'https://dream-ludo-62941319437.asia-south1.run.app';
 
-// Bypass tunnel reminder page for localtunnel
-axios.defaults.headers.common['bypass-tunnel-reminder'] = 'true';
+// (Removed bypass-tunnel-reminder because we are on Cloud Run now, and it breaks CORS)
 
 export const getApiServerUrl = (): string => {
   // 1. Production release builds ALWAYS connect to live production server domain

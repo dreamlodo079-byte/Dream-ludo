@@ -214,14 +214,30 @@ app.use(express.static('public'));
 
 // Direct APK Download Endpoint
 app.get(['/download/apk', '/dream-ludo.apk', '/download'], (_req, res) => {
-  const apkPath = path.join(__dirname, '../public/downloads/dream-ludo.apk');
-  const rootApkPath = path.join(process.cwd(), 'public/downloads/dream-ludo.apk');
-  
-  const targetPath = fs.existsSync(apkPath) ? apkPath : (fs.existsSync(rootApkPath) ? rootApkPath : null);
-  
+  const path1 = path.join(__dirname, '../public/downloads/dream-ludo.apk');
+  const path2 = path.join(__dirname, '../../public/downloads/dream-ludo.apk');
+  const path3 = path.join(process.cwd(), 'public/downloads/dream-ludo.apk');
+  const path4 = path.join(process.cwd(), 'backend/public/downloads/dream-ludo.apk');
+
+  const targetPath = [path1, path2, path3, path4].find(p => p && fs.existsSync(p));
+
   if (targetPath) {
-    res.setHeader('Content-Type', 'application/vnd.android.package-archive');
-    return res.download(targetPath, 'Dream-Ludo.apk');
+    res.set('Content-Type', 'application/vnd.android.package-archive');
+    res.set('Content-Disposition', 'attachment; filename="Dream-Ludo.apk"');
+    res.set('Cache-Control', 'public, max-age=3600');
+    
+    const stream = fs.createReadStream(targetPath);
+    stream.on('error', (err) => {
+      console.error('Error streaming APK file:', err);
+      if (!res.headersSent) {
+        res.status(500).send('Error downloading APK file. Please try again.');
+      } else {
+        res.end();
+      }
+    });
+    
+    stream.pipe(res);
+    return;
   }
 
   return res.status(404).send('APK file build in progress. Please refresh in a moment.');
@@ -264,7 +280,7 @@ app.post('/api/users/firebase-verify', async (req, res) => {
     // 1. Verify the ID token with Firebase Admin
     const auth = getFirebaseAuth();
     const decodedToken = await auth.verifyIdToken(idToken);
-    
+
     if (!decodedToken.phone_number) {
       return res.status(400).json({ error: 'Phone number not associated with this Firebase account' });
     }
@@ -338,7 +354,7 @@ app.post('/api/users/firebase-reset-password', async (req, res) => {
     // 1. Verify the ID token with Firebase Admin
     const auth = getFirebaseAuth();
     const decodedToken = await auth.verifyIdToken(idToken);
-    
+
     if (!decodedToken.phone_number) {
       return res.status(400).json({ error: 'Phone number not associated with this Firebase account' });
     }
@@ -665,10 +681,10 @@ app.post('/api/payments/re-roll', authenticateJWT, async (req: AuthenticatedRequ
     if (prevRoll === 6) {
       state.consecutiveSixes = Math.max(0, state.consecutiveSixes - 1);
     }
-    
+
     if (newRoll === 6) {
       state.consecutiveSixes += 1;
-      
+
       // If 3 consecutive sixes are rolled
       if (state.consecutiveSixes === 3) {
         state.players.forEach((p: any, idx: number) => {
@@ -680,7 +696,7 @@ app.post('/api/payments/re-roll', authenticateJWT, async (req: AuthenticatedRequ
         state.diceRoll = null;
         state.hasRolled = false;
         rotateTurn(state);
-        
+
         await cacheRoomState(roomId, state);
         const io = getIO();
         io.to(roomId).emit('MATCH_STATE_UPDATE', state);
