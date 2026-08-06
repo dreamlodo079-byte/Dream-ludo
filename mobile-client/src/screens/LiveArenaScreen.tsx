@@ -347,11 +347,6 @@ export const LiveArenaScreen: React.FC<LiveArenaScreenProps> = ({
               <Text style={styles.prizeText}>
                 {item.tier === 0 ? 'FREE' : `₹${item.prize.toLocaleString('en-IN')}`}
               </Text>
-              {item.tier !== 0 && (
-                <Svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="#64748B" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: 3 }}>
-                  <Path d="M6 9l6 6 6-6" />
-                </Svg>
-              )}
             </View>
           </View>
 

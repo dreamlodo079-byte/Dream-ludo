@@ -1675,34 +1675,36 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({ onBack }) =>
 
       {/* Input Modal for Payout UTR & Rejection Reason */}
       <Modal visible={inputModal.visible} transparent animationType="fade" onRequestClose={() => setInputModal((prev) => ({ ...prev, visible: false }))}>
-        <View style={styles.alertOverlay}>
-          <View style={styles.inputModalCard}>
-            <Text style={styles.inputModalTitle}>{inputModal.title}</Text>
-            <Text style={styles.inputModalSub}>{inputModal.message}</Text>
-            <TextInput
-              style={styles.modalInput}
-              placeholder={inputModal.placeholder}
-              placeholderTextColor="#94A3B8"
-              value={inputModal.value}
-              onChangeText={(val) => setInputModal((prev) => ({ ...prev, value: val }))}
-              autoFocus
-            />
-            <View style={styles.modalActionRow}>
-              <TouchableOpacity
-                style={[styles.modalBtn, styles.modalCancelBtn]}
-                onPress={() => setInputModal((prev) => ({ ...prev, visible: false }))}
-              >
-                <Text style={styles.modalCancelText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalBtn, styles.modalSaveBtn]}
-                onPress={() => inputModal.onConfirm(inputModal.value)}
-              >
-                <Text style={styles.modalSaveText}>{inputModal.confirmText}</Text>
-              </TouchableOpacity>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+          <View style={styles.alertOverlay}>
+            <View style={styles.inputModalCard}>
+              <Text style={styles.inputModalTitle}>{inputModal.title}</Text>
+              <Text style={styles.inputModalSub}>{inputModal.message}</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder={inputModal.placeholder}
+                placeholderTextColor="#94A3B8"
+                value={inputModal.value}
+                onChangeText={(val) => setInputModal((prev) => ({ ...prev, value: val }))}
+                autoFocus
+              />
+              <View style={styles.modalActionRow}>
+                <TouchableOpacity
+                  style={[styles.modalBtn, styles.modalCancelBtn]}
+                  onPress={() => setInputModal((prev) => ({ ...prev, visible: false }))}
+                >
+                  <Text style={styles.modalCancelText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.modalBtn, styles.modalSaveBtn]}
+                  onPress={() => inputModal.onConfirm(inputModal.value)}
+                >
+                  <Text style={styles.modalSaveText}>{inputModal.confirmText}</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
