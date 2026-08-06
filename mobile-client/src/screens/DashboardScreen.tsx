@@ -707,7 +707,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 {/* 2. Regular Match */}
                 <AnimatedPressable
                   style={[styles.mode3DCard, { backgroundColor: '#4F46E5' }]}
-                  onPress={() => setCurrentView('LIVE')}
+                  onPress={() => setSelectedModeModal('REGULAR')}
                 >
                   <View style={styles.modeTagBadge}>
                     <Text style={styles.modeTagText}>🏆 8 MIN CLASSIC</Text>
@@ -720,7 +720,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                     <Text style={styles.modeCardSub}>8-Minute Full Strategy</Text>
                   </View>
                   <View style={styles.modeCardFooter}>
-                    <Text style={styles.modeFooterBtnText}>SEE LIVE MATCHES ➔</Text>
+                    <Text style={styles.modeFooterBtnText}>SELECT REGULAR MATCH ➔</Text>
                   </View>
                 </AnimatedPressable>
 

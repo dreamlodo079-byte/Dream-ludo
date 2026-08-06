@@ -13,6 +13,7 @@ import {
   TextInput,
   Modal,
   Image,
+  Linking,
 } from 'react-native';
 import Svg, { Path, Circle, Rect, Line, Polyline } from 'react-native-svg';
 import axios from 'axios';
@@ -476,6 +477,36 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({ onBack }) =>
         }
       },
     });
+  };
+
+  // Open Installed Phone UPI App (PhonePe, GPay, Paytm) prefilled with receiver details
+  const handleOpenUpiApp = (receiverUpi: string, amount: number, username: string) => {
+    if (!receiverUpi || receiverUpi.trim().length === 0) {
+      showToast('No UPI ID', 'User has not specified a valid UPI ID for payout.', 'error');
+      return;
+    }
+    const cleanUpi = receiverUpi.trim();
+    const cleanAmt = Math.abs(amount).toFixed(2);
+    const cleanName = encodeURIComponent(username || 'DreamLudo Player');
+    const note = encodeURIComponent('DreamLudo Payout');
+
+    // Standard Universal UPI Intent URI: upi://pay?pa=...&pn=...&am=...&cu=INR&tn=...
+    const upiUrl = `upi://pay?pa=${cleanUpi}&pn=${cleanName}&am=${cleanAmt}&cu=INR&tn=${note}`;
+
+    Linking.canOpenURL(upiUrl)
+      .then((supported) => {
+        if (supported || Platform.OS === 'android') {
+          Linking.openURL(upiUrl).catch((err) => {
+            console.error('Error opening UPI App intent:', err);
+            showToast('UPI App Notice', 'Opening installed UPI App (PhonePe/GPay/Paytm)...', 'info');
+          });
+        } else {
+          showToast('No UPI App Found', 'Please install PhonePe, GPay, or Paytm to pay directly via UPI.', 'error');
+        }
+      })
+      .catch(() => {
+        Linking.openURL(upiUrl).catch(() => null);
+      });
   };
 
   // Request Tab Actions: Approve / Reject Withdrawal
@@ -985,22 +1016,32 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({ onBack }) =>
                               </TouchableOpacity>
                             </>
                           ) : (
-                            <>
+                            <View style={{ gap: 8, flex: 1 }}>
                               <TouchableOpacity
-                                style={[styles.actionBtn, styles.approveBtn]}
-                                onPress={() =>
-                                  handleApproveWithdrawal(item._id, item.amount, item.paymentAddress || '', userObj.username || 'User')
-                                }
+                                style={[styles.actionBtn, { backgroundColor: '#2563EB', paddingVertical: 12 }]}
+                                onPress={() => handleOpenUpiApp(item.paymentAddress || '', item.amount, userObj.username || 'User')}
                               >
-                                <Text style={styles.actionBtnText}>💸 APPROVE & PAYOUT UTR</Text>
+                                <Text style={styles.actionBtnText}>⚡ PAY VIA UPI APP (GPay / PhonePe / Paytm)</Text>
                               </TouchableOpacity>
-                              <TouchableOpacity
-                                style={[styles.actionBtn, styles.rejectBtn]}
-                                onPress={() => handleRejectWithdrawal(item._id, item.amount, userObj.username || 'User')}
-                              >
-                                <Text style={styles.actionBtnText}>❌ REJECT & REFUND</Text>
-                              </TouchableOpacity>
-                            </>
+                              
+                              <View style={{ flexDirection: 'row', gap: 8 }}>
+                                <TouchableOpacity
+                                  style={[styles.actionBtn, styles.approveBtn, { flex: 1 }]}
+                                  onPress={() =>
+                                    handleApproveWithdrawal(item._id, item.amount, item.paymentAddress || '', userObj.username || 'User')
+                                  }
+                                >
+                                  <Text style={styles.actionBtnText}>💸 APPROVE & ENTER UTR</Text>
+                                </TouchableOpacity>
+
+                                <TouchableOpacity
+                                  style={[styles.actionBtn, styles.rejectBtn, { flex: 1 }]}
+                                  onPress={() => handleRejectWithdrawal(item._id, item.amount, userObj.username || 'User')}
+                                >
+                                  <Text style={styles.actionBtnText}>❌ REJECT & REFUND</Text>
+                                </TouchableOpacity>
+                              </View>
+                            </View>
                           )}
                         </View>
                       )}

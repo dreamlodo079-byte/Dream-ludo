@@ -104,8 +104,8 @@ export const WithdrawMoneyScreen: React.FC<WithdrawMoneyScreenProps> = ({
         <View style={styles.banner}>
           <Text style={styles.bannerIcon}>✅</Text>
           <View style={{ flex: 1 }}>
-            <Text style={styles.bannerTitle}>Withdrawal Request Submitted</Text>
-            <Text style={styles.bannerSub}>Funds moved to Locked Balance. Admin will process payout & transfer cash to your UPI ID shortly.</Text>
+            <Text style={styles.bannerTitle}>Withdrawal Request Submitted ✅</Text>
+            <Text style={styles.bannerSub}>Funds moved to Locked Balance. Your payout request is under review and will be settled to your UPI ID within 24 hours.</Text>
           </View>
         </View>
       )}
