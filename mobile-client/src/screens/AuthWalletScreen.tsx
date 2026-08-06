@@ -25,6 +25,15 @@ import { PaymentCheckoutScreen } from './PaymentCheckoutScreen';
 
 import { API_SERVER_URL, formatUserFriendlyError } from '../utils/config';
 
+const getNativeAuth = () => {
+  try {
+    return auth();
+  } catch (err: any) {
+    console.warn('Native Firebase Auth module not loaded in Expo Go environment:', err);
+    throw new Error('Firebase Phone Auth requires running inside the standalone compiled APK build.');
+  }
+};
+
 const formatDateTime = (dateStr: string) => {
   if (!dateStr) return 'N/A';
   try {
@@ -356,7 +365,7 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
     setIsLoggingIn(true);
     try {
       const normalizedPhone = `+91${phone.trim().slice(-10)}`;
-      const confirmation = await auth().signInWithPhoneNumber(normalizedPhone);
+      const confirmation = await getNativeAuth().signInWithPhoneNumber(normalizedPhone);
       setConfirmResult(confirmation);
       
       setOtpSent(true);
@@ -421,7 +430,7 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
     setIsSubmittingForgot(true);
     try {
       const normalizedPhone = `+91${phone.trim().slice(-10)}`;
-      const confirmation = await auth().signInWithPhoneNumber(normalizedPhone);
+      const confirmation = await getNativeAuth().signInWithPhoneNumber(normalizedPhone);
       setConfirmResult(confirmation);
       setForgotStep('RESET_PASSWORD');
       showCustomAlert('Reset OTP Sent 📩', 'A 6-digit OTP code has been sent to your phone via SMS.', 'success');
