@@ -536,11 +536,47 @@
   </div>
 
   <!-- Sticky Bottom Download Bar for Mobile Viewports -->
-  <div class="sticky-bottom-bar">
-    <a href="/download/apk" download="Dream-Ludo.apk" class="sticky-btn">
+  <div class="sticky-bottom-bar" id="stickyBar">
+    <a href="/download/apk" download="Dream-Ludo.apk" class="sticky-btn" id="stickyBtn">
       <span>⬇️ DOWNLOAD DREAM LUDO APK</span>
     </a>
   </div>
 
+  <script>
+    (function() {
+      var userAgent = navigator.userAgent || navigator.vendor || window.opera;
+      var isIOS = /iPad|iPhone|iPod/.test(userAgent) && !window.MSStream;
+
+      if (isIOS) {
+        var downloadBtn = document.getElementById('downloadBtn');
+        var stickyBtn = document.getElementById('stickyBtn');
+        var fileInfo = document.querySelector('.file-info');
+
+        if (downloadBtn) {
+          downloadBtn.href = "#";
+          downloadBtn.removeAttribute("download");
+          downloadBtn.innerHTML = "<span>🍏 PLAY ON IPHONE / iOS</span>";
+          downloadBtn.onclick = function(e) {
+            e.preventDefault();
+            alert("🍏 Dream Ludo for iOS!\n\nTo play on iPhone:\n1. Tap the Share button in Safari\n2. Select 'Add to Home Screen'\n3. Open Dream Ludo directly from your home screen!");
+          };
+        }
+
+        if (stickyBtn) {
+          stickyBtn.href = "#";
+          stickyBtn.removeAttribute("download");
+          stickyBtn.innerHTML = "<span>🍏 PLAY ON IPHONE / iOS</span>";
+          stickyBtn.onclick = function(e) {
+            e.preventDefault();
+            alert("🍏 Dream Ludo for iOS!\n\nTo play on iPhone:\n1. Tap the Share button in Safari\n2. Select 'Add to Home Screen'\n3. Open Dream Ludo directly from your home screen!");
+          };
+        }
+
+        if (fileInfo) {
+          fileInfo.innerText = "v1.0.5 • Safari Web App • All iPhones Supported";
+        }
+      }
+    })();
+  </script>
 </body>
 </html>
