@@ -377,7 +377,7 @@ export const LiveArenaScreen: React.FC<LiveArenaScreenProps> = ({
                 disabled={isSearching && !isThisSearching}
                 activeOpacity={0.85}
               >
-                <Text style={styles.entryButtonText}>
+                <Text style={styles.entryButtonText} numberOfLines={1} adjustsFontSizeToFit>
                   {isThisSearching ? 'Cancel' : (item.tier === 0 ? 'Free' : `₹${item.tier.toLocaleString('en-IN')}`)}
                 </Text>
               </TouchableOpacity>
@@ -589,7 +589,7 @@ const styles = StyleSheet.create({
   entryButton: {
     borderRadius: 20,
     paddingVertical: 9,
-    paddingHorizontal: 22,
+    paddingHorizontal: 12,
     alignItems: 'center',
     justifyContent: 'center',
     minWidth: 85,
