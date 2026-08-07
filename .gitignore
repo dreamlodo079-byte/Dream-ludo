@@ -32,5 +32,4 @@ ios/Pods/
 *.sourcemap
 
 # Firebase Credentials
-google-services.json
 serviceAccountKey.json
