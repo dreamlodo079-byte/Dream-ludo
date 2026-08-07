@@ -36,7 +36,7 @@ const getNativeAuth = () => {
     return auth();
   } catch (err: any) {
     console.error('Native Firebase Auth module error:', err);
-    throw new Error('Unable to access mobile authentication service.');
+    throw new Error(`Firebase Error: ${err?.message || err}`);
   }
 };
 
