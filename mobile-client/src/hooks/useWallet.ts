@@ -13,7 +13,7 @@ export interface LedgerTransaction {
   _id: string;
   amount: number;
   type: 'DEPOSIT' | 'WITHDRAWAL' | 'ENTRY_FEE' | 'ENTRY_FEE_DEBIT' | 'WINNINGS' | 'PLATFORM_COMMISSION' | 'TDS_DEDUCTION';
-  status: 'PENDING' | 'SUCCESS' | 'FAILED';
+  status: 'PENDING' | 'SUCCESS' | 'FAILED' | 'REJECTED';
   referenceId: string;
   createdAt: string;
 }
