@@ -259,21 +259,14 @@ app.post('/api/users/send-otp', async (req, res) => {
 
     console.log(`[OTP GENERATED] Phone: ${normalizedPhone} | OTP: ${otp} | Mock: 343432`);
 
-    // Call Fast2SMS API
-    const fast2smsKey = process.env.FAST2SMS_API_KEY || 'SJTU4ELrjV0oMnRzZO3iId6B2XNKupP9YQ1sFymxlaW7hqkeGbjAw4HquarO53cMEVZLspCRSz7eQY9N';
-    if (fast2smsKey) {
+    // Call 2Factor.in API
+    const twoFactorKey = process.env.TWO_FACTOR_API_KEY || '152aa145-929b-11f1-908b-0200cd936042';
+    if (twoFactorKey) {
       try {
-        await axios.get('https://www.fast2sms.com/dev/bulkV2', {
-          params: {
-            authorization: fast2smsKey,
-            variables_values: otp,
-            route: 'otp',
-            numbers: normalizedPhone
-          }
-        });
-        console.log(`Fast2SMS SMS sent successfully to ${normalizedPhone}`);
+        await axios.get(`https://2factor.in/API/V1/${twoFactorKey}/SMS/${normalizedPhone}/${otp}`);
+        console.log(`2Factor.in SMS sent successfully to ${normalizedPhone}`);
       } catch (smsErr: any) {
-        console.error('Fast2SMS failed to send SMS:', smsErr?.response?.data || smsErr.message);
+        console.error('2Factor.in failed to send SMS:', smsErr?.response?.data || smsErr.message);
         // We don't throw here so that the mock OTP still works for testing if SMS fails
       }
     }
