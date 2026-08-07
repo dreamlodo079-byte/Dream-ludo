@@ -20,7 +20,6 @@ import { walletRouter } from './controllers/walletController';
 import { notificationRouter } from './controllers/notificationController';
 import { adminWalletRouter } from './controllers/adminWalletController';
 import { getDailyProgress, claimDailyReward } from './services/challengeTracker';
-import { getFirebaseAuth } from './config/firebase';
 import { generalRateLimiter, strictRateLimiter, sanitizeInputMiddleware } from './middleware/security';
 import { authenticateJWT, blacklistToken, JWT_SECRET, AuthenticatedRequest } from './middleware/auth';
 import { User } from './models/User';
@@ -871,3 +870,4 @@ const startServer = async () => {
 };
 
 startServer();
+
