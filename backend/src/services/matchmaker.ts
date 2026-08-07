@@ -151,6 +151,11 @@ export const joinQueue = async (
     return { success: false, message: 'Entry fee must be a valid non-negative whole number (₹0 or more)' };
   }
 
+  // Enforce QUICK match mode for all Free Practice matches
+  if (entryFee === 0) {
+    gameMode = 'QUICK';
+  }
+
   // 1. Pre-verify balance
   const balances = await getUserBalances(userId);
   if (balances.total < entryFee) {

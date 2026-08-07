@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Dream Ludo",
-    "slug": "dream-ludo",
+    "slug": "sexus-platform",
     "newArchEnabled": true,
     "version": "1.0.0",
     "orientation": "portrait",
@@ -21,6 +21,10 @@
         "INTERNET",
         "ACCESS_NETWORK_STATE",
         "INTERNET",
+        "ACCESS_NETWORK_STATE",
+        "INTERNET",
+        "ACCESS_NETWORK_STATE",
+        "INTERNET",
         "ACCESS_NETWORK_STATE"
       ],
       "adaptiveIcon": {
@@ -36,7 +40,8 @@
     "updates": {
       "enabled": true,
       "checkAutomatically": "ON_LOAD",
-      "fallbackToCacheTimeout": 0
+      "fallbackToCacheTimeout": 30000,
+      "url": "https://u.expo.dev/932863cb-1148-49ea-8665-751bffc96cd6"
     },
     "extra": {
       "eas": {
@@ -46,9 +51,10 @@
     "plugins": [
       "expo-asset",
       "@react-native-firebase/app",
-      "@react-native-firebase/auth"
+      
     ],
     "runtimeVersion": "1.0.0",
     "owner": "janu01"
   }
 }
+

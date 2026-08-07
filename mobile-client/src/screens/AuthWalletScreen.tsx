@@ -18,29 +18,11 @@ import {
 } from 'react-native';
 import Svg, { Rect, Path, G, Defs, LinearGradient, Stop, Circle, Line, Polyline } from 'react-native-svg';
 import axios from 'axios';
-// @ts-ignore
-import firebase from '@react-native-firebase/app';
-// @ts-ignore
-import auth from '@react-native-firebase/auth';
 import { useWallet } from '../hooks/useWallet';
 import { PaymentCheckoutScreen } from './PaymentCheckoutScreen';
 
 import { API_SERVER_URL, formatUserFriendlyError } from '../utils/config';
 
-const getNativeAuth = () => {
-  try {
-    if (typeof auth === 'function') {
-      return auth();
-    }
-    if (firebase && typeof firebase.auth === 'function') {
-      return firebase.auth();
-    }
-    throw new Error('Native module missing. auth is: ' + typeof auth);
-  } catch (err: any) {
-    console.error('Native Firebase Auth module error:', err);
-    throw new Error(`Firebase Error: ${err?.message || err}`);
-  }
-};
 
 const formatDateTime = (dateStr: string) => {
   if (!dateStr) return 'N/A';
@@ -373,8 +355,7 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
     setIsLoggingIn(true);
     try {
       const normalizedPhone = `+91${phone.trim().slice(-10)}`;
-      const confirmation = await getNativeAuth().signInWithPhoneNumber(normalizedPhone);
-      setConfirmResult(confirmation);
+      await axios.post(`${API_SERVER_URL}/api/users/send-otp`, { phone: normalizedPhone });
       
       setOtpSent(true);
       setOtpTimer(30);
@@ -401,13 +382,9 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
 
     setIsLoggingIn(true);
     try {
-      if (!confirmResult) throw new Error("No OTP session found. Please resend OTP.");
-
-      const userCredential = await confirmResult.confirm(otpCode);
-      const idToken = await userCredential.user.getIdToken(true);
-
-      const response = await axios.post(`${API_SERVER_URL}/api/users/firebase-verify`, {
-        idToken,
+      const response = await axios.post(`${API_SERVER_URL}/api/users/verify-otp`, {
+        phone: phone.trim().slice(-10),
+        otp: otpCode,
         username,
         password: password ? password.trim() : undefined,
         referredByCode: referredByCode.trim().toUpperCase() || undefined,
@@ -440,8 +417,7 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
     setIsSubmittingForgot(true);
     try {
       const normalizedPhone = `+91${phone.trim().slice(-10)}`;
-      const confirmation = await getNativeAuth().signInWithPhoneNumber(normalizedPhone);
-      setConfirmResult(confirmation);
+      await axios.post(`${API_SERVER_URL}/api/users/send-otp`, { phone: normalizedPhone });
       setForgotStep('RESET_PASSWORD');
       showCustomAlert('Reset OTP Sent 📩', 'A 6-digit OTP code has been sent to your phone via SMS.', 'success');
     } catch (err: any) {
@@ -464,12 +440,9 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
 
     setIsSubmittingForgot(true);
     try {
-      if (!confirmResult) throw new Error("No active OTP session found. Please try sending OTP again.");
-      const userCredential = await confirmResult.confirm(forgotOtp);
-      const idToken = await userCredential.user.getIdToken(true);
-
-      const response = await axios.post(`${API_SERVER_URL}/api/users/firebase-verify`, {
-        idToken,
+      const response = await axios.post(`${API_SERVER_URL}/api/users/reset-password-otp`, {
+        phone: phone.trim().slice(-10),
+        otp: forgotOtp,
         password: newPassword.trim(),
       });
 
@@ -646,13 +619,9 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
 
     setIsSubmittingForgot(true);
     try {
-      if (!confirmResult) throw new Error("No OTP session found. Please request a new OTP.");
-
-      const userCredential = await confirmResult.confirm(forgotOtp.trim());
-      const idToken = await userCredential.user.getIdToken(true);
-
-      const response = await axios.post(`${API_SERVER_URL}/api/users/firebase-reset-password`, {
-        idToken,
+      const response = await axios.post(`${API_SERVER_URL}/api/users/reset-password-otp`, {
+        phone: phone.trim().slice(-10),
+        otp: forgotOtp.trim(),
         newPassword: newPassword.trim(),
       });
       
@@ -3523,3 +3492,5 @@ const styles = StyleSheet.create({
   },
 });
 export default AuthWalletScreen;
+
+

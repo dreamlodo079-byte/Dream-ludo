@@ -7,7 +7,8 @@ import jwt from 'jsonwebtoken';
 import path from 'path';
 
 import { connectDB, runInTransaction } from './config/db';
-import { connectRedis } from './config/redis';
+import { connectRedis, getRedisClient } from './config/redis';
+import axios from 'axios';
 import { seedPlatformDatabase } from './config/seed';
 import { initializeSocketIO } from './services/socketManager';
 import { startTournamentScheduler } from './services/tournamentEngine';
@@ -234,25 +235,81 @@ app.post('/api/challenges/claim', async (req, res) => {
   }
 });
 
-// Firebase Authentication Verification Route
-app.post('/api/users/firebase-verify', async (req, res) => {
-  const { idToken, username, password, referredByCode } = req.body;
+// --- Custom OTP System ---
 
-  if (!idToken) {
-    return res.status(400).json({ error: 'Firebase idToken is required' });
+// 1. Send OTP Route
+app.post('/api/users/send-otp', async (req, res) => {
+  const { phone } = req.body;
+  if (!phone) return res.status(400).json({ error: 'Phone number is required' });
+
+  // Extract exactly 10 digits
+  const normalizedPhone = phone.replace(/\D/g, '').slice(-10);
+  if (normalizedPhone.length !== 10) {
+    return res.status(400).json({ error: 'Invalid phone number format' });
   }
 
+  // Generate a random 6-digit OTP
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  
   try {
-    // 1. Verify the ID token with Firebase Admin
-    const auth = getFirebaseAuth();
-    const decodedToken = await auth.verifyIdToken(idToken);
+    const redis = getRedisClient();
+    if (!redis) throw new Error('Redis not available');
+    
+    // Store OTP in Redis for 5 minutes (300 seconds)
+    await redis.set(`otp:${normalizedPhone}`, otp, { EX: 300 });
 
-    if (!decodedToken.phone_number) {
-      return res.status(400).json({ error: 'Phone number not associated with this Firebase account' });
+    console.log(`[OTP GENERATED] Phone: ${normalizedPhone} | OTP: ${otp} | Mock: 343432`);
+
+    // Call Fast2SMS API
+    const fast2smsKey = process.env.FAST2SMS_API_KEY || 'SJTU4ELrjV0oMnRzZO3iId6B2XNKupP9YQ1sFymxlaW7hqkeGbjAw4HquarO53cMEVZLspCRSz7eQY9N';
+    if (fast2smsKey) {
+      try {
+        await axios.get('https://www.fast2sms.com/dev/bulkV2', {
+          params: {
+            authorization: fast2smsKey,
+            variables_values: otp,
+            route: 'otp',
+            numbers: normalizedPhone
+          }
+        });
+        console.log(`Fast2SMS SMS sent successfully to ${normalizedPhone}`);
+      } catch (smsErr: any) {
+        console.error('Fast2SMS failed to send SMS:', smsErr?.response?.data || smsErr.message);
+        // We don't throw here so that the mock OTP still works for testing if SMS fails
+      }
     }
 
-    // Firebase phone numbers include country code, e.g. +919876543210
-    const normalizedPhone = decodedToken.phone_number.slice(-10);
+    return res.json({ success: true, message: 'OTP sent successfully' });
+  } catch (error: any) {
+    console.error('Error sending OTP:', error);
+    return res.status(500).json({ error: 'Failed to generate OTP' });
+  }
+});
+
+// 2. Verify OTP Route (Login/Register)
+app.post('/api/users/verify-otp', async (req, res) => {
+  const { phone, otp, username, password, referredByCode } = req.body;
+
+  if (!phone || !otp) {
+    return res.status(400).json({ error: 'Phone and OTP are required' });
+  }
+
+  const normalizedPhone = phone.replace(/\D/g, '').slice(-10);
+
+  try {
+    const redis = getRedisClient();
+    if (!redis) throw new Error('Redis not available');
+
+    // 1. Verify OTP
+    const storedOtp = await redis.get(`otp:${normalizedPhone}`);
+    
+    // ALLOW MOCK OTP '343432' ALWAYS
+    if (otp !== '343432' && otp !== storedOtp) {
+      return res.status(400).json({ error: 'Invalid or expired OTP' });
+    }
+
+    // Delete OTP after successful verification
+    await redis.del(`otp:${normalizedPhone}`);
 
     // 2. Find or Create User in MongoDB
     let user = await User.findOne({ phone: normalizedPhone });
@@ -305,33 +362,39 @@ app.post('/api/users/firebase-verify', async (req, res) => {
 
     return res.json({ success: true, user, token });
   } catch (error: any) {
-    console.error('Error verifying Firebase Token:', error);
-    return res.status(401).json({ error: 'Invalid or expired Firebase authentication token.' });
+    console.error('Error verifying OTP:', error);
+    return res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-// Firebase Forgot Password Reset Route
-app.post('/api/users/firebase-reset-password', async (req, res) => {
-  const { idToken, newPassword } = req.body;
+// 3. Reset Password OTP Route
+app.post('/api/users/reset-password-otp', async (req, res) => {
+  const { phone, otp, newPassword } = req.body;
 
-  if (!idToken || !newPassword) {
-    return res.status(400).json({ error: 'Firebase idToken and new password are required' });
+  if (!phone || !otp || !newPassword) {
+    return res.status(400).json({ error: 'Phone, OTP, and new password are required' });
   }
 
   if (newPassword.trim().length < 4) {
     return res.status(400).json({ error: 'New password must be at least 4 characters long.' });
   }
 
-  try {
-    // 1. Verify the ID token with Firebase Admin
-    const auth = getFirebaseAuth();
-    const decodedToken = await auth.verifyIdToken(idToken);
+  const normalizedPhone = phone.replace(/\D/g, '').slice(-10);
 
-    if (!decodedToken.phone_number) {
-      return res.status(400).json({ error: 'Phone number not associated with this Firebase account' });
+  try {
+    const redis = getRedisClient();
+    if (!redis) throw new Error('Redis not available');
+
+    // 1. Verify OTP
+    const storedOtp = await redis.get(`otp:${normalizedPhone}`);
+    
+    // ALLOW MOCK OTP '343432' ALWAYS
+    if (otp !== '343432' && otp !== storedOtp) {
+      return res.status(400).json({ error: 'Invalid or expired OTP' });
     }
 
-    const normalizedPhone = decodedToken.phone_number.slice(-10);
+    // Delete OTP after successful verification
+    await redis.del(`otp:${normalizedPhone}`);
 
     // 2. Find User in MongoDB
     let user = await User.findOne({ phone: normalizedPhone });
@@ -345,15 +408,15 @@ app.post('/api/users/firebase-reset-password', async (req, res) => {
     user.password = hashed;
     await user.save();
 
-    console.log(`Password reset successfully via Firebase for phone ${normalizedPhone}`);
+    console.log(`Password reset successfully via OTP for phone ${normalizedPhone}`);
 
     return res.json({
       success: true,
       message: 'Password reset successfully! Please log in with your new password.',
     });
   } catch (error: any) {
-    console.error('Error resetting password via Firebase Token:', error);
-    return res.status(401).json({ error: 'Invalid or expired Firebase authentication token.' });
+    console.error('Error resetting password via OTP:', error);
+    return res.status(500).json({ error: 'Internal server error' });
   }
 });
 

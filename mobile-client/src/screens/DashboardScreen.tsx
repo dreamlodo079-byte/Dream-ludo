@@ -1130,14 +1130,14 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   <AnimatedPressable
                     style={[styles.primaryActionBtn, { backgroundColor: selectedTier === 0 ? '#059669' : (selectedModeModal === 'QUICK' ? '#059669' : '#4F46E5'), marginTop: 16 }]}
                     onPress={() => {
-                      const modeToJoin = selectedModeModal || 'REGULAR';
+                      const modeToJoin = selectedTier === 0 ? 'QUICK' : (selectedModeModal || 'REGULAR');
                       setSelectedModeModal(null);
                       handleJoinMatchmaking(modeToJoin);
                     }}
                   >
                     <Text style={styles.primaryActionText}>
                       {selectedTier === 0
-                        ? (selectedModeModal === 'QUICK' ? '⚡ FIND FREE QUICK MATCH (₹0)' : '🎲 START FREE MATCH (₹0)')
+                        ? '⚡ FIND FREE QUICK MATCH (₹0)'
                         : (selectedModeModal === 'QUICK' ? `⚡ FIND QUICK MATCH (₹${selectedTier})` : `🎲 START REGULAR MATCH (₹${selectedTier})`)
                       }
                     </Text>
