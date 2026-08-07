@@ -263,7 +263,7 @@ app.post('/api/users/send-otp', async (req, res) => {
     const twoFactorKey = process.env.TWO_FACTOR_API_KEY || '152aa145-929b-11f1-908b-0200cd936042';
     if (twoFactorKey) {
       try {
-        await axios.get(`https://2factor.in/API/V1/${twoFactorKey}/SMS/${normalizedPhone}/${otp}`);
+        await axios.get(`https://2factor.in/API/V1/${twoFactorKey}/SMS/${normalizedPhone}/${otp}/OTP1`);
         console.log(`2Factor.in SMS sent successfully to ${normalizedPhone}`);
       } catch (smsErr: any) {
         console.error('2Factor.in failed to send SMS:', smsErr?.response?.data || smsErr.message);
