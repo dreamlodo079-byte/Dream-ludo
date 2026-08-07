@@ -294,9 +294,7 @@ app.post('/api/users/verify-otp', async (req, res) => {
 
     // 1. Verify OTP
     const storedOtp = await redis.get(`otp:${normalizedPhone}`);
-    
-    // ALLOW MOCK OTP '343432' ALWAYS
-    if (otp !== '343432' && otp !== storedOtp) {
+    if (otp !== storedOtp) {
       return res.status(400).json({ error: 'Invalid or expired OTP' });
     }
 
@@ -379,9 +377,7 @@ app.post('/api/users/reset-password-otp', async (req, res) => {
 
     // 1. Verify OTP
     const storedOtp = await redis.get(`otp:${normalizedPhone}`);
-    
-    // ALLOW MOCK OTP '343432' ALWAYS
-    if (otp !== '343432' && otp !== storedOtp) {
+    if (otp !== storedOtp) {
       return res.status(400).json({ error: 'Invalid or expired OTP' });
     }
 
@@ -863,4 +859,5 @@ const startServer = async () => {
 };
 
 startServer();
+
 
