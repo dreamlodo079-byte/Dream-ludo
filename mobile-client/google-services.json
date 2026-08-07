@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "88121853877",
+    "project_id": "dream-ludo-85413",
+    "storage_bucket": "dream-ludo-85413.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:88121853877:android:d740bc6b066c1682b37bfc",
+        "android_client_info": {
+          "package_name": "com.dreamludo.realmoney"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDhKIOZES9hKymq4yu4eyZY1W1-nwIM2KM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
