@@ -18,7 +18,9 @@ import {
 } from 'react-native';
 import Svg, { Rect, Path, G, Defs, LinearGradient, Stop, Circle, Line, Polyline } from 'react-native-svg';
 import axios from 'axios';
-// @ts-ignore: TS1192 - React Native Firebase does not have a default export in its typedefs but works at runtime
+// @ts-ignore
+import firebase from '@react-native-firebase/app';
+// @ts-ignore
 import auth from '@react-native-firebase/auth';
 import { useWallet } from '../hooks/useWallet';
 import { PaymentCheckoutScreen } from './PaymentCheckoutScreen';
@@ -30,10 +32,10 @@ const getNativeAuth = () => {
     if (typeof auth === 'function') {
       return auth();
     }
-    if (auth && typeof (auth as any).signInWithPhoneNumber === 'function') {
-      return auth;
+    if (firebase && typeof firebase.auth === 'function') {
+      return firebase.auth();
     }
-    return auth();
+    throw new Error('Native module missing. auth is: ' + typeof auth);
   } catch (err: any) {
     console.error('Native Firebase Auth module error:', err);
     throw new Error(`Firebase Error: ${err?.message || err}`);
