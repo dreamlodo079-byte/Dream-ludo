@@ -36,12 +36,11 @@
     "updates": {
       "enabled": true,
       "checkAutomatically": "ON_LOAD",
-      "fallbackToCacheTimeout": 0,
-      "url": "https://u.expo.dev/8932f8d6-ef15-4a4a-b03c-c28a63335775"
+      "fallbackToCacheTimeout": 0
     },
     "extra": {
       "eas": {
-        "projectId": "8932f8d6-ef15-4a4a-b03c-c28a63335775"
+        "projectId": "932863cb-1148-49ea-8665-751bffc96cd6"
       }
     },
     "plugins": [
@@ -49,6 +48,7 @@
       "@react-native-firebase/app",
       "@react-native-firebase/auth"
     ],
-    "runtimeVersion": "1.0.0"
+    "runtimeVersion": "1.0.0",
+    "owner": "janu01"
   }
 }
