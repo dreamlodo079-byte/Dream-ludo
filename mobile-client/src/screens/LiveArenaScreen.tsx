@@ -265,7 +265,7 @@ export const LiveArenaScreen: React.FC<LiveArenaScreenProps> = ({
         username: currentUser.username,
         socketId: activeSocketId,
         entryFee: item.tier,
-        gameMode: 'REGULAR',
+        mode: 'QUICK',
       });
 
       if (response.data.success) {
