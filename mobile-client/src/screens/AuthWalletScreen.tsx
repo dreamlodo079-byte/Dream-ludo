@@ -169,6 +169,16 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
   const [depositAmount, setDepositAmount] = useState('');
   const [withdrawAmount, setWithdrawAmount] = useState('');
   const [upiId, setUpiId] = useState((currentUser as any)?.upiId || '');
+  
+  // Auto-fill UPI ID only once when it becomes available
+  const hasAutoFilledUpi = React.useRef(!!(currentUser as any)?.upiId);
+  useEffect(() => {
+    if ((currentUser as any)?.upiId && !hasAutoFilledUpi.current) {
+      setUpiId((currentUser as any).upiId);
+      hasAutoFilledUpi.current = true;
+    }
+  }, [(currentUser as any)?.upiId]);
+
   const [upiIntentLink, setUpiIntentLink] = useState<string | null>(null);
   const [activeTxnId, setActiveTxnId] = useState<string | null>(null);
   const [checkoutAmount, setCheckoutAmount] = useState<number | null>(null);
