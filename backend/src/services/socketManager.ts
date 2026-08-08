@@ -19,7 +19,7 @@ import { User } from '../models/User';
 
 let io: Server;
 
-// Map of roomId -> NodeJS.Timeout for the 15-second turn timer
+// Map of roomId -> NodeJS.Timeout for the 10-second turn timer
 const turnTimerIntervals = new Map<string, NodeJS.Timeout>();
 
 // Map of userId -> NodeJS.Timeout for the 60-second reconnection grace period
@@ -124,15 +124,12 @@ export const initializeSocketIO = async (server: any): Promise<Server> => {
         while (activeSockets.length >= maxAllowedSessions) {
           const oldestSocketId = activeSockets.shift();
           if (oldestSocketId && oldestSocketId !== socket.id) {
-            const oldSock = io.sockets.sockets.get(oldestSocketId);
-            if (oldSock) {
-              oldSock.emit('SESSION_TERMINATED', {
-                message: isAdminUser
-                  ? 'Admin account device limit reached (max 3 devices). Disconnecting oldest session.'
-                  : 'You have logged in from another device. Disconnecting this session.',
-              });
-              oldSock.disconnect(true);
-            }
+            io.to(oldestSocketId).emit('SESSION_TERMINATED', {
+              message: isAdminUser
+                ? 'Admin account device limit reached (max 3 devices). Disconnecting oldest session.'
+                : 'You have logged in from another device. Disconnecting this session.',
+            });
+            io.in(oldestSocketId).disconnectSockets(true);
           }
         }
 
@@ -229,9 +226,9 @@ export const initializeSocketIO = async (server: any): Promise<Server> => {
       try {
         const { roll, shouldPassTurn, consecutiveReset } = executeRoll(state);
         
-        // Reset turn timer on successful roll so player has a fresh 15s to choose their token
+        // Reset turn timer on successful roll so player has a fresh 10s to choose their token
         if (!shouldPassTurn) {
-          state.turnTimer = state.customRules?.turnTimer || (state.gameMode === 'ROOMS' && state.customRules?.turnTimer) || 15;
+          state.turnTimer = state.customRules?.turnTimer || (state.gameMode === 'ROOMS' && state.customRules?.turnTimer) || 10;
         }
 
         await cacheRoomState(roomId, state);
@@ -337,7 +334,7 @@ export const initializeSocketIO = async (server: any): Promise<Server> => {
                 if (getsBonusRoll) {
                   latestState.hasRolled = false;
                   latestState.diceRoll = null;
-                  latestState.turnTimer = latestState.customRules?.turnTimer || (latestState.gameMode === 'ROOMS' && latestState.customRules?.turnTimer) || 15;
+                  latestState.turnTimer = latestState.customRules?.turnTimer || (latestState.gameMode === 'ROOMS' && latestState.customRules?.turnTimer) || 10;
                 } else {
                   rotateTurn(latestState);
                 }
@@ -476,7 +473,7 @@ export const initializeSocketIO = async (server: any): Promise<Server> => {
 };
 
 /**
- * Periodically checks the 15-second countdown timer for active games.
+ * Periodically checks the 10-second countdown timer for active games.
  */
 export const startRoomTimer = (roomId: string): void => {
   // Clear any existing timer
@@ -541,7 +538,7 @@ export const startRoomTimer = (roomId: string): void => {
 
       // Safeguard turnTimer against NaN or non-number types
       if (typeof state.turnTimer !== 'number' || isNaN(state.turnTimer)) {
-        state.turnTimer = 15;
+        state.turnTimer = 10;
       }
 
       state.turnTimer -= 1;

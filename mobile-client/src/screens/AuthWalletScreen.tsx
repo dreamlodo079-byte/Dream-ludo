@@ -143,7 +143,7 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
   const [referredByCode, setReferredByCode] = useState('');
   const [isFocusedRefCode, setIsFocusedRefCode] = useState(false);
   const [isRefClaimed, setIsRefClaimed] = useState(false);
-  const [confirmResult, setConfirmResult] = useState<any>(null);
+
   // Forgot Password States
   const [isForgotPasswordMode, setIsForgotPasswordMode] = useState(false);
   const [forgotStep, setForgotStep] = useState<'SEND_OTP' | 'RESET_PASSWORD'>('SEND_OTP');
@@ -365,8 +365,8 @@ export const AuthWalletScreen: React.FC<AuthWalletScreenProps> = ({
         'success'
       );
     } catch (err: any) {
-      console.error('Firebase Auth Exception:', err);
-      const rawReason = err?.message || (err?.code ? `Firebase code: ${err.code}` : 'Unable to send SMS verification code.');
+      console.error('Auth Exception:', err);
+      const rawReason = err?.message || 'Unable to send SMS verification code.';
       const errMsg = formatUserFriendlyError(err, rawReason);
       showCustomAlert('Authentication Error', errMsg, 'error');
     } finally {

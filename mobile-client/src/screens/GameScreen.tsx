@@ -1242,7 +1242,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
                     isActive={matchState.activePlayerIndex === idx}
                     isCurrentUser={p.id === currentUser._id}
                     turnTimer={matchState.turnTimer}
-                    totalTime={10}
+                    totalTime={matchState?.customRules?.turnTimer || 10}
                     align={align as any}
                     diceValue={matchState.activePlayerIndex === idx ? (diceDisplayVal || 1) : 1}
                     isDiceAnimating={matchState.activePlayerIndex === idx && isDiceAnimating}

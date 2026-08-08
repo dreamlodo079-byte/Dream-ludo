@@ -468,8 +468,7 @@ const createLiveMatch = async (
     // Cache state in Redis and connect sockets to room
     for (const p of players) {
       if (!p.userId.startsWith('bot_')) {
-        const pSocket = io.sockets.sockets.get(p.socketId);
-        if (pSocket) pSocket.join(roomId);
+        io.in(p.socketId).socketsJoin(roomId);
       }
     }
 
@@ -495,7 +494,7 @@ const createLiveMatch = async (
       io.to(roomId).emit('MATCH_START', { roomId, state: matchState });
       io.to(roomId).emit('START_MATCH_GAME', { roomId, state: matchState });
 
-      // Start turn countdown timer (15s... 14s... 13s...)
+      // Start turn countdown timer (10s... 9s...)
       startRoomTimer(roomId);
     } else {
       // Bot match: immediately start active game session
@@ -525,8 +524,7 @@ const createLiveMatch = async (
     // Notify clients about transaction/initialization failure
     for (const p of players) {
       if (!p.userId.startsWith('bot_')) {
-        const pSocket = io.sockets.sockets.get(p.socketId);
-        if (pSocket) pSocket.emit('ERROR', { message: 'Failed to start match due to transaction error.' });
+        io.to(p.socketId).emit('ERROR', { message: 'Failed to start match due to transaction error.' });
       }
     }
   }
