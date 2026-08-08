@@ -160,15 +160,9 @@ export const joinQueue = async (
     gameMode = 'QUICK';
   }
 
-  // 1. Pre-verify balance
+  // 1. Pre-verify balance (allows 100% of bonus balance to be used for entry fee)
   const balances = await getUserBalances(userId);
-  const usableBonus = Math.min(balances.bonus, Math.round(entryFee * 0.10 * 100) / 100);
-  const usableBalance = balances.deposits + balances.winnings + usableBonus;
-
-  if (usableBalance < entryFee) {
-    if (balances.total >= entryFee) {
-      return { success: false, message: `Insufficient balance (Only 10% bonus allowed per match, you need ₹${Math.round((entryFee - usableBonus) * 100) / 100} more)` };
-    }
+  if (balances.total < entryFee) {
     return { success: false, message: 'Insufficient balance to join match' };
   }
 
@@ -577,9 +571,8 @@ async function deductEntryFee(
     throw new Error(`User not found: ${userId}`);
   }
 
-  // 1. Calculate maximum 10% allowed from bonusBalance
-  const maxBonusDeduction = Math.round(entryFee * 0.10 * 100) / 100;
-  const actualBonusDeduction = Math.round(Math.min(user.bonusBalance || 0, maxBonusDeduction) * 100) / 100;
+  // 1. Deduct from bonusBalance (up to 100% of entryFee)
+  const actualBonusDeduction = Math.round(Math.min(user.bonusBalance || 0, entryFee) * 100) / 100;
 
   // Remaining fee after bonus deduction
   let remainingFee = Math.round((entryFee - actualBonusDeduction) * 100) / 100;

@@ -48,6 +48,22 @@ export const useSocket = (userId: string | null) => {
       console.log('Disconnected from game server');
     });
 
+    const updateMatchStatePreservingTimer = (newState: any) => {
+      setMatchState((prev: any) => {
+        if (!prev || !newState) return newState;
+        const prevTimer = prev.matchTimer;
+        const newTimer = newState.matchTimer;
+        let effectiveTimer = newTimer;
+        if (typeof prevTimer === 'number' && typeof newTimer === 'number' && newTimer > prevTimer) {
+          effectiveTimer = prevTimer;
+        }
+        return {
+          ...newState,
+          matchTimer: effectiveTimer,
+        };
+      });
+    };
+
     socket.on('MATCH_START', ({ roomId, state }: { roomId: string; state: any }) => {
       console.log('Match started in room:', roomId);
       isInMatchRef.current = true;
@@ -58,22 +74,22 @@ export const useSocket = (userId: string | null) => {
     });
 
     socket.on('MATCH_STATE_UPDATE', (state: any) => {
-      setMatchState(state);
+      updateMatchStatePreservingTimer(state);
     });
 
     socket.on('DICE_ROLLED', (data: any) => {
       setDiceRollInfo(data);
-      setMatchState(data.state);
+      updateMatchStatePreservingTimer(data.state);
     });
 
     socket.on('TOKEN_MOVED', (data: any) => {
       setTokenMoveInfo(data);
-      setMatchState(data.state);
+      updateMatchStatePreservingTimer(data.state);
     });
 
     socket.on('TURN_SKIPPED', (data: any) => {
       setAlertMessage('Turn skipped due to inactivity.');
-      setMatchState(data.state);
+      updateMatchStatePreservingTimer(data.state);
       if (data.skippedPlayerId === userId) {
         SoundManager.playLoseHeart();
       }

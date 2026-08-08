@@ -358,6 +358,7 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
 
   useEffect(() => {
     if (isActive) {
+      animatedRatio.setValue(Math.max(0, turnTimer / totalTime));
       Animated.timing(animatedRatio, {
         toValue: Math.max(0, (turnTimer - 1) / totalTime),
         duration: 1000,
