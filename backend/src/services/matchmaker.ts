@@ -162,7 +162,13 @@ export const joinQueue = async (
 
   // 1. Pre-verify balance
   const balances = await getUserBalances(userId);
-  if (balances.total < entryFee) {
+  const usableBonus = Math.min(balances.bonus, Math.round(entryFee * 0.10 * 100) / 100);
+  const usableBalance = balances.deposits + balances.winnings + usableBonus;
+
+  if (usableBalance < entryFee) {
+    if (balances.total >= entryFee) {
+      return { success: false, message: `Insufficient balance (Only 10% bonus allowed per match, you need ₹${Math.round((entryFee - usableBonus) * 100) / 100} more)` };
+    }
     return { success: false, message: 'Insufficient balance to join match' };
   }
 
@@ -586,8 +592,8 @@ async function deductEntryFee(
   const actualWinningsDeduction = remainingFee;
 
   // 4. Verify total balances are sufficient
-  if (user.winningsBalance < actualWinningsDeduction) {
-    throw new Error(`Insufficient aggregate balance for user ${userId} to join match (Required: ₹${entryFee})`);
+  if ((user.winningsBalance || 0) < actualWinningsDeduction) {
+    throw new Error(`Insufficient aggregate balance to join match (Required: ₹${entryFee})`);
   }
 
   // 5. Update user balance fields
