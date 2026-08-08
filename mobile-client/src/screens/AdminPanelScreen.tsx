@@ -512,30 +512,23 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({ onBack }) =>
 
   // Request Tab Actions: Approve / Reject Withdrawal
   const handleApproveWithdrawal = (txnId: string, amount: number, upiId: string, username: string) => {
-    setInputModal({
-      visible: true,
-      title: 'Approve Withdrawal & Enter Payout UTR 💸',
-      message: `Transfer ₹${Math.abs(amount)} to "${username}" (UPI: ${upiId || 'N/A'}). Enter 12-digit Bank Payout UTR reference:`,
-      placeholder: 'Enter 12-digit Payout UTR',
-      value: '',
-      confirmText: 'APPROVE & MARK PAID',
-      onConfirm: async (utrVal: string) => {
-        if (!utrVal.trim() || utrVal.trim().length < 6) {
-          showToast('UTR Required', 'Please enter a valid payout UTR reference number.', 'error');
-          return;
-        }
+    showConfirmDialog(
+      '💸',
+      'Approve Withdrawal',
+      `Approve manual payout of ₹${Math.abs(amount)} to "${username}"? (Make sure you have sent the money to UPI: ${upiId || 'N/A'})`,
+      'APPROVE & MARK PAID',
+      async () => {
         setActionLoading(`approve_wd_${txnId}`);
         try {
           const token = await fetchAuthToken();
           const headers = token ? { Authorization: `Bearer ${token}` } : {};
           const res = await axios.post(
             `${API_SERVER_URL}/api/admin/withdraw/approve`,
-            { transactionId: txnId, payoutUtr: utrVal.trim() },
+            { transactionId: txnId }, // Removed payoutUtr
             { headers }
           );
           if (res.data.success) {
             showToast('Withdrawal Approved! 💸', res.data.message, 'success');
-            setInputModal((prev) => ({ ...prev, visible: false }));
             loadDataForTab('REQUESTS');
           }
         } catch (err: any) {
@@ -543,8 +536,8 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({ onBack }) =>
         } finally {
           setActionLoading(null);
         }
-      },
-    });
+      }
+    );
   };
 
   const handleRejectWithdrawal = (txnId: string, amount: number, username: string) => {

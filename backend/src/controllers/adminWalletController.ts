@@ -272,11 +272,11 @@ adminWalletRouter.post(['/deposit/reject', '/v1/admin/deposit/reject'], async (r
 adminWalletRouter.post(['/withdraw/approve', '/v1/admin/withdraw/approve'], async (req: Request, res: Response) => {
   const { transactionId, payoutUtr } = req.body;
 
-  if (!transactionId || !payoutUtr) {
-    return res.status(400).json({ error: 'transactionId and payoutUtr parameters are required.' });
+  if (!transactionId) {
+    return res.status(400).json({ error: 'transactionId parameter is required.' });
   }
 
-  const cleanUtr = String(payoutUtr).trim();
+  const cleanUtr = payoutUtr ? String(payoutUtr).trim() : 'MANUAL_PAYOUT';
 
   try {
     const result = await runInTransaction(async (session) => {
