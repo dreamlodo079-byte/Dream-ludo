@@ -520,15 +520,7 @@ async function processSignupWithReferral(
     });
     await newUser.save({ session });
 
-    // Seed Welcome Diamond credits
-    const welcomeTxn = new Transaction({
-      userId: newUser._id,
-      amount: 1000,
-      type: TransactionType.DEPOSIT,
-      status: TransactionStatus.SUCCESS,
-      referenceId: `welcome_${newUser._id.toString()}`,
-    });
-    await welcomeTxn.save({ session });
+
 
     return newUser;
   });

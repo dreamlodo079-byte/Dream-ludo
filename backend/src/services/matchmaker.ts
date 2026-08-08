@@ -490,7 +490,14 @@ const createLiveMatch = async (
       const usernames = players.map(p => p.username).join(' vs ');
       console.log(`Live Human Match created in room ${roomId}. Players: ${usernames}`);
 
-      // Emit match start signals to connected clients
+      // Emit match start signals explicitly to connected sockets to bypass pub/sub delays
+      for (const p of players) {
+        if (!p.userId.startsWith('bot_')) {
+          io.to(p.socketId).emit('MATCH_START', { roomId, state: matchState });
+          io.to(p.socketId).emit('START_MATCH_GAME', { roomId, state: matchState });
+        }
+      }
+      // Also emit to room for fallback/bots
       io.to(roomId).emit('MATCH_START', { roomId, state: matchState });
       io.to(roomId).emit('START_MATCH_GAME', { roomId, state: matchState });
 
@@ -504,7 +511,14 @@ const createLiveMatch = async (
       const usernames = players.map(p => p.username).join(' vs ');
       console.log(`Match created in room ${roomId} against bot. Players: ${usernames}`);
 
-      // Emit start signals
+      // Emit start signals explicitly to connected sockets
+      for (const p of players) {
+        if (!p.userId.startsWith('bot_')) {
+          io.to(p.socketId).emit('MATCH_START', { roomId, state: matchState });
+          io.to(p.socketId).emit('START_MATCH_GAME', { roomId, state: matchState });
+        }
+      }
+      // Emit to room for fallback/bots
       io.to(roomId).emit('MATCH_START', { roomId, state: matchState });
       io.to(roomId).emit('START_MATCH_GAME', { roomId, state: matchState });
 
