@@ -24,10 +24,10 @@ const getRateLimitStore = () => {
   return undefined;
 };
 
-// 1. General API Route Rate Limiter (Max 100 requests per 15 mins)
+// 1. General API Route Rate Limiter (Max 2500 requests per 15 mins for polling & app navigation)
 export const generalRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100,
+  max: 2500,
   standardHeaders: true,
   legacyHeaders: false,
   store: getRateLimitStore(),

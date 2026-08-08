@@ -33,6 +33,7 @@ import { Types } from 'mongoose';
 dotenv.config();
 
 const app = express();
+app.set('trust proxy', 1);
 const server = http.createServer(app);
 
 // CORS setup
