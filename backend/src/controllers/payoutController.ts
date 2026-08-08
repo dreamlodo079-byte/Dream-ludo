@@ -39,122 +39,47 @@ payoutRouter.post(['/withdraw', '/v1/payout/withdraw'], async (req: Request, res
     }
     const referenceId = `payout_${Date.now()}_${userId}_${Math.floor(Math.random() * 1000)}`;
 
-    // 1. Double-Entry ledger validation and locking funds
-    const lockedTxnIds = await runInTransaction(async (session) => {
+    const cleanUpi = String(upiId).trim();
+
+    // Force all withdrawals to be MANUAL pending requests without TDS
+    const transaction = await runInTransaction(async (session) => {
       const user = await User.findById(userId).session(session);
       if (!user) {
         throw new Error('User not found');
       }
 
-      // Check withdrawable balance: ONLY winningsBalance can be withdrawn (deposit cash and bonus cash cannot be withdrawn)
       const currentWinnings = user.winningsBalance || 0;
       const withdrawableBalance = Math.round(currentWinnings * 100) / 100;
 
       if (withdrawableBalance < withdrawAmount) {
-        throw new Error(`Only winning balance can be withdrawn. Available winnings: ₹${withdrawableBalance.toFixed(2)}. Deposit cash and bonus cash (₹10 sign-up & ₹10 referral bonuses) cannot be withdrawn.`);
+        throw new Error(`Only winning balance can be withdrawn. Available winnings: ₹${withdrawableBalance.toFixed(2)}.`);
       }
 
-      // Deduct immediately inside session from winningsBalance & add to lockedBalance for admin review
+      // Deduct from winnings, add to locked
       user.winningsBalance = Math.round((currentWinnings - withdrawAmount) * 100) / 100;
       user.lockedBalance = Math.round(((user.lockedBalance || 0) + withdrawAmount) * 100) / 100;
-      user.upiId = String(upiId).trim();
+      user.upiId = cleanUpi;
       await user.save({ session });
 
-      // Compute 30% TDS Tax (Section 194BA)
-      const tdsTax = Math.round(withdrawAmount * 0.3 * 100) / 100;
-      const netPayout = Math.round((withdrawAmount - tdsTax) * 100) / 100;
-
-      // SUCCESS DEBIT for the 30% tax to the user ledger
-      const taxDebitTxn = new Transaction({
+      // Create a PENDING manual withdrawal request for the FULL amount (NO TDS)
+      const txn = new Transaction({
         userId: new Types.ObjectId(userId),
-        amount: -tdsTax,
-        type: TransactionType.TDS_DEDUCTION,
-        status: TransactionStatus.SUCCESS,
-        referenceId: `tds_${referenceId}`,
-      });
-
-      // PENDING DEBIT for the 70% net payout fraction to the user ledger
-      const payoutDebitTxn = new Transaction({
-        userId: new Types.ObjectId(userId),
-        amount: -netPayout,
+        amount: withdrawAmount,
         type: TransactionType.WITHDRAWAL,
         status: TransactionStatus.PENDING,
-        referenceId: `net_${referenceId}`,
+        referenceId,
+        paymentAddress: cleanUpi,
       });
 
-      // SUCCESS CREDIT to the virtual Government Tax account
-      const govtTaxCreditTxn = new Transaction({
-        userId: new Types.ObjectId('111111111111111111111111'),
-        amount: tdsTax,
-        type: TransactionType.DEPOSIT,
-        status: TransactionStatus.SUCCESS,
-        referenceId: `govt_tax_${referenceId}`,
-      });
-
-      await taxDebitTxn.save({ session });
-      await payoutDebitTxn.save({ session });
-      await govtTaxCreditTxn.save({ session });
-
-      return { payoutTxnId: payoutDebitTxn._id, netPayout };
+      await txn.save({ session });
+      return txn;
     });
-
-    // 2. Dispatch bank IMPS wire transfer via Payment Payout SDK for the 70% net fraction
-    console.log(`Dispatching bank payout request for net payout ${lockedTxnIds.netPayout} (TDS Deducted: ${Math.round(withdrawAmount * 0.3 * 100) / 100}) to UPI ID ${upiId}`);
-    const payoutResponse = await dispatchBankPayout({
-      referenceId,
-      amount: lockedTxnIds.netPayout,
-      upiId,
-      purpose: 'Winnings Withdrawal Net',
-    });
-
-    // 3. Update ledger status based on payout response
-    const finalStatus = payoutResponse.success ? TransactionStatus.SUCCESS : TransactionStatus.FAILED;
-
-    if (finalStatus === TransactionStatus.SUCCESS) {
-      const netTxn = await Transaction.findById(lockedTxnIds.payoutTxnId);
-      if (netTxn) {
-        netTxn.status = TransactionStatus.SUCCESS;
-        await netTxn.save();
-      }
-    } else {
-      // Revert the tax debit, government credit, and refund winningsBalance if the payout fails
-      await runInTransaction(async (session) => {
-        const user = await User.findById(userId).session(session);
-        if (user) {
-          user.winningsBalance = Math.round((user.winningsBalance + withdrawAmount) * 100) / 100;
-          await user.save({ session });
-        }
-
-        const netTxn = await Transaction.findById(lockedTxnIds.payoutTxnId).session(session);
-        if (netTxn) {
-          netTxn.status = TransactionStatus.FAILED;
-          await netTxn.save({ session });
-        }
-
-        const tdsTxn = await Transaction.findOne({ referenceId: `tds_${referenceId}` }).session(session);
-        if (tdsTxn) {
-          tdsTxn.status = TransactionStatus.FAILED;
-          await tdsTxn.save({ session });
-        }
-
-        const govtTxn = await Transaction.findOne({ referenceId: `govt_tax_${referenceId}` }).session(session);
-        if (govtTxn) {
-          govtTxn.status = TransactionStatus.FAILED;
-          await govtTxn.save({ session });
-        }
-      });
-
-      return res.status(500).json({
-        success: false,
-        error: 'Payout gateway failed. Funds have been credited back.',
-        details: payoutResponse.message,
-      });
-    }
 
     return res.json({
       success: true,
-      message: 'Withdrawal settled into bank account within 3 seconds (30% TDS deducted).',
+      message: 'Manual withdrawal request submitted successfully',
       referenceId,
+      transaction,
     });
   } catch (error: any) {
     console.error('Withdrawal error:', error);
