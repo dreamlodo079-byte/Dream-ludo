@@ -6,8 +6,6 @@ import { Transaction, TransactionType, TransactionStatus, getUserBalances } from
 import { User } from '../models/User';
 import { Types } from 'mongoose';
 
-const TICK_INTERVAL = 1000; // 1 second matchmaking tick
-
 export const getMatchmakingTimeoutMs = (_tier: number): number => {
   return 13000; // Strictly 13 seconds matchmaking wait time on all matching tiers
 };
@@ -114,11 +112,17 @@ export const startMatchmakingLoop = (): void => {
 
   checkQueueInterval = setInterval(async () => {
     const redis = getRedisClient();
+    const io = getIO();
     if (!redis) return;
+
+    // Skip scanning if no clients are connected to server
+    if (io && io.engine && io.engine.clientsCount === 0) return;
 
     // Dynamically discover all active queue keys (including promoter-only queues)
     try {
       const allKeys = await redis.keys('queue:*tier_*_mode_*');
+      if (!allKeys || allKeys.length === 0) return;
+
       for (const key of allKeys) {
         const match = key.match(/^queue:(?:promoter:)?tier_(\d+)_mode_(QUICK|REGULAR)$/);
         if (match) {
@@ -130,7 +134,7 @@ export const startMatchmakingLoop = (): void => {
     } catch (err) {
       console.error('Matchmaking loop key scan error:', err);
     }
-  }, TICK_INTERVAL);
+  }, 2000);
 };
 
 /**

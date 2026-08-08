@@ -12,6 +12,9 @@ export const startLobbyBroadcaster = (): void => {
     const io = getIO();
     if (!redis || !io) return;
 
+    // Skip Redis queries completely if no sockets are connected
+    if (io.engine && io.engine.clientsCount === 0) return;
+
     try {
       const delta: Record<string, { waiting: number; playing: number }> = {};
 
@@ -39,7 +42,7 @@ export const startLobbyBroadcaster = (): void => {
     } catch (err) {
       console.error('Lobby state broadcaster tick error:', err);
     }
-  }, 1000);
+  }, 5000); // 5 seconds interval (saves 80% Redis commands)
 };
 
 export const incrementPlayingCount = async (tier: number, increment: number): Promise<void> => {

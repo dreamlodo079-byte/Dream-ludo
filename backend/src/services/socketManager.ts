@@ -579,8 +579,10 @@ export const startRoomTimer = (roomId: string): void => {
 
         checkAndTriggerBot(roomId, state);
       } else {
-        // Save the updated timer to Redis
-        await cacheRoomState(roomId, state);
+        // Save the updated timer to Redis every 5 seconds to conserve Redis commands
+        if (state.turnTimer % 5 === 0) {
+          await cacheRoomState(roomId, state);
+        }
 
         io.to(roomId).emit('TIMER_TICK', {
           turnTimer: state.turnTimer,
