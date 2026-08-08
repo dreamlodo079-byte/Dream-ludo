@@ -49,6 +49,7 @@ function AppContent() {
   // 3. Socket event observer
   const {
     isConnected,
+    pingLatency,
     matchState,
     winnerInfo,
     alertMessage,
@@ -285,6 +286,7 @@ function AppContent() {
             requestMove={requestMove}
             requestForfeit={requestForfeit}
             isConnected={isConnected}
+            pingLatency={pingLatency}
             setWinnerInfo={setWinnerInfo}
           />
         )}

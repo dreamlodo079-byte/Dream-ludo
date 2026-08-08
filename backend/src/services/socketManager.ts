@@ -101,6 +101,10 @@ export const initializeSocketIO = async (server: any): Promise<Server> => {
   io.on('connection', (socket: Socket) => {
     console.log(`Socket connected: ${socket.id}`);
 
+    socket.on('PING_LATENCY', (cb: Function) => {
+      if (typeof cb === 'function') cb();
+    });
+
     socket.on('REGISTER_USER', async ({ userId }: { userId: string }) => {
       socketUserMap.set(socket.id, userId);
       console.log(`Registered user ${userId} to socket ${socket.id}`);

@@ -8,6 +8,7 @@ export const useSocket = (userId: string | null) => {
   const socketRef = useRef<Socket | null>(null);
   const isInMatchRef = useRef(false);
   const [isConnected, setIsConnected] = useState(false);
+  const [pingLatency, setPingLatency] = useState<number | null>(null);
   const [matchState, setMatchState] = useState<any>(null);
   const [diceRollInfo, setDiceRollInfo] = useState<any>(null);
   const [tokenMoveInfo, setTokenMoveInfo] = useState<any>(null);
@@ -45,8 +46,24 @@ export const useSocket = (userId: string | null) => {
 
     socket.on('disconnect', () => {
       setIsConnected(false);
+      setPingLatency(null);
       console.log('Disconnected from game server');
     });
+
+    // Measure live socket ping latency every 3 seconds
+    const pingInterval = setInterval(() => {
+      if (socketRef.current && socketRef.current.connected) {
+        const start = Date.now();
+        socketRef.current.emit('PING_LATENCY', () => {
+          setPingLatency(Date.now() - start);
+        });
+      }
+    }, 3000);
+
+    return () => {
+      clearInterval(pingInterval);
+      socket.disconnect();
+    };
 
     const updateMatchStatePreservingTimer = (newState: any) => {
       setMatchState((prev: any) => {
@@ -194,6 +211,7 @@ export const useSocket = (userId: string | null) => {
   return {
     socket: socketRef.current,
     isConnected,
+    pingLatency,
     matchState,
     diceRollInfo,
     tokenMoveInfo,

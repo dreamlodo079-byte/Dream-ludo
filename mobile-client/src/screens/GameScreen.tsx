@@ -58,6 +58,7 @@ interface GameScreenProps {
   requestMove: (roomId: string, tokenIndex: number) => void;
   requestForfeit?: (roomId: string) => void;
   isConnected: boolean;
+  pingLatency?: number | null;
   setWinnerInfo: (info: any) => void;
 }
 
@@ -516,12 +517,23 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   requestMove,
   requestForfeit,
   isConnected,
+  pingLatency,
   setWinnerInfo,
 }) => {
   const { width, height } = useWindowDimensions();
   const MAX_BOARD_WIDTH = Math.min(width - 20, 500);
   const BOARD_SIZE = Math.max(200, Math.min(MAX_BOARD_WIDTH, height - 420));
   const CELL_SIZE = BOARD_SIZE / 15;
+
+  const getSignalBarInfo = () => {
+    if (!isConnected) return { activeCount: 1, color: '#EF4444' };
+    if (pingLatency === undefined || pingLatency === null || pingLatency < 150) return { activeCount: 4, color: '#22C55E' };
+    if (pingLatency < 300) return { activeCount: 3, color: '#22C55E' };
+    if (pingLatency < 600) return { activeCount: 2, color: '#EAB308' };
+    return { activeCount: 1, color: '#F97316' };
+  };
+
+  const { activeCount: signalActiveCount, color: signalBarColor } = getSignalBarInfo();
 
   const [diceDisplayVal, setDiceDisplayVal] = useState<number>(1);
   const [isDiceAnimating, setIsDiceAnimating] = useState(false);
@@ -1202,10 +1214,16 @@ export const GameScreen: React.FC<GameScreenProps> = ({
               <Text style={{ fontSize: 18, color: '#FFFFFF', fontWeight: 'bold' }}>✕</Text>
             </TouchableOpacity>
             <View style={styles.signalBars}>
-              <View style={[styles.signalBar, { height: 6 }]} />
-              <View style={[styles.signalBar, { height: 10 }]} />
-              <View style={[styles.signalBar, { height: 14 }]} />
-              <View style={[styles.signalBar, { height: 18 }]} />
+              {[6, 10, 14, 18].map((barHeight, barIdx) => (
+                <View
+                  key={barIdx}
+                  style={[
+                    styles.signalBar,
+                    { height: barHeight },
+                    barIdx < signalActiveCount ? { backgroundColor: signalBarColor } : { backgroundColor: '#334155', opacity: 0.4 }
+                  ]}
+                />
+              ))}
             </View>
           </View>
 
