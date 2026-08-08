@@ -85,7 +85,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setLoading(true);
     setError(null);
     try {
-      const response = await axios.post(`${API_SERVER_URL}/api/payout/withdraw`, {
+      const response = await axios.post(`${API_SERVER_URL}/api/v1/wallet/withdraw/request`, {
         userId,
         amount,
         upiId,
@@ -94,7 +94,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         await fetchWallet(userId);
         return {
           success: true,
-          referenceId: response.data.referenceId,
+          referenceId: response.data.transaction?.referenceId || response.data.referenceId,
         };
       }
       return { success: false, error: 'Withdrawal request failed' };
