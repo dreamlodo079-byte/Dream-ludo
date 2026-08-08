@@ -6,6 +6,7 @@ import Animated, {
   withTiming,
   withSpring,
   Easing,
+  runOnJS,
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -37,8 +38,10 @@ export const CustomToast: React.FC<CustomToastProps> = ({ toast, onDismiss }) =>
 
       const timer = setTimeout(() => {
         opacity.value = withTiming(0, { duration: 200 });
-        translateY.value = withTiming(-100, { duration: 200 }, () => {
-          onDismiss();
+        translateY.value = withTiming(-100, { duration: 200 }, (isFinished) => {
+          if (isFinished) {
+            runOnJS(onDismiss)();
+          }
         });
       }, toast.duration || 3000);
 

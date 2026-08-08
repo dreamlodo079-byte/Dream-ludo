@@ -20,15 +20,11 @@ async function cleanProductionDatabase() {
 
   console.log('\n--- Starting Production Database Cleanup ---');
 
-  // 1. Delete QuickTester user and test numbers
+  // 1. Delete ALL users (except the Platform Profits system account)
   const deletedTesters = await User.deleteMany({
-    $or: [
-      { username: /QuickTester/i },
-      { phone: '9876543210' },
-      { phone: '9876543211' }
-    ]
+    _id: { $ne: PLATFORM_USER_ID }
   });
-  console.log(`✓ Deleted ${deletedTesters.deletedCount} dev test users (QuickTester / test phones).`);
+  console.log(`✓ Deleted ${deletedTesters.deletedCount} user accounts for a completely fresh start.`);
 
   // 2. Wipe all historical test transactions
   const deletedTxns = await Transaction.deleteMany({});
