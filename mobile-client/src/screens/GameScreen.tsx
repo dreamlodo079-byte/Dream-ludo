@@ -1566,9 +1566,10 @@ export const GameScreen: React.FC<GameScreenProps> = ({
                     return (
                       <Animated.View
                         key={`${pIdx}_token_view_group_${representativeTIdx}`}
+                        pointerEvents={canMoveToken ? 'auto' : 'none'}
                         style={[
                           styles.pawnWrapper,
-                          { width: CELL_SIZE, height: CELL_SIZE * 1.15 },
+                          { width: CELL_SIZE, height: CELL_SIZE * 1.15, zIndex: canMoveToken ? 100 : 1 },
                           {
                             transform: [
                               { translateX: pawnPositions[tokenIdx].x },
