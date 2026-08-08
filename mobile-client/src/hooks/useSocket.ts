@@ -21,7 +21,7 @@ export const useSocket = (userId: string | null) => {
 
     // Establish Socket connection with WebSocket priority & auto-reconnect
     const socket = io(SOCKET_SERVER_URL, {
-      transports: ['websocket', 'polling'],
+      transports: ['websocket'], // Force native WebSockets on Android (bypasses CORS polling issues)
       reconnection: true,
       reconnectionAttempts: 20,
       reconnectionDelay: 1000,
